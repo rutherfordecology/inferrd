@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>inferrd. · Rutherford Ecology</title>
+<meta name="description" content="Draw a QEII covenant boundary, pull Sentinel-2 vegetation-index history for it, and get a statistically defensible read on whether forest cover is changing over time.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+:root {
+  --bg: #f6f1ea; --surface: #fff; --surface2: #f0ebe3;
+  --border: #e2d8ca; --border2: #cfc0aa;
+  --text: #201a14; --text2: #6f6255; --text3: #a89a89;
+  --orange-dark: #7a2e0a; --orange: #b5451a; --orange-light: #fbece1; --orange-mid: #d98a4a;
+  --blue: #2c5f8a; --blue-light: #e8f0f7; --blue-mid: #7aaed4;
+  --amber: #8a6020; --amber-light: #faf2e0; --amber-mid: #d4a84b;
+  --red: #8a2c2c; --red-light: #faf0f0; --red-mid: #d47a7a;
+  --radius-sm: 4px; --radius: 6px; --radius-lg: 12px; --radius-pill: 999px;
+  --font-sans: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --font-brand: system-ui, -apple-system, sans-serif;
+}
+body { font-family: var(--font-sans); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; font-size: 14px; }
+html, body { max-width: 100vw; overflow-x: hidden; }
+
+header { background: var(--orange-dark); color: white; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 52px; flex-shrink: 0; }
+.header-brand { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; white-space: nowrap; font-family: var(--font-brand); }
+.header-brand h1 { font-size: 16px; color: white; margin: 0; font-weight: 400; }
+.header-brand h1 strong { font-weight: 700; }
+.header-brand h1 em { font-weight: 300; font-style: normal; }
+.header-brand .ver { font-size: 10px; font-weight: 400; color: rgba(255,255,255,0.35); letter-spacing: 0.04em; margin-left: 6px; }
+.header-right { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.header-right .sep { opacity: 0.3; }
+.about-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.75); padding: 4px 8px; border-radius: var(--radius-sm); font-family: var(--font-sans); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.about-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+.layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 52px); overflow: hidden; }
+.sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+.main { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.sidebar-section { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+.section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 0.7rem; }
+
+.instruction-box { background: var(--orange-light); border: 1px solid var(--orange-mid); border-radius: var(--radius); padding: 10px 12px; font-size: 12.5px; color: var(--orange-dark); line-height: 1.65; margin-bottom: 0.7rem; }
+
+/* Earth Engine sign-in box — same shape/placement as Occurd's Big Data Mode
+   GBIF-credentials box, but Google doesn't allow a pasted password from a
+   third-party site, so the widget here is a sign-in button, not text fields. */
+#eeSignInBox { margin-bottom: 0; padding: 10px 12px; background: var(--surface2); border-radius: var(--radius-lg); border: 1px solid var(--border); }
+#eeSignInBox .ee-label { font-size: 0.72rem; font-weight: 800; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 8px; }
+.ee-signin-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 10px; font-size: 13px; font-weight: 500; font-family: var(--font-sans); background: var(--surface); border: 1.5px solid var(--border2); border-radius: var(--radius); cursor: pointer; color: var(--text); transition: all 0.12s; }
+.ee-signin-btn:hover { border-color: var(--orange-mid); background: var(--orange-light); }
+.ee-signin-btn[disabled] { opacity: 0.5; cursor: wait; }
+#eeSignedIn { display: none; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--orange-dark); }
+#eeSignedIn .dot { width: 8px; height: 8px; border-radius: 50%; background: #2a7a58; flex-shrink: 0; display: inline-block; margin-right: 6px; }
+#eeSignOutBtn { background: none; border: none; color: var(--text3); font-size: 11px; text-decoration: underline; cursor: pointer; font-family: var(--font-sans); }
+.ee-note { font-size: 0.72rem; color: var(--text3); margin-top: 8px; line-height: 1.5; }
+.ee-note a { color: var(--orange); }
+
+.field { margin-bottom: 0.65rem; }
+.field label { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 4px; }
+.field input, .field select { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 9px; font-size: 13px; font-family: var(--font-sans); background: var(--surface); color: var(--text); appearance: none; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(181,69,26,0.12); }
+.half { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.range-row { display: flex; align-items: center; gap: 8px; }
+.range-row input[type=range] { flex: 1; accent-color: var(--orange); }
+.range-val { font-size: 12px; color: var(--text2); min-width: 32px; text-align: right; }
+
+.tool-row { display: flex; gap: 6px; margin-top: 0.3rem; }
+.tool-btn { flex: 1; padding: 7px; font-size: 12.5px; font-family: var(--font-sans); font-weight: 500; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); transition: all 0.12s; text-align: center; }
+.tool-btn.active { background: var(--orange-dark); color: white; border-color: var(--orange-dark); }
+.tool-btn:hover:not(.active) { background: var(--border); }
+
+.poly-status { font-size: 12.5px; padding: 8px 10px; border-radius: var(--radius); margin-bottom: 0.6rem; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+.poly-status.have-poly { background: var(--orange-light); color: var(--orange-dark); border-color: var(--orange-mid); }
+.clear-link { background: none; border: none; padding: 0; margin-top: 5px; font-size: 11px; font-family: var(--font-sans); color: var(--text3); cursor: pointer; text-decoration: underline; }
+.clear-link:hover { color: var(--red); }
+
+.run-btn { width: 100%; padding: 9px; font-size: 14px; font-family: var(--font-sans); font-weight: 500; background: var(--orange-dark); color: white; border: none; border-radius: var(--radius); cursor: pointer; transition: opacity 0.15s; margin-top: 0.7rem; }
+.run-btn:hover:not(:disabled) { opacity: 0.88; }
+.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.status-bar { font-size: 12px; padding: 8px 10px; border-radius: var(--radius); margin-top: 0.7rem; line-height: 1.55; display: none; }
+.status-bar.info    { background: var(--blue-light);   color: var(--blue);       border: 1px solid var(--blue-mid); }
+.status-bar.success { background: var(--orange-light);  color: var(--orange-dark); border: 1px solid var(--orange-mid); }
+.status-bar.error   { background: var(--red-light);    color: var(--red);        border: 1px solid var(--red-mid); }
+.status-bar.warning { background: var(--amber-light);  color: var(--amber);      border: 1px solid var(--amber-mid); }
+
+.sidebar-footer { padding: 1rem 1.25rem; margin-top: auto; border-top: 1px solid var(--border); }
+.note { font-size: 11px; color: var(--text3); line-height: 1.65; }
+.note a { color: var(--orange); text-decoration: none; }
+.note a:hover { text-decoration: underline; }
+
+#map-wrap { position: relative; width: 100%; height: 52vh; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+#map { position: absolute; inset: 0; }
+.draw-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 900; background: rgba(122,46,10,0.92); color: #fff; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.25); pointer-events: none; }
+
+.results-pane { flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; }
+.results-empty { color: var(--text3); font-size: 13px; padding: 2rem 0; text-align: center; }
+.results-empty .big { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.5; }
+
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1rem; }
+.metric { background: var(--surface2); border-radius: var(--radius); padding: 10px 8px; text-align: center; }
+.metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
+.metric-value { font-size: 19px; font-weight: 500; margin-top: 2px; color: var(--orange-dark); }
+
+.chart-card, .interp-card, .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.1rem; margin-bottom: 1rem; }
+.card-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 0.7rem; }
+.interp-card p, .interp-card div { font-size: 13px; line-height: 1.7; color: var(--text); margin-bottom: 0.5rem; }
+.interp-card .caveat { background: var(--amber-light); border: 1px solid var(--amber-mid); color: var(--amber); border-radius: var(--radius); padding: 8px 10px; font-size: 12.5px; margin-top: 0.5rem; }
+
+table.stats-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.stats-table th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); padding: 5px 8px; border-bottom: 1px solid var(--border); }
+table.stats-table td { padding: 5px 8px; border-bottom: 1px solid var(--border); color: var(--text2); }
+table.stats-table tr:last-child td { border-bottom: none; }
+.dl-btn { padding: 6px 12px; font-size: 12px; font-family: var(--font-sans); font-weight: 500; background: var(--orange-light); color: var(--orange-dark); border: 1px solid var(--orange-mid); border-radius: var(--radius); cursor: pointer; transition: background 0.12s; }
+.dl-btn:hover { background: #f3d6bd; }
+.table-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
+.table-card-head .card-title { margin-bottom: 0; }
+
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9999; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: white; border-radius: var(--radius-lg); padding: 1.5rem; max-width: 520px; width: 90%; max-height: 85vh; overflow-y: auto; }
+.modal h2 { font-size: 17px; font-weight: 600; margin-bottom: 0.75rem; color: var(--orange-dark); }
+.modal h3 { font-size: 13px; font-weight: 600; color: var(--text); margin: 1rem 0 0.35rem; }
+.modal p, .modal ul { font-size: 13px; color: var(--text2); line-height: 1.7; margin-bottom: 0.5rem; padding-left: 0; }
+.modal ul { padding-left: 1.2rem; }
+.modal-close { position: absolute; top: 14px; right: 14px; background: none; border: none; font-size: 18px; color: var(--text3); cursor: pointer; }
+
+.app-links { display: grid; gap: 8px; margin-top: 0.4rem; }
+.app-link { display: block; padding: 11px 13px; border-radius: var(--radius); background: var(--orange-light); border: 1px solid var(--orange-mid); text-decoration: none; transition: all 0.15s; }
+.app-link:hover { background: #f3d6bd; }
+.app-name { display: block; font-family: var(--font-brand); font-weight: 700; font-size: 0.95rem; color: var(--orange-dark); }
+.app-desc { display: block; font-size: 0.78rem; color: var(--text2); margin-top: 2px; }
+
+.mobile-banner { display: none; position: fixed; inset: 0; background: var(--orange-dark); z-index: 99999; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; text-align: center; }
+.mobile-banner h2 { color: white; font-size: 20px; margin-bottom: 0.75rem; }
+.mobile-banner p { color: rgba(255,255,255,0.75); font-size: 14px; line-height: 1.7; margin-bottom: 1.5rem; max-width: 300px; }
+.mobile-banner-btn { background: white; color: var(--orange-dark); border: none; border-radius: var(--radius); padding: 10px 24px; font-size: 14px; font-weight: 600; font-family: var(--font-sans); cursor: pointer; width: 100%; max-width: 280px; }
+
+@media (max-width: 700px) {
+  .mobile-banner { display: flex; }
+}
+</style>
+</head>
+<body>
+
+<div class="mobile-banner" id="mobileBanner">
+  <h2>Best on a larger screen</h2>
+  <p>inferrd. uses a polygon drawing tool and interactive map that need a tablet or desktop to work properly.</p>
+  <button class="mobile-banner-btn" onclick="document.getElementById('mobileBanner').style.display='none'">Continue anyway</button>
+</div>
+
+<header>
+  <div class="header-brand">
+    <h1><strong>inferrd</strong><em>.</em><span class="ver" id="verTag">v0.1.0</span></h1>
+    <span style="font-size:12px;font-weight:300;color:rgba(255,255,255,0.45);">by Rutherford Ecology</span>
+  </div>
+  <div class="header-right">
+    <a href="https://occurd.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="about-btn">occurd. ↗</a>
+    <span class="sep">|</span>
+    <button class="about-btn" id="aboutBtn">ⓘ About</button>
+  </div>
+</header>
+
+<div class="layout">
+  <div class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="section-label">1 · Earth Engine account</div>
+      <div id="eeSignInBox">
+        <div class="ee-label">Sign in required</div>
+        <button class="ee-signin-btn" id="eeSignInBtn">Sign in with Google</button>
+        <div id="eeSignedIn"><span><span class="dot"></span><span id="eeSignedInEmail">Signed in</span></span><button id="eeSignOutBtn">sign out</button></div>
+        <div class="ee-note">Your own free <a href="https://code.earthengine.google.com/register" target="_blank">Earth Engine account</a> is required. Nothing is sent anywhere except Google — inferrd. has no server of its own.</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">2 · Covenant boundary</div>
+      <div class="instruction-box">Draw the covenant boundary on the map using the polygon tool (top-left of the map).</div>
+      <div class="poly-status" id="polyStatus">No boundary drawn yet</div>
+      <button class="clear-link" id="clearPolyBtn" style="display:none">Clear boundary</button>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label">3 · Analysis settings</div>
+      <div class="field half">
+        <div>
+          <label>Start year</label>
+          <select id="yearStart"></select>
+        </div>
+        <div>
+          <label>End year</label>
+          <select id="yearEnd"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label>Max scene cloud %</label>
+        <div class="range-row">
+          <input type="range" id="cloudThresh" min="0" max="80" step="5" value="20">
+          <span class="range-val" id="cloudThreshVal">20%</span>
+        </div>
+      </div>
+      <div class="field">
+        <label>Vegetation index</label>
+        <div class="tool-row">
+          <button class="tool-btn active" id="idxEvi" data-idx="EVI">EVI</button>
+          <button class="tool-btn" id="idxNdvi" data-idx="NDVI">NDVI</button>
+        </div>
+      </div>
+
+      <button class="run-btn" id="runBtn" disabled>Run analysis</button>
+      <div class="status-bar" id="statusBar"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy remnant forest. NDVI stays available since it's the more common reference point in time-series work. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
+    </div>
+  </div>
+
+  <div class="main">
+    <div id="map-wrap">
+      <div id="map"></div>
+      <div class="draw-hint" id="drawHint">Use the polygon tool (top-left) to draw the covenant boundary</div>
+    </div>
+
+    <div class="results-pane" id="resultsPane">
+      <div class="results-empty" id="resultsEmpty">
+        <span class="big">◌</span>
+        Draw a boundary, sign in, and run an analysis to see results here.
+      </div>
+      <div id="resultsContent" style="display:none">
+        <div class="metrics" id="metricsGrid"></div>
+        <div class="chart-card">
+          <div class="card-title">Vegetation index over time</div>
+          <div id="chartWrap"></div>
+        </div>
+        <div class="interp-card">
+          <div class="card-title">Interpretation</div>
+          <div id="interpretBody"></div>
+        </div>
+        <div class="table-card">
+          <div class="table-card-head">
+            <div class="card-title">Per-year data</div>
+            <button class="dl-btn" id="exportCsvBtn">Export CSV</button>
+          </div>
+          <table class="stats-table" id="statsTable"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- About modal -->
+<div class="modal-overlay" id="aboutModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" id="aboutClose">✕</button>
+    <h2>inferrd.</h2>
+    <p>A free, browser-based tool that pulls Sentinel-2 vegetation-index history for a QEII covenant (or any drawn boundary) and runs a trend analysis to say whether observed change over time is statistically robust or just noise.</p>
+
+    <h3>How it works</h3>
+    <ul>
+      <li>Draw the covenant boundary on the map</li>
+      <li>Choose a year range, cloud-cover threshold, and vegetation index (EVI or NDVI)</li>
+      <li>inferrd. builds a cloud-masked annual composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels</li>
+      <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
+    </ul>
+
+    <h3>Read this before trusting a result</h3>
+    <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — canopy dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
+    <p>Sentinel-2 only goes back to mid-2015, so "change over time" for older covenants only covers the post-2015 period.</p>
+
+    <h3>Your data, your account</h3>
+    <p>inferrd. has no server. It runs entirely in your browser and talks directly to Google Earth Engine using your own sign-in — nothing is sent to Rutherford Ecology, and boundaries you draw are never stored anywhere but your own session.</p>
+
+    <h3>Licence &amp; source</h3>
+    <p>Free to use and adapt for non-commercial purposes. View source on <a href="https://github.com/rutherfordecology/inferrd" target="_blank" style="color:var(--orange);">GitHub</a>.</p>
+
+    <h3>Built by</h3>
+    <p><a href="https://sites.google.com/view/rutherford-ecology/home" target="_blank" style="color:var(--orange);">Rutherford Ecology</a> &mdash; <a href="mailto:rutherfordecology@gmail.com" style="color:var(--orange);">rutherfordecology@gmail.com</a></p>
+
+    <h3>More from Rutherford Ecology</h3>
+    <div class="app-links">
+      <a class="app-link" href="https://occurd.rutherfordecology.co.nz/" target="_blank" rel="noopener">
+        <span class="app-name">occurd.</span>
+        <span class="app-desc">Draw a polygon, pull the biodiversity occurrence records inside it, export as CSV, GeoJSON or KML.</span>
+      </a>
+      <a class="app-link" href="https://occurd.rutherfordecology.co.nz/but-is-it-threatened/" target="_blank" rel="noopener">
+        <span class="app-name">but-is-it-threatened.</span>
+        <span class="app-desc">Look up NZ threat classification status for a species.</span>
+      </a>
+      <a class="app-link" href="https://occurd.rutherfordecology.co.nz/nudis/" target="_blank" rel="noopener">
+        <span class="app-name">nudis near me.</span>
+        <span class="app-desc">Find nudibranch records near a location, worldwide.</span>
+      </a>
+      <a class="app-link" href="https://occurd.rutherfordecology.co.nz/whatdat/" target="_blank" rel="noopener">
+        <span class="app-name">whatdat?</span>
+        <span class="app-desc">Species ID quiz for a place.</span>
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/earthengine/0.1.365/earthengine-api.min.js"></script>
+<script>
+'use strict';
+
+/* ---------------------------------------------------------------------
+   ONE-TIME SETUP — replace these two constants with your own.
+   See README.md for exact steps.
+   - CLIENT_ID: OAuth 2.0 "Web application" Client ID from the Google
+     Cloud project tied to your Earth Engine account (console.cloud.google.com
+     → APIs & Services → Credentials). Authorized JavaScript origins must
+     include wherever this page is served from (e.g. http://localhost:7899
+     for local preview, and your GitHub Pages URL once deployed).
+   - EE_PROJECT: the Earth-Engine-enabled Cloud Project ID that account
+     is registered under.
+   Neither value is secret — both are safe to commit once issued.
+   --------------------------------------------------------------------- */
+const CLIENT_ID = 'REPLACE_WITH_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com';
+const EE_PROJECT = 'REPLACE_WITH_YOUR_EE_CLOUD_PROJECT_ID';
+
+const APP_VERSION = 'v0.1.0';
+document.getElementById('verTag').textContent = APP_VERSION;
+
+/* ── Year selects ──────────────────────────────────────────────────── */
+const CURRENT_YEAR = new Date().getFullYear();
+const yearStartSel = document.getElementById('yearStart');
+const yearEndSel = document.getElementById('yearEnd');
+for (let y = 2016; y <= CURRENT_YEAR; y++) {
+  yearStartSel.add(new Option(y, y));
+  yearEndSel.add(new Option(y, y));
+}
+yearStartSel.value = Math.max(2016, CURRENT_YEAR - 6);
+yearEndSel.value = CURRENT_YEAR;
+
+/* ── Cloud threshold ───────────────────────────────────────────────── */
+const cloudThresh = document.getElementById('cloudThresh');
+const cloudThreshVal = document.getElementById('cloudThreshVal');
+cloudThresh.addEventListener('input', () => { cloudThreshVal.textContent = cloudThresh.value + '%'; });
+
+/* ── Vegetation index toggle ───────────────────────────────────────── */
+let eeReady = false;
+
+let selectedIndex = 'EVI';
+const idxButtons = [document.getElementById('idxEvi'), document.getElementById('idxNdvi')];
+idxButtons.forEach(btn => btn.addEventListener('click', () => {
+  selectedIndex = btn.dataset.idx;
+  idxButtons.forEach(b => b.classList.toggle('active', b === btn));
+}));
+
+/* ── About modal ───────────────────────────────────────────────────── */
+function openAbout() { document.getElementById('aboutModal').classList.add('open'); }
+function closeAbout() { document.getElementById('aboutModal').classList.remove('open'); }
+document.getElementById('aboutBtn').addEventListener('click', openAbout);
+document.getElementById('aboutLink2').addEventListener('click', (e) => { e.preventDefault(); openAbout(); });
+document.getElementById('aboutClose').addEventListener('click', closeAbout);
+document.getElementById('aboutModal').addEventListener('click', (e) => { if (e.target.id === 'aboutModal') closeAbout(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAbout(); });
+
+/* ── Status bar ────────────────────────────────────────────────────── */
+function setStatus(kind, msg) {
+  const el = document.getElementById('statusBar');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+/* ---------------------------------------------------------------------
+   Map + polygon drawing (Leaflet + Leaflet.draw, Esri World Imagery —
+   same satellite basemap geemap.Map.add_basemap('SATELLITE') uses).
+   --------------------------------------------------------------------- */
+const map = L.map('map', { zoomControl: true }).setView([-41.0, 173.0], 6);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Esri, Maxar, Earthstar Geographics',
+  maxZoom: 19
+}).addTo(map);
+
+const drawnItems = new L.FeatureGroup();
+map.addLayer(drawnItems);
+const drawControl = new L.Control.Draw({
+  draw: { polygon: { allowIntersection: false, showArea: true }, polyline: false, circle: false, circlemarker: false, marker: false, rectangle: true },
+  edit: { featureGroup: drawnItems, remove: false }
+});
+map.addControl(drawControl);
+
+let drawnGeoJSON = null;
+
+function setPolyStatus() {
+  const el = document.getElementById('polyStatus');
+  const clearBtn = document.getElementById('clearPolyBtn');
+  const hint = document.getElementById('drawHint');
+  if (drawnGeoJSON) {
+    el.textContent = 'Boundary drawn ✓';
+    el.classList.add('have-poly');
+    clearBtn.style.display = 'inline';
+    hint.style.display = 'none';
+  } else {
+    el.textContent = 'No boundary drawn yet';
+    el.classList.remove('have-poly');
+    clearBtn.style.display = 'none';
+    hint.style.display = 'block';
+  }
+  updateRunEnabled();
+}
+
+map.on(L.Draw.Event.CREATED, (e) => {
+  drawnItems.clearLayers();
+  drawnItems.addLayer(e.layer);
+  drawnGeoJSON = e.layer.toGeoJSON();
+  setPolyStatus();
+});
+document.getElementById('clearPolyBtn').addEventListener('click', () => {
+  drawnItems.clearLayers();
+  drawnGeoJSON = null;
+  setPolyStatus();
+});
+setPolyStatus();
+
+/* ---------------------------------------------------------------------
+   Earth Engine auth (client-side OAuth — every user signs into their
+   own EE-enabled Google account; inferrd. has no server and never sees
+   or stores credentials). See README.md for the one-time setup this
+   needs before sign-in will work.
+   --------------------------------------------------------------------- */
+function updateRunEnabled() {
+  document.getElementById('runBtn').disabled = !(eeReady && drawnGeoJSON);
+}
+
+function onEeInitError(err) {
+  setStatus('error', 'Earth Engine failed to initialize: ' + err);
+}
+
+function onEeInitSuccess() {
+  eeReady = true;
+  document.getElementById('eeSignInBox').querySelector('.ee-label').style.display = 'none';
+  document.getElementById('eeSignInBtn').style.display = 'none';
+  document.getElementById('eeSignedIn').style.display = 'flex';
+  updateRunEnabled();
+}
+
+function onAuthSuccess() {
+  ee.initialize(null, null, onEeInitSuccess, onEeInitError, null, EE_PROJECT);
+}
+
+function onAuthError(err) {
+  setStatus('error', 'Earth Engine sign-in failed: ' + err);
+}
+
+document.getElementById('eeSignInBtn').addEventListener('click', () => {
+  document.getElementById('eeSignInBtn').setAttribute('disabled', 'disabled');
+  document.getElementById('eeSignInBtn').textContent = 'Signing in…';
+  ee.data.authenticateViaOauth(
+    CLIENT_ID, onAuthSuccess, onAuthError,
+    ['https://www.googleapis.com/auth/earthengine.readonly'],
+    null, true
+  );
+});
+document.getElementById('eeSignOutBtn').addEventListener('click', () => {
+  location.reload();
+});
+
+// Try silent sign-in on load (works if the browser already has a valid
+// session from a previous visit); falls back to showing the button.
+window.addEventListener('load', () => {
+  if (CLIENT_ID.indexOf('REPLACE_WITH') === 0) {
+    setStatus('warning', 'inferrd. needs a one-time setup before it can sign in to Earth Engine — see README.md.');
+    return;
+  }
+  ee.data.authenticateViaOauth(
+    CLIENT_ID, onAuthSuccess, () => {},
+    ['https://www.googleapis.com/auth/earthengine.readonly'],
+    () => {}, // onImmediateFailed — sign-in button stays visible, nothing to do
+    true
+  );
+});
+
+/* ---------------------------------------------------------------------
+   Earth Engine compute — direct port of inferrd.py's
+   _mask_s2_clouds / _add_ndvi / _annual_ndvi_composite / _extract_year_stats.
+   --------------------------------------------------------------------- */
+function maskS2Clouds(image) {
+  const scl = image.select('SCL');
+  const goodClasses = [4, 5, 6, 7]; // vegetation, bare soil, water, unclassified
+  let mask = scl.eq(goodClasses[0]);
+  for (let i = 1; i < goodClasses.length; i++) mask = mask.or(scl.eq(goodClasses[i]));
+  return image.updateMask(mask).divide(10000).copyProperties(image, ['system:time_start']);
+}
+
+function addIndices(image) {
+  const ndvi = image.normalizedDifference(['B8', 'B4']).rename('NDVI');
+  // EVI = 2.5 * (NIR - RED) / (NIR + 6*RED - 7.5*BLUE + 1)
+  const evi = image.expression(
+    '2.5 * ((NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1))',
+    { NIR: image.select('B8'), RED: image.select('B4'), BLUE: image.select('B2') }
+  ).rename('EVI');
+  return image.addBands(ndvi).addBands(evi);
+}
+
+function yearStatsFeature(region, year, maxCloudPct, indexName) {
+  const start = year + '-01-01';
+  const end = year + '-12-31';
+  const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(region)
+    .filterDate(start, end)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .map(maskS2Clouds)
+    .map(addIndices);
+
+  const nImages = col.size();
+  const composite = col.select(indexName).median().clip(region);
+  const stats = composite.reduceRegion({
+    reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.stdDev(), sharedInputs: true }),
+    geometry: region,
+    scale: 10,
+    maxPixels: 1e9
+  });
+
+  return ee.Feature(null, {
+    year: year,
+    mean: stats.get(indexName + '_mean'),
+    std: stats.get(indexName + '_stdDev'),
+    n_images: nImages
+  });
+}
+
+function runAnalysis() {
+  if (!drawnGeoJSON || !eeReady) return;
+  const yearStart = Number(yearStartSel.value);
+  const yearEnd = Number(yearEndSel.value);
+  if (yearEnd - yearStart < 1) {
+    setStatus('warning', 'Select at least 2 years to assess change over time.');
+    return;
+  }
+  const years = [];
+  for (let y = yearStart; y <= yearEnd; y++) years.push(y);
+
+  const region = ee.Geometry(drawnGeoJSON.geometry);
+  const cloudPct = Number(cloudThresh.value);
+  const indexName = selectedIndex;
+
+  document.getElementById('runBtn').disabled = true;
+  setStatus('info', 'Pulling Sentinel-2 data for ' + years.length + ' years — this can take a minute or two…');
+
+  const fc = ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, cloudPct, indexName)));
+  fc.evaluate((result, err) => {
+    document.getElementById('runBtn').disabled = false;
+    if (err) {
+      setStatus('error', 'Earth Engine request failed: ' + err);
+      return;
+    }
+    const rows = result.features.map(f => f.properties).sort((a, b) => a.year - b.year);
+    handleResults(rows, indexName);
+  });
+}
+document.getElementById('runBtn').addEventListener('click', runAnalysis);
+
+/* ---------------------------------------------------------------------
+   Trend analysis — OLS slope, Mann-Kendall test, Sen's slope. No
+   external stats library (matches the rest of the Occurd family) —
+   these are self-contained, well-defined algorithms, the same ones
+   inferrd.py used via numpy.polyfit / pymannkendall.original_test.
+   --------------------------------------------------------------------- */
+function erf(x) {
+  // Abramowitz & Stegun 7.1.26 approximation, ~1.5e-7 max error
+  const sign = x < 0 ? -1 : 1;
+  x = Math.abs(x);
+  const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741, a4 = -1.453152027, a5 = 1.061405429, p = 0.3275911;
+  const t = 1 / (1 + p * x);
+  const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+  return sign * y;
+}
+function normalCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+
+function olsSlope(years, values) {
+  const n = years.length;
+  const meanX = years.reduce((a, b) => a + b, 0) / n;
+  const meanY = values.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (years[i] - meanX) * (values[i] - meanY); den += (years[i] - meanX) ** 2; }
+  const slope = num / den;
+  return { slope, intercept: meanY - slope * meanX };
+}
+
+function mannKendall(values) {
+  const n = values.length;
+  let s = 0;
+  for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) s += Math.sign(values[j] - values[i]);
+
+  const counts = {};
+  values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  let tieSum = 0;
+  Object.values(counts).forEach(t => { if (t > 1) tieSum += t * (t - 1) * (2 * t + 5); });
+  const varS = (n * (n - 1) * (2 * n + 5) - tieSum) / 18;
+
+  let z = 0;
+  if (s > 0) z = (s - 1) / Math.sqrt(varS);
+  else if (s < 0) z = (s + 1) / Math.sqrt(varS);
+  const p = 2 * (1 - normalCdf(Math.abs(z)));
+
+  const slopes = [];
+  for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) slopes.push((values[j] - values[i]) / (j - i));
+  slopes.sort((a, b) => a - b);
+  const mid = Math.floor(slopes.length / 2);
+  const senSlope = slopes.length % 2 ? slopes[mid] : (slopes[mid - 1] + slopes[mid]) / 2;
+
+  let trend = 'no trend';
+  if (p < 0.05) trend = s > 0 ? 'increasing' : 'decreasing';
+
+  return { s, varS, z, p, trend, senSlope };
+}
+
+function analyzeTrend(years, values) {
+  const ols = olsSlope(years, values);
+  const mk = mannKendall(values);
+  let confidenceNote;
+  if (years.length < 4) {
+    confidenceNote = 'Fewer than 4 years of data — Mann-Kendall results are indicative only, not statistically reliable at this sample size. Treat any apparent trend with caution until more years are added.';
+  } else if (mk.p < 0.05) {
+    confidenceNote = 'Trend is statistically significant (p=' + mk.p.toFixed(3) + ', Mann-Kendall test).';
+  } else {
+    confidenceNote = 'No statistically significant trend detected (p=' + mk.p.toFixed(3) + '). Observed year-to-year change is within the range plausibly explained by natural variability, sensor noise, or residual atmospheric/cloud effects rather than a real ecological change.';
+  }
+  return { olsSlope: ols.slope, mkTrend: mk.trend, mkPValue: mk.p, senSlope: mk.senSlope, confidenceNote };
+}
+
+function interpret(rows, trend) {
+  const lines = [];
+  const lowQualityYears = rows.filter(r => r.n_images < 3).map(r => r.year);
+  if (lowQualityYears.length) {
+    lines.push({ warn: true, text: 'Years ' + lowQualityYears.join(', ') + ' had fewer than 3 cloud-free images contributing to the composite — treat those data points as lower confidence.' });
+  }
+  if (trend.mkTrend === 'no trend') {
+    lines.push({ warn: false, text: 'Overall assessment: the index has been effectively stable over the monitored period. ' + trend.confidenceNote });
+  } else {
+    lines.push({ warn: false, text: 'Overall assessment: the index shows a ' + trend.mkTrend + ' trend (~' + trend.senSlope.toFixed(4) + '/year, Sen\'s slope). ' + trend.confidenceNote });
+    if (trend.mkTrend === 'decreasing' && trend.mkPValue < 0.05) {
+      lines.push({ warn: true, text: 'A statistically significant decreasing trend in a forest remnant covenant is worth ground-truthing in person — decline can reflect canopy dieback, drought stress, pest/weed incursion, or actual clearance, and satellite data alone can\'t distinguish between these causes.' });
+    }
+  }
+  return lines;
+}
+
+/* ---------------------------------------------------------------------
+   Results rendering
+   --------------------------------------------------------------------- */
+let lastRows = null, lastIndexName = null;
+
+function handleResults(rows, indexName) {
+  const valid = rows.filter(r => r.mean !== null && r.mean !== undefined);
+  if (valid.length < 2) {
+    setStatus('warning', 'Not enough cloud-free data across these years to assess a trend — try widening the cloud % threshold or year range.');
+    return;
+  }
+  setStatus('success', 'Analysis complete — ' + valid.length + ' of ' + rows.length + ' years had usable data.');
+
+  lastRows = rows;
+  lastIndexName = indexName;
+
+  const years = valid.map(r => r.year);
+  const means = valid.map(r => r.mean);
+  const trend = analyzeTrend(years, means);
+
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'block';
+
+  renderMetrics(valid, trend, indexName);
+  renderChart(valid, indexName);
+  renderInterpretation(rows, trend);
+  renderTable(rows, indexName);
+}
+
+function renderMetrics(valid, trend, indexName) {
+  const grid = document.getElementById('metricsGrid');
+  grid.innerHTML = '';
+  const items = [
+    ['Years analyzed', valid.length],
+    ['Trend', trend.mkTrend],
+    ['Mann-Kendall p', trend.mkPValue.toFixed(3)],
+    ["Sen's slope /yr", trend.senSlope.toFixed(4)]
+  ];
+  items.forEach(([label, val]) => {
+    const d = document.createElement('div');
+    d.className = 'metric';
+    d.innerHTML = '<div class="metric-label">' + label + '</div><div class="metric-value">' + val + '</div>';
+    grid.appendChild(d);
+  });
+}
+
+function renderChart(valid, indexName) {
+  const w = 640, h = 220, padL = 44, padR = 16, padT = 16, padB = 28;
+  const years = valid.map(r => r.year);
+  const means = valid.map(r => r.mean);
+  const stds = valid.map(r => r.std || 0);
+  const yMin = Math.min(...means.map((m, i) => m - stds[i]));
+  const yMax = Math.max(...means.map((m, i) => m + stds[i]));
+  const pad = (yMax - yMin) * 0.1 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = Math.min(...years), x1 = Math.max(...years);
+
+  const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  // gridlines + y labels
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + (i / 4) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="10" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  years.forEach(yr => {
+    svg += '<text x="' + xScale(yr) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="var(--text3)">' + yr + '</text>';
+  });
+  // error bars
+  valid.forEach((r, i) => {
+    const cx = xScale(years[i]);
+    const yTop = yScale(means[i] + stds[i]);
+    const yBot = yScale(means[i] - stds[i]);
+    svg += '<line x1="' + cx + '" y1="' + yTop + '" x2="' + cx + '" y2="' + yBot + '" stroke="var(--orange-mid)" stroke-width="1.5"/>';
+  });
+  // line
+  const linePts = years.map((yr, i) => xScale(yr) + ',' + yScale(means[i])).join(' ');
+  svg += '<polyline points="' + linePts + '" fill="none" stroke="var(--orange-dark)" stroke-width="2"/>';
+  // points
+  years.forEach((yr, i) => {
+    svg += '<circle cx="' + xScale(yr) + '" cy="' + yScale(means[i]) + '" r="4" fill="var(--orange-dark)"/>';
+  });
+  svg += '</svg>';
+  document.getElementById('chartWrap').innerHTML = svg;
+}
+
+function renderInterpretation(rows, trend) {
+  const lines = interpret(rows, trend);
+  const body = document.getElementById('interpretBody');
+  body.innerHTML = lines.map(l => '<' + (l.warn ? 'div class="caveat"' : 'p') + '>' + l.text + '</' + (l.warn ? 'div' : 'p') + '>').join('');
+}
+
+function renderTable(rows, indexName) {
+  const table = document.getElementById('statsTable');
+  let html = '<thead><tr><th>Year</th><th>Mean ' + indexName + '</th><th>Std dev</th><th>Cloud-free images</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    const mean = (r.mean === null || r.mean === undefined) ? '—' : r.mean.toFixed(4);
+    const std = (r.std === null || r.std === undefined) ? '—' : r.std.toFixed(4);
+    html += '<tr><td>' + r.year + '</td><td>' + mean + '</td><td>' + std + '</td><td>' + r.n_images + '</td></tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+document.getElementById('exportCsvBtn').addEventListener('click', () => {
+  if (!lastRows) return;
+  let csv = 'year,mean_' + lastIndexName + ',std_' + lastIndexName + ',n_images\n';
+  lastRows.forEach(r => { csv += [r.year, r.mean ?? '', r.std ?? '', r.n_images].join(',') + '\n'; });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'inferrd-' + lastIndexName.toLowerCase() + '-' + (drawnGeoJSON ? 'covenant' : 'export') + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>
