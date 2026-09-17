@@ -105,7 +105,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .results-empty { color: var(--text3); font-size: 13px; padding: 2rem 0; text-align: center; }
 .results-empty .big { font-size: 28px; display: block; margin-bottom: 8px; opacity: 0.5; }
 
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1rem; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 10px; margin-bottom: 1rem; }
 .metric { background: var(--surface2); border-radius: var(--radius); padding: 10px 8px; text-align: center; }
 .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
 .metric-value { font-size: 19px; font-weight: 500; margin-top: 2px; color: var(--orange-dark); }
@@ -279,9 +279,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <ul>
       <li>Draw your area of interest on the map</li>
       <li>Choose a year range, an optional season window, a cloud-cover threshold, and a vegetation index (EVI or NDVI)</li>
-      <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels</li>
+      <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels. The index itself is computed at Sentinel-2's native 10m resolution; the cloud mask comes from the 20m Scene Classification Layer, resampled by Earth Engine to align — completely standard practice, but it means cloud/shadow edges are effectively decided at a coarser resolution than the index itself</li>
       <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
     </ul>
+
+    <h3>Why "no trend" doesn't always mean "nothing happened"</h3>
+    <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
@@ -342,7 +345,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.2.2';
+const APP_VERSION = 'v0.2.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -700,6 +703,36 @@ function mannKendall(values) {
   return { s, varS, z, p, trend, senSlope };
 }
 
+// Mann-Kendall/Sen's slope only test for a monotonic trend across the whole
+// period — a sharp disturbance (fire, cyclone, clearance) followed by partial
+// recovery is non-monotonic, so those tests can legitimately report "no
+// trend" even when one year clearly dropped off a cliff. This finds that
+// single biggest year-over-year step independently, so it's never hidden.
+function largestYoyChange(years, values, stds) {
+  let best = null;
+  for (let i = 0; i < years.length - 1; i++) {
+    // only compare truly consecutive years — a gap (missing/low-quality year)
+    // would otherwise be misread as one big single-year jump
+    if (years[i + 1] - years[i] !== 1) continue;
+    const delta = values[i + 1] - values[i];
+    if (!best || Math.abs(delta) > Math.abs(best.delta)) {
+      best = { fromYear: years[i], toYear: years[i + 1], fromVal: values[i], toVal: values[i + 1], delta, fromStd: stds[i], toStd: stds[i + 1] };
+    }
+  }
+  if (!best) return null;
+  const range = Math.max(...values) - Math.min(...values);
+  best.pctOfRange = range > 0 ? Math.abs(best.delta) / range : 0;
+  // "Dominant" requires both: this step accounts for most of the series'
+  // total spread, AND it's large relative to the two years' own measurement
+  // uncertainty — otherwise a tiny, genuinely-flat series (small range, so
+  // any noise-level wobble looks like "most of the spread") would falsely
+  // trigger this on pure noise.
+  const combinedStd = Math.sqrt((best.fromStd || 0) ** 2 + (best.toStd || 0) ** 2);
+  const exceedsNoise = combinedStd > 0 ? Math.abs(best.delta) > 2 * combinedStd : true;
+  best.dominant = best.pctOfRange > 0.5 && exceedsNoise;
+  return best;
+}
+
 function analyzeTrend(years, values) {
   const ols = olsSlope(years, values);
   const mk = mannKendall(values);
@@ -714,14 +747,19 @@ function analyzeTrend(years, values) {
   return { olsSlope: ols.slope, mkTrend: mk.trend, mkPValue: mk.p, senSlope: mk.senSlope, confidenceNote };
 }
 
-function interpret(rows, trend) {
+function interpret(rows, trend, yoy) {
   const lines = [];
   const lowQualityYears = rows.filter(r => r.n_images < 3).map(r => r.year);
   if (lowQualityYears.length) {
     lines.push({ warn: true, text: 'Years ' + lowQualityYears.join(', ') + ' had fewer than 3 cloud-free images contributing to the composite — treat those data points as lower confidence.' });
   }
   if (trend.mkTrend === 'no trend') {
-    lines.push({ warn: false, text: 'Overall assessment: the index has been effectively stable over the monitored period. ' + trend.confidenceNote });
+    if (yoy && yoy.dominant) {
+      lines.push({ warn: false, text: 'Overall assessment: no statistically significant monotonic trend across the full period. ' + trend.confidenceNote + ' That test looks for a gradual, sustained direction across every year — it is not designed to catch a sharp disturbance followed by partial recovery, which is exactly what this series looks like.' });
+      lines.push({ warn: true, text: 'The single biggest change in the series was ' + yoy.fromYear + '→' + yoy.toYear + ': ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(4) + ' (' + (yoy.pctOfRange * 100).toFixed(0) + '% of the series\' total spread). A jump that size, on its own, is worth ground-truthing regardless of what the overall trend test says — it can reflect a discrete event (storm damage, fire, clearance) that a multi-year monotonic-trend test isn\'t built to flag.' });
+    } else {
+      lines.push({ warn: false, text: 'Overall assessment: the index has been effectively stable over the monitored period. ' + trend.confidenceNote });
+    }
   } else {
     lines.push({ warn: false, text: 'Overall assessment: the index shows a ' + trend.mkTrend + ' trend (~' + trend.senSlope.toFixed(4) + '/year, Sen\'s slope). ' + trend.confidenceNote });
     if (trend.mkTrend === 'decreasing' && trend.mkPValue < 0.05) {
@@ -749,7 +787,9 @@ function handleResults(rows, indexName) {
 
   const years = valid.map(r => r.year);
   const means = valid.map(r => r.mean);
+  const stds = valid.map(r => r.std || 0);
   const trend = analyzeTrend(years, means);
+  const yoy = largestYoyChange(years, means, stds);
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
@@ -760,13 +800,13 @@ function handleResults(rows, indexName) {
     : MONTH_NAMES[seasonStart - 1] + '–' + MONTH_NAMES[seasonEnd - 1] + ' each year' + (seasonStart > seasonEnd ? ' (crosses into the following year)' : '');
   document.getElementById('chartSeasonLabel').textContent = seasonLabel;
 
-  renderMetrics(valid, trend, indexName);
+  renderMetrics(valid, trend, indexName, yoy);
   renderChart(valid, indexName);
-  renderInterpretation(rows, trend);
+  renderInterpretation(rows, trend, yoy);
   renderTable(rows, indexName);
 }
 
-function renderMetrics(valid, trend, indexName) {
+function renderMetrics(valid, trend, indexName, yoy) {
   const grid = document.getElementById('metricsGrid');
   grid.innerHTML = '';
   const items = [
@@ -775,6 +815,7 @@ function renderMetrics(valid, trend, indexName) {
     ['Mann-Kendall p', trend.mkPValue.toFixed(3)],
     ["Sen's slope /yr", trend.senSlope.toFixed(4)]
   ];
+  if (yoy) items.push(['Biggest single-year change', yoy.fromYear + '→' + yoy.toYear + ' ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(3)]);
   items.forEach(([label, val]) => {
     const d = document.createElement('div');
     d.className = 'metric';
@@ -826,8 +867,8 @@ function renderChart(valid, indexName) {
   document.getElementById('chartWrap').innerHTML = svg;
 }
 
-function renderInterpretation(rows, trend) {
-  const lines = interpret(rows, trend);
+function renderInterpretation(rows, trend, yoy) {
+  const lines = interpret(rows, trend, yoy);
   const body = document.getElementById('interpretBody');
   body.innerHTML = lines.map(l => '<' + (l.warn ? 'div class="caveat"' : 'p') + '>' + l.text + '</' + (l.warn ? 'div' : 'p') + '>').join('');
 }

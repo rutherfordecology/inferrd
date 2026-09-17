@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.3 — 2026-09-18
+
+- **Fixed a misleading "no trend" case.** Real test data showed a cyclone-
+  damaged area (sharp drop, partial recovery over the next couple of
+  years) reported as "no statistically significant trend" — technically
+  correct (Mann-Kendall/Sen's slope only test for a *monotonic* trend, and
+  a disturbance-then-recovery pattern isn't one) but the old wording
+  ("effectively stable") was actively misleading for a series like that.
+  Added a separate "biggest single-year change" statistic, always
+  computed and shown as its own metric card; when it accounts for most of
+  the series' total spread, the interpretation text now calls it out
+  explicitly instead of saying "stable". Documented the same limitation
+  in the About modal.
+- Documented spatial resolution (10m, from the native NIR/Red/Blue bands;
+  cloud masking comes from the coarser 20m Scene Classification Layer,
+  resampled to align) in the About modal.
+
 ## v0.2.2 — 2026-09-18
 
 - **Switched the Earth Engine JS library CDN.** v0.2.1's fix (using
