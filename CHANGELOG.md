@@ -1,5 +1,36 @@
 # Changelog
 
+## v0.2.2 — 2026-09-18
+
+- **Switched the Earth Engine JS library CDN.** v0.2.1's fix (using
+  `authenticateViaPopup`) was correct in principle, but the library build
+  Google's own docs still point to (`ajax.googleapis.com/.../0.1.365/...`)
+  turned out to be stale and doesn't actually contain the Google-Identity-
+  Services-based implementation — calling it threw the old `gapi.auth2`
+  error `idpiframe_initialization_failed`. Switched to
+  `cdn.jsdelivr.net/npm/@google/earthengine@1.7.43/build/browser.min.js`
+  (the current published package), which does contain the GIS-based code.
+  Confirmed in live testing: Google Identity Services now generates a
+  fully correct OAuth URL (right client ID, scope, and origin) — the only
+  remaining error was GIS's own "popup blocked" detection, most likely
+  specific to the automated browser session used to test this rather than
+  a real bug. Needs a real human click to fully confirm.
+
+## v0.2.1 — 2026-09-18
+
+- **Fixed the sign-in hang.** Root cause found via live debugging plus
+  checking Earth Engine's actual current source: `ee.data.authenticateViaOauth`
+  is built on Google's `gapi.auth2` library, which Google archived on
+  18 April 2026 — it no longer reliably calls back at all, silently, which
+  is exactly the "hangs forever, no popup, no password prompt" behaviour
+  reported. Rewired the sign-in button to call `ee.data.authenticateViaPopup()`
+  instead, which Earth Engine has already migrated to Google Identity
+  Services (`google.accounts.oauth2`) under the hood — added the GIS
+  script tag (`accounts.google.com/gsi/client`) the page needs for it.
+  `authenticateViaOauth` is still called once on page load (fire-and-forget,
+  to configure the client ID/scopes and opportunistically try a silent
+  sign-in) but nothing depends on its callbacks firing anymore.
+
 ## v0.2.0 — 2026-09-18
 
 - **No longer QEII/covenant-specific** — generalized all UI copy, the About

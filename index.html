@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
@@ -322,7 +323,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/earthengine/0.1.365/earthengine-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@google/earthengine@1.7.43/build/browser.min.js"></script>
 <script>
 'use strict';
 
@@ -341,7 +342,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.2.0';
+const APP_VERSION = 'v0.2.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -502,10 +503,10 @@ function onAuthError(err) {
 }
 
 document.getElementById('eeSignInBtn').addEventListener('click', () => {
-  eeLog('sign-in button clicked');
+  eeLog('sign-in button clicked — calling authenticateViaPopup');
   document.getElementById('eeSignInBtn').setAttribute('disabled', 'disabled');
   document.getElementById('eeSignInBtn').textContent = 'Signing in…';
-  setStatus('info', 'Waiting for Google sign-in — check for a popup window (it can open behind this one), or a blocked-popup icon in your address bar.');
+  setStatus('info', 'Waiting for Google sign-in — check for a popup window, or a blocked-popup icon in your address bar.');
 
   clearSignInWatchdog();
   signInWatchdog = setTimeout(() => {
@@ -513,28 +514,32 @@ document.getElementById('eeSignInBtn').addEventListener('click', () => {
     resetSignInButton('Still nothing after 15 seconds — your browser probably blocked the Google sign-in popup. Look for a blocked-popup icon in the address bar, allow popups for this site, then try again.');
   }, 15000);
 
-  ee.data.authenticateViaOauth(
-    CLIENT_ID, onAuthSuccess, onAuthError,
-    ['https://www.googleapis.com/auth/earthengine.readonly'],
-    null, true
-  );
+  // authenticateViaOauth (below, on page load) is old gapi.auth2-based and
+  // no longer reliably calls back at all — Google archived gapi.auth2 in
+  // April 2026. authenticateViaPopup is EE's newer, Google-Identity-
+  // Services-based popup flow and is what actually works; it relies on
+  // the client ID/scopes that the page-load call already configured.
+  ee.data.authenticateViaPopup(onAuthSuccess, onAuthError);
 });
 document.getElementById('eeSignOutBtn').addEventListener('click', () => {
   location.reload();
 });
 
-// Try silent sign-in on load (works if the browser already has a valid
-// session from a previous visit); falls back to showing the button.
+// Fire-and-forget on load: this registers CLIENT_ID/scopes with the EE
+// client library (a synchronous side effect of calling it) and opportunistically
+// attempts a silent sign-in — but per the above, its own callbacks are not
+// reliable right now, so nothing here is depended on. The actual sign-in
+// happens via authenticateViaPopup from the button click, above.
 window.addEventListener('load', () => {
   if (CLIENT_ID.indexOf('REPLACE_WITH') === 0) {
     setStatus('warning', 'inferrd. needs a one-time setup before it can sign in to Earth Engine — see README.md.');
     return;
   }
-  eeLog('attempting silent sign-in on load');
+  eeLog('configuring EE client + attempting opportunistic silent sign-in');
   ee.data.authenticateViaOauth(
     CLIENT_ID, onAuthSuccess, () => {},
     ['https://www.googleapis.com/auth/earthengine.readonly'],
-    () => { eeLog('silent sign-in not available — showing sign-in button'); },
+    () => { eeLog('silent sign-in not available — use the sign-in button'); },
     true
   );
 });
