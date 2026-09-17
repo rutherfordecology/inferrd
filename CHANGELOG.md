@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.1 — 2026-09-18
+
+- Filled in `EE_PROJECT` with the real Earth-Engine-enabled Cloud Project
+  (`inferrd-508920`). `CLIENT_ID` (OAuth) still needs to be set before
+  sign-in will work — see README.md
+
 ## v0.1.0 — 2026-09-18
 
 - Initial build: ported `inferrd.py` (Python/geemap notebook script) into a
