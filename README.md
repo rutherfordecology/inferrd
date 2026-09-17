@@ -1,8 +1,8 @@
 # inferrd.
 
-QEII covenant vegetation-index monitoring — draw a covenant boundary, pull its
+Vegetation-index monitoring for any area, anywhere — draw a boundary, pull its
 Sentinel-2 EVI/NDVI history, and get a statistically defensible read on
-whether forest cover is changing over time.
+whether it's changing over time.
 
 A single self-contained static page (`index.html`) — no build step, no
 backend, no framework. It talks directly to Google Earth Engine from your
@@ -51,8 +51,9 @@ there's an `inferrd` preview entry that does this automatically.)
 
 ## How it works
 
-1. Draw the covenant boundary on the map (polygon or rectangle tool)
-2. Choose a start/end year, a max scene cloud-cover threshold, and a
+1. Draw your area of interest on the map (polygon or rectangle tool)
+2. Choose a start/end year, an optional season window (month range, repeats
+   every year — see below), a max scene cloud-cover threshold, and a
    vegetation index (EVI or NDVI)
 3. For each year, inferrd. builds a cloud-masked median composite from
    Sentinel-2 Level-2A surface reflectance (`COPERNICUS/S2_SR_HARMONIZED`) —
@@ -70,25 +71,45 @@ there's an `inferrd` preview entry that does this automatically.)
    index decline alone can't distinguish dieback from drought, pests, or
    clearance
 
+### Data volume and timing
+
+Every request is a summary-statistics query — mean/std/image-count per year,
+computed server-side by Earth Engine's `reduceRegion` — not a bulk pixel or
+scene download. That keeps it a small, synchronous request rather than an
+async job: expect seconds to roughly a minute depending on area size, year
+count and cloud threshold, not something you'd need to leave running and
+come back to.
+
+### Sentinel-2 revisit rate and seasonality
+
+Sentinel-2's two satellites together revisit most places roughly every 5
+days, but how many of those passes are usably cloud-free varies by season —
+the per-year `n_images` count in the results table is the real signal for
+how much data actually went into a given year. Requesting a full calendar
+year (the default) mixes every season together, which can make two years
+look different just because their cloud-free scenes happened to cluster in
+different seasons. Narrowing the season window to the same months every
+year (e.g. peak growing season) keeps years genuinely comparable.
+
 ### Why EVI by default, not NDVI
 
-EVI resists saturation better than NDVI in dense, closed-canopy remnant
-forest — the technical pick for this use case. NDVI stays available as a
-toggle since it remains the more common reference point in general
-time-series work, and costs nothing extra to compute alongside EVI.
+EVI resists saturation better than NDVI in dense, closed-canopy vegetation —
+the technical pick for that case. NDVI stays available as a toggle since it
+remains the more common reference point in general time-series work, and
+costs nothing extra to compute alongside EVI.
 
 ## Limitations
 
-- **Not yet run against live Earth Engine data.** This was built and
-  syntax-checked without a registered OAuth client, so the actual Earth
-  Engine calls haven't been exercised end-to-end. Treat your first real run
-  as a test, not an assumption that it's bug-free.
+- **Sign-in is still being debugged.** The OAuth popup flow hasn't
+  completed successfully yet in real-world testing — see CHANGELOG for
+  the current diagnosis. Once it works, your first real analysis run is
+  still the actual correctness test for the Earth Engine calls themselves.
 - Vegetation index alone can't tell you *why* a change happened — dieback,
   drought stress, pest/weed incursion, and clearance can all look similar
   from space. Use this to flag where to send someone to look, not as a
   substitute for ground-truthing.
 - Sentinel-2 only goes back to mid-2015, capping how far back "change over
-  time" can go for older covenants.
+  time" can go.
 - Every visitor needs their own free, Earth-Engine-registered Google
   account — there's no way around this without adding a backend that holds
   service-account credentials (a deliberate trade-off to keep this a plain
