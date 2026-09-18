@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.9.3 — 2026-09-19
+
+- **Added a "Buy me a coffee" link**, matching Occurd: in the header next
+  to the occurd. link (same gold), plus a line in the About dialog.
+
 ## v0.9.2 — 2026-09-19
 
 - **Added an optional 12-month moving mean to the monthly chart.** A new
