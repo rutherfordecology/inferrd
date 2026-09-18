@@ -366,7 +366,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.3.2';
+const APP_VERSION = 'v0.3.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -641,6 +641,18 @@ function addIndices(image) {
   return image.addBands(ndvi).addBands(evi);
 }
 
+// A .get(key, null) fallback turned out not to actually suppress
+// "Dictionary does not contain key" errors in practice (confirmed by a
+// real recurrence in live testing) — so this uses ee.Algorithms.If with
+// Dictionary.contains instead, which has unambiguous server-side
+// semantics. MISSING_SENTINEL stands in for "this key wasn't present"
+// server-side (EE dictionaries need an actual value, not a JS null) and
+// is converted back to a real null client-side once results come back.
+const MISSING_SENTINEL = -9999;
+function safeDictGet(dict, key) {
+  return ee.Algorithms.If(dict.contains(key), dict.get(key), MISSING_SENTINEL);
+}
+
 function pad2(n) { return String(n).padStart(2, '0'); }
 
 // Season window repeats the same month range every year. If endMonth < startMonth
@@ -676,13 +688,8 @@ function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endM
   return ee.Feature(null, {
     kind: 'year',
     year: year,
-    // .get(key, null) — a period/polygon with too few valid pixels to
-    // compute a stdDev (or, in the extreme, no valid pixels for mean
-    // either) makes Earth Engine omit that key entirely rather than
-    // return null; without the default, .get() throws and kills the
-    // whole batched request instead of just this one data point.
-    mean: stats.get(indexName + '_mean', null),
-    std: stats.get(indexName + '_stdDev', null),
+    mean: safeDictGet(stats, indexName + '_mean'),
+    std: safeDictGet(stats, indexName + '_stdDev'),
     n_images: nImages
   });
 }
@@ -720,13 +727,8 @@ function monthStatsFeature(region, year, month, maxCloudPct, indexName) {
     kind: 'month',
     year: year,
     month: month,
-    // .get(key, null) — a period/polygon with too few valid pixels to
-    // compute a stdDev (or, in the extreme, no valid pixels for mean
-    // either) makes Earth Engine omit that key entirely rather than
-    // return null; without the default, .get() throws and kills the
-    // whole batched request instead of just this one data point.
-    mean: stats.get(indexName + '_mean', null),
-    std: stats.get(indexName + '_stdDev', null),
+    mean: safeDictGet(stats, indexName + '_mean'),
+    std: safeDictGet(stats, indexName + '_stdDev'),
     n_images: nImages
   });
 }
@@ -775,7 +777,11 @@ function runAnalysis() {
       setStatus('error', 'Earth Engine request failed: ' + err);
       return;
     }
-    const allRows = result.features.map(f => f.properties);
+    const desentinel = (v) => (v === MISSING_SENTINEL ? null : v);
+    const allRows = result.features.map(f => {
+      const p = f.properties;
+      return { ...p, mean: desentinel(p.mean), std: desentinel(p.std) };
+    });
     const rows = allRows.filter(r => r.kind === 'year').sort((a, b) => a.year - b.year);
     const monthRows = allRows.filter(r => r.kind === 'month').sort((a, b) => a.year - b.year || a.month - b.month);
     handleResults(rows, indexName, monthRows);

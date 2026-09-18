@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.3.3 — 2026-09-18
+
+- **v0.3.1's fix for the missing-stdDev-key crash didn't actually work** —
+  the same `Dictionary does not contain key` error recurred live, this
+  time for EVI. `.get(key, null)` turned out not to reliably suppress the
+  error (the EE JS client likely drops a literal `null` default rather
+  than passing it through). Replaced with `ee.Algorithms.If(dict.contains(key),
+  dict.get(key), MISSING_SENTINEL)`, which has unambiguous, well-defined
+  server-side semantics instead of relying on an optional-parameter
+  behavior that didn't hold up. The sentinel value is converted back to a
+  real `null` client-side once results return.
+
 ## v0.3.2 — 2026-09-18
 
 - **Added a "Y-axis starts at 0" toggle** for both the annual and monthly
