@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.8.3 — 2026-09-19
+
+- **Added an opacity slider to the map preview, and Hide no longer
+  discards the layer.** Hide used to remove the tiles, so Show had to
+  fetch them from Earth Engine again. It now just makes them transparent
+  (tiles stay loaded), and Show brings them back instantly. The slider
+  fades the index layer over the aerial imagery; dragging it while the
+  layer is hidden brings it back. Changing scale mode or drawing/removing
+  an area still reloads the layer, as before.
+
+## v0.8.2 — 2026-09-19
+
+- **Removing an area now removes it from the results too.** Previously
+  deleting an area from the list left its line, table row and stats on
+  screen. Multi-area results now drop that area from the chart, legend
+  and tables (and collapse to the single-area view when one is left);
+  single-area and multi-index results for the removed area are cleared.
+  Uses the data already fetched, so no new Earth Engine call.
+
 ## v0.8.1 — 2026-09-18
 
 - **Moved "Preview index on map" below the Index picker**, instead of

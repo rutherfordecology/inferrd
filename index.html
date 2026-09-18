@@ -240,6 +240,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <select id="layerYearSel"></select>
           <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+          <label for="layerOpacity" style="margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text2);">Opacity</label>
+          <input type="range" id="layerOpacity" min="0" max="100" value="85" style="flex:1;">
+          <span id="layerOpacityVal" style="font-size:11px;color:var(--text3);min-width:30px;text-align:right;">85%</span>
+        </div>
         <div class="tool-row" id="scaleModeRow" style="margin-top:6px;">
           <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
           <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
@@ -443,7 +448,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.1';
+const APP_VERSION = 'v0.8.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -627,7 +632,36 @@ function removeArea(id) {
   if (idx === -1) return;
   drawnItems.removeLayer(areas[idx].layer);
   areas.splice(idx, 1);
+  pruneResultsForArea(id);
   renderAreaList();
+}
+
+function clearResults() {
+  lastRows = lastValid = lastMonthRows = lastAreaSeries = lastIndexSeries = lastIndexCompareArea = null;
+  document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('comparisonContent').style.display = 'none';
+  document.getElementById('indexComparisonContent').style.display = 'none';
+  document.getElementById('resultsEmpty').style.display = '';
+  setStatus('', '');
+}
+
+// Drops a removed area from whichever results view is on screen, using the
+// data already fetched (no new Earth Engine call). Multi-area results shrink
+// to the remaining areas (collapsing to the single-area view at one left);
+// single-area and multi-index results for the removed area are cleared.
+function pruneResultsForArea(id) {
+  const shown = (elId) => document.getElementById(elId).style.display === 'block';
+  if (shown('comparisonContent') && lastAreaSeries && lastAreaSeries.some(s => s.area.id === id)) {
+    const remaining = lastAreaSeries.filter(s => s.area.id !== id);
+    const indexName = lastIndexName;
+    clearResults();
+    if (remaining.length >= 2) handleComparisonResults(remaining, indexName);
+    else if (remaining.length === 1) handleResults(remaining[0].rows, indexName, remaining[0].monthRows);
+  } else if (shown('resultsContent') && lastRows && lastRows.some(r => r.areaId === id)) {
+    clearResults();
+  } else if (shown('indexComparisonContent') && lastIndexCompareArea && lastIndexCompareArea.id === id) {
+    clearResults();
+  }
 }
 
 /* ---------------------------------------------------------------------
@@ -654,6 +688,21 @@ function visParamsFor(indexName) {
 }
 let indexMapLayers = [];
 let layersVisible = false;
+// "Hide" only zeroes the opacity so the tiles stay loaded — re-showing is
+// instant instead of another Earth Engine round trip.
+let layersHidden = false;
+let layerOpacity = 0.85;
+function effectiveLayerOpacity() { return layersHidden ? 0 : layerOpacity; }
+function applyLayerOpacity() {
+  indexMapLayers.forEach(l => l.setOpacity(effectiveLayerOpacity()));
+  document.getElementById('layerToggleBtn').textContent = layersVisible && !layersHidden ? 'Hide' : 'Show';
+}
+document.getElementById('layerOpacity').addEventListener('input', (e) => {
+  layerOpacity = Number(e.target.value) / 100;
+  document.getElementById('layerOpacityVal').textContent = e.target.value + '%';
+  if (layersVisible) layersHidden = false; // dragging the slider while hidden brings the layer back
+  applyLayerOpacity();
+});
 
 // 'fixed' shares INDEX_VIS_PARAMS across every tile so colours mean the same
 // value everywhere (comparable across areas/years); 'auto' stretches each
@@ -671,6 +720,7 @@ function hideIndexLayers() {
   indexMapLayers.forEach(l => map.removeLayer(l));
   indexMapLayers = [];
   layersVisible = false;
+  layersHidden = false;
   document.getElementById('layerToggleBtn').textContent = 'Show';
   document.getElementById('layerLegend').style.display = 'none';
   document.getElementById('layerStatus').textContent = '';
@@ -714,7 +764,7 @@ function showIndexLayers() {
           if (err) {
             failed++;
           } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
-            const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.85, maxZoom: 20 });
+            const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxZoom: 20 });
             layer.addTo(map);
             indexMapLayers.push(layer);
             drawnItems.bringToFront();
@@ -757,7 +807,9 @@ function showIndexLayers() {
 }
 
 document.getElementById('layerToggleBtn').addEventListener('click', () => {
-  if (layersVisible) hideIndexLayers(); else showIndexLayers();
+  if (!layersVisible) { showIndexLayers(); return; }
+  layersHidden = !layersHidden;
+  applyLayerOpacity();
 });
 
 map.on(L.Draw.Event.CREATED, (e) => {
