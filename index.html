@@ -64,6 +64,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 
 .field { margin-bottom: 0.65rem; }
 .field label { display: block; font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin-bottom: 4px; }
+.hint-toggle { display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; padding: 0; background: none; border: none; font-family: var(--font-sans); font-size: 11px; color: var(--text3); cursor: pointer; }
+.hint-toggle:hover { color: var(--text2); }
+.hint-toggle svg { width: 10px; height: 10px; transition: transform 0.12s; transform: rotate(90deg); }
+.hint-toggle.collapsed svg { transform: rotate(0deg); }
+.hint-toggle + .field-hint, .hint-toggle + .note { margin-top: 2px; }
 .field-hint { font-size: 11px; color: var(--text3); line-height: 1.5; margin-top: 5px; }
 .field input, .field select { width: 100%; border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 9px; font-size: 13px; font-family: var(--font-sans); background: var(--surface); color: var(--text); appearance: none; }
 .field input:focus, .field select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 2px rgba(181,69,26,0.12); }
@@ -454,7 +459,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.7';
+const APP_VERSION = 'v0.8.8';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -522,6 +527,32 @@ document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
   if (!lastValid) return;
   renderChart(lastValid, lastIndexName, e.target.checked);
   if (lastMonthRows) renderMonthlyChart(lastMonthRows, lastIndexName, e.target.checked);
+});
+
+/* ── Collapsible sidebar explanations ──────────────────────────────────
+   Each static hint/note in the left column gets a chevron toggle. The
+   open/closed choice is remembered per hint (localStorage is a
+   convenience only — everything works without it). */
+document.querySelectorAll('.sidebar .field-hint:not(#layerStatus), .sidebar p.note').forEach((el, i) => {
+  const key = 'inferrd.hint.' + i;
+  let collapsed = false;
+  try { collapsed = localStorage.getItem(key) === '1'; } catch (e) {}
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'hint-toggle';
+  btn.innerHTML = '<svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 1.5 7 5 3 8.5"/></svg>Explanation';
+  const apply = () => {
+    btn.classList.toggle('collapsed', collapsed);
+    btn.setAttribute('aria-expanded', String(!collapsed));
+    el.style.display = collapsed ? 'none' : '';
+  };
+  btn.addEventListener('click', () => {
+    collapsed = !collapsed;
+    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) {}
+    apply();
+  });
+  el.parentNode.insertBefore(btn, el);
+  apply();
 });
 
 /* ── About modal ───────────────────────────────────────────────────── */

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.8 — 2026-09-19
+
+- **The explanatory text in the left column can now be minimised.** Each
+  hint and the note at the bottom of the sidebar has a small chevron
+  toggle ("Explanation") above it that collapses or expands it. Your
+  choice is remembered between visits.
+
 ## v0.8.7 — 2026-09-19
 
 - **The index in use is now named in the chart title**, e.g. "Vegetation
