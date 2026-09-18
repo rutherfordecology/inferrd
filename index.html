@@ -250,7 +250,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
           <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
         </div>
-        <div class="field-hint">Shows whichever index button above is selected first (if more than one is active) — that button gets a black border while the preview is on, and "1 of N selected" in the legend below means the same. Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
+        <div class="field-hint">Shows whichever index button above is selected first (if more than one is active) — that button gets a black border while the preview is on, and "1 of N selected" in the legend below means the same. Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches the colours to the 2nd–98th percentile of the drawn areas (all of them together, so multiple areas stay comparable with each other), which makes subtle variation stand out more — at the cost of no longer meaning the same value from year to year or run to run.</div>
         <div class="field-hint" id="layerStatus"></div>
         <div id="layerLegend" style="display:none;margin-top:6px;">
           <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
@@ -289,7 +289,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="metrics" id="metricsGrid"></div>
         <div class="chart-card">
           <div class="table-card-head">
-            <div class="card-title">Vegetation index over time</div>
+            <div class="card-title">Vegetation index over time (<span id="chartIndexName"></span>)</div>
             <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);cursor:pointer;">
               <input type="checkbox" id="yAxisZeroChk">Y-axis starts at 0
             </label>
@@ -317,7 +317,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div id="comparisonContent" style="display:none">
         <div class="chart-card">
-          <div class="card-title">Vegetation index over time — comparing <span id="compareAreaCount"></span> areas</div>
+          <div class="table-card-head">
+            <div class="card-title">Vegetation index over time (<span id="compareIndexName"></span>) — comparing <span id="compareAreaCount"></span> areas</div>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);cursor:pointer;">
+              <input type="checkbox" id="yAxisZeroCmpChk">Y-axis starts at 0
+            </label>
+          </div>
           <div id="comparisonChartWrap"></div>
           <div id="comparisonLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;"></div>
         </div>
@@ -449,7 +454,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.5';
+const APP_VERSION = 'v0.8.7';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -508,6 +513,11 @@ idxButtons.forEach(btn => btn.addEventListener('click', () => {
 
 // Re-draws the already-fetched results with the new axis setting — no new
 // Earth Engine call needed, this is purely a display preference.
+document.getElementById('yAxisZeroCmpChk').addEventListener('change', () => {
+  if (!lastAreaSeries) return;
+  renderComparisonChart(lastAreaSeries);
+  if (lastAreaSeries.some(s => s.monthRows && s.monthRows.length)) renderMonthlyComparisonChart(lastAreaSeries);
+});
 document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
   if (!lastValid) return;
   renderChart(lastValid, lastIndexName, e.target.checked);
@@ -713,9 +723,9 @@ document.getElementById('layerOpacity').addEventListener('input', (e) => {
 });
 
 // 'fixed' shares INDEX_VIS_PARAMS across every tile so colours mean the same
-// value everywhere (comparable across areas/years); 'auto' stretches each
-// tile to its own 2nd-98th percentile so within-polygon variation shows up
-// even when the whole polygon sits in a narrow band of the index.
+// value everywhere (comparable across areas/years); 'auto' stretches to the
+// 2nd-98th percentile of all drawn areas together (one range shared by every
+// tile) so variation shows up even when the areas sit in a narrow band.
 let scaleMode = 'fixed';
 const scaleButtons = [document.getElementById('scaleFixed'), document.getElementById('scaleAuto')];
 scaleButtons.forEach(btn => btn.addEventListener('click', () => {
@@ -756,58 +766,59 @@ function showIndexLayers() {
     document.getElementById('legendMin').textContent = visParamsFor(indexName).min;
     document.getElementById('legendMax').textContent = visParamsFor(indexName).max;
   } else {
-    // Each area gets its own stretch in auto mode, so there's no single
-    // number that's true for the whole legend unless there's only one area.
+    // Filled in with the shared 2nd–98th percentile once it's computed.
     document.getElementById('legendMin').textContent = 'low';
     document.getElementById('legendMax').textContent = 'high';
   }
 
   let pending = areas.length, failed = 0;
   try {
-    areas.forEach(area => {
-      const region = ee.Geometry(area.geojson.geometry);
-      const composite = buildYearComposite(region, year, cloudPct, indexName, seasonStart, seasonEnd);
+    const regions = areas.map(area => ee.Geometry(area.geojson.geometry));
+    const composites = regions.map(region => buildYearComposite(region, year, cloudPct, indexName, seasonStart, seasonEnd));
 
-      const addLayer = (visParams) => {
-        composite.getMapId(visParams, (mapId, err) => {
-          pending--;
-          if (err) {
-            failed++;
-          } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
-            const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxZoom: 20 });
-            layer.addTo(map);
-            indexMapLayers.push(layer);
-            drawnItems.bringToFront();
-          }
-          if (pending === 0) {
-            document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
-          }
-        });
-      };
+    const addLayer = (composite, visParams) => {
+      composite.getMapId(visParams, (mapId, err) => {
+        pending--;
+        if (err) {
+          failed++;
+        } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
+          const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxZoom: 20 });
+          layer.addTo(map);
+          indexMapLayers.push(layer);
+          drawnItems.bringToFront();
+        }
+        if (pending === 0) {
+          document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
+        }
+      });
+    };
+    const addAll = (visParams) => composites.forEach(c => addLayer(c, visParams));
 
-      if (scaleMode === 'fixed') {
-        addLayer(visParamsFor(indexName));
-      } else {
-        composite.reduceRegion({
-          reducer: ee.Reducer.percentile([2, 98]),
-          geometry: region,
-          scale: 10,
-          maxPixels: 1e9
-        }).evaluate((stats, err) => {
-          const lo = stats && stats[indexName + '_p2'];
-          const hi = stats && stats[indexName + '_p98'];
-          if (err || lo == null || hi == null || hi <= lo) {
-            addLayer(visParamsFor(indexName)); // not enough spread to stretch — fall back to the shared range
-            return;
-          }
-          if (areas.length === 1 && layersVisible) {
-            document.getElementById('legendMin').textContent = lo.toFixed(2);
-            document.getElementById('legendMax').textContent = hi.toFixed(2);
-          }
-          addLayer({ min: lo, max: hi, palette: INDEX_PALETTE });
-        });
-      }
-    });
+    if (scaleMode === 'fixed') {
+      addAll(visParamsFor(indexName));
+    } else {
+      // One stretch shared by every area (percentiles over all of them
+      // together), so their colours mean the same value and the areas can
+      // be compared with each other.
+      const allRegions = ee.FeatureCollection(regions.map(r => ee.Feature(r))).geometry();
+      ee.ImageCollection(composites).mosaic().reduceRegion({
+        reducer: ee.Reducer.percentile([2, 98]),
+        geometry: allRegions,
+        scale: 10,
+        maxPixels: 1e9
+      }).evaluate((stats, err) => {
+        const lo = stats && stats[indexName + '_p2'];
+        const hi = stats && stats[indexName + '_p98'];
+        if (!layersVisible) return; // user hid/changed things while the stretch was computing
+        if (err || lo == null || hi == null || hi <= lo) {
+          addAll(visParamsFor(indexName)); // not enough spread to stretch — fall back to the shared range
+          return;
+        }
+        document.getElementById('legendMin').textContent = lo.toFixed(2);
+        document.getElementById('legendMax').textContent = hi.toFixed(2);
+        addAll({ min: lo, max: hi, palette: INDEX_PALETTE });
+      });
+    }
   } catch (err) {
     layersVisible = false;
     document.getElementById('layerToggleBtn').textContent = 'Show';
@@ -1361,6 +1372,7 @@ function handleResults(rows, indexName, monthRows) {
   lastRows = rows;
   lastIndexName = indexName;
   lastValid = valid;
+  document.getElementById('chartIndexName').textContent = indexName;
   lastMonthRows = (monthRows && monthRows.length) ? monthRows : null;
 
   const years = valid.map(r => r.year);
@@ -1594,6 +1606,7 @@ function handleComparisonResults(areaSeries, indexName) {
   expandResultsPane();
 
   document.getElementById('compareAreaCount').textContent = areaSeries.length;
+  document.getElementById('compareIndexName').textContent = indexName;
 
   const hasMonthly = areaSeries.some(s => s.monthRows && s.monthRows.length);
   const monthlyCompareCard = document.getElementById('monthlyCompareCard');
@@ -1620,7 +1633,8 @@ function renderComparisonChart(areaSeries) {
   }
   const yMin = Math.min(...allBounds), yMax = Math.max(...allBounds);
   const pad = (yMax - yMin) * 0.1 || 0.05;
-  const y0 = yMin - pad, y1 = yMax + pad;
+  const startAtZero = document.getElementById('yAxisZeroCmpChk').checked;
+  const y0 = startAtZero ? Math.min(0, yMin - pad) : yMin - pad, y1 = yMax + pad;
   const x0 = Math.min(...allYears), x1 = Math.max(...allYears);
 
   const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
@@ -1706,7 +1720,8 @@ function renderMonthlyComparisonChart(areaSeries) {
   }
   const yMin = Math.min(...allY), yMax = Math.max(...allY);
   const pad = (yMax - yMin) * 0.12 || 0.05;
-  const y0 = yMin - pad, y1 = yMax + pad;
+  const startAtZero = document.getElementById('yAxisZeroCmpChk').checked;
+  const y0 = startAtZero ? Math.min(0, yMin - pad) : yMin - pad, y1 = yMax + pad;
   const x0 = Math.min(...allX), x1 = Math.max(...allX);
 
   const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);

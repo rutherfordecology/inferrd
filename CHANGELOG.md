@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.8.7 — 2026-09-19
+
+- **The index in use is now named in the chart title**, e.g. "Vegetation
+  index over time (EVI) — comparing 2 areas", on both the single-area and
+  multi-area charts.
+- **Added a "Y-axis starts at 0" option to the multi-area comparison
+  charts** (yearly and monthly). It previously existed only on the
+  single-area chart. It extends the axis down to 0 and never crops data.
+
+## v0.8.6 — 2026-09-19
+
+- **"This area's range" now uses one shared range across all drawn
+  areas.** Each area used to be stretched to its own 2nd–98th percentile,
+  so with two areas the same colour meant different values and they
+  couldn't be compared. The percentiles are now taken over all areas
+  together and applied to every tile, and the legend shows those shared
+  min/max values whenever more than one area is drawn. With a single area
+  it behaves as before.
+
 ## v0.8.5 — 2026-09-19
 
 - **The index button being previewed on the map now gets a black
