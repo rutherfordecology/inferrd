@@ -361,7 +361,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.3.0';
+const APP_VERSION = 'v0.3.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -659,8 +659,13 @@ function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endM
   return ee.Feature(null, {
     kind: 'year',
     year: year,
-    mean: stats.get(indexName + '_mean'),
-    std: stats.get(indexName + '_stdDev'),
+    // .get(key, null) — a period/polygon with too few valid pixels to
+    // compute a stdDev (or, in the extreme, no valid pixels for mean
+    // either) makes Earth Engine omit that key entirely rather than
+    // return null; without the default, .get() throws and kills the
+    // whole batched request instead of just this one data point.
+    mean: stats.get(indexName + '_mean', null),
+    std: stats.get(indexName + '_stdDev', null),
     n_images: nImages
   });
 }
@@ -698,8 +703,13 @@ function monthStatsFeature(region, year, month, maxCloudPct, indexName) {
     kind: 'month',
     year: year,
     month: month,
-    mean: stats.get(indexName + '_mean'),
-    std: stats.get(indexName + '_stdDev'),
+    // .get(key, null) — a period/polygon with too few valid pixels to
+    // compute a stdDev (or, in the extreme, no valid pixels for mean
+    // either) makes Earth Engine omit that key entirely rather than
+    // return null; without the default, .get() throws and kills the
+    // whole batched request instead of just this one data point.
+    mean: stats.get(indexName + '_mean', null),
+    std: stats.get(indexName + '_stdDev', null),
     n_images: nImages
   });
 }

@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.3.1 — 2026-09-18
+
+- **Fixed a real crash from live testing**: `Dictionary.get: Dictionary
+  does not contain key: 'NDVI_stdDev'`. When a year or month has too few
+  valid pixels to compute a standard deviation, Earth Engine omits that
+  key from its result dictionary entirely rather than returning null —
+  `.get()` without a fallback throws a hard server-side error that killed
+  the *entire* batched request (all years/months), not just that one data
+  point. Fixed with `.get(key, null)`, which the rest of the pipeline
+  already handled gracefully (same as a genuinely missing year). First
+  bug actually found via a real Earth Engine call — sign-in and the
+  overall query pipeline are confirmed working now that this surfaced.
+
 ## v0.3.0 — 2026-09-18
 
 - **Monthly detail (opt-in).** New checkbox fetches one composite per
