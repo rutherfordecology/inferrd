@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.4 — 2026-09-19
+
+- **Fixed the map preview showing the old year after changing the year.**
+  Since v0.8.3 made Hide keep the tiles loaded, changing the year and
+  pressing Show just un-faded the previous year's tiles. Changing the
+  year, season months, cloud threshold or index now reloads a visible
+  layer straight away, and drops a hidden one so Show fetches fresh tiles.
+
 ## v0.8.3 — 2026-09-19
 
 - **Added an opacity slider to the map preview, and Hide no longer

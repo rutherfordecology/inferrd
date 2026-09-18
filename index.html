@@ -448,7 +448,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.3';
+const APP_VERSION = 'v0.8.4';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -502,6 +502,7 @@ idxButtons.forEach(btn => btn.addEventListener('click', () => {
   if (btn.classList.contains('active') && activeCount === 1) return;
   btn.classList.toggle('active');
   selectedIndices = idxButtons.filter(b => b.classList.contains('active')).map(b => b.dataset.idx);
+  refreshLayerForNewParams();
 }));
 
 // Re-draws the already-fetched results with the new axis setting — no new
@@ -805,6 +806,16 @@ function showIndexLayers() {
     document.getElementById('layerStatus').textContent = 'Failed: ' + (err && err.message ? err.message : err);
   }
 }
+
+// The loaded tiles were built from the year/season/cloud/index settings at
+// the time, so a changed setting makes them stale. Visible: reload now.
+// Hidden: drop them, so the next Show fetches fresh tiles instead of just
+// un-fading the old ones.
+function refreshLayerForNewParams() {
+  if (!layersVisible) return;
+  if (layersHidden) hideIndexLayers(); else showIndexLayers();
+}
+[layerYearSel, seasonStartSel, seasonEndSel, cloudThresh].forEach(el => el.addEventListener('change', refreshLayerForNewParams));
 
 document.getElementById('layerToggleBtn').addEventListener('click', () => {
   if (!layersVisible) { showIndexLayers(); return; }
