@@ -167,7 +167,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 <header>
   <div class="header-brand">
     <h1><strong>inferrd</strong><em>.</em><span class="ver" id="verTag">v0.1.0</span></h1>
-    <span style="font-size:12px;font-weight:300;color:rgba(255,255,255,0.45);">by Rutherford Ecology</span>
+    <span style="font-size:12px;font-weight:300;color:rgba(255,255,255,0.5);">by <strong style="font-weight:700;color:rgba(255,255,255,0.85);">Rutherford</strong> <em style="font-style:normal;font-weight:300;">ecology</em></span>
   </div>
   <div class="header-right">
     <a href="https://occurd.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="about-btn">occurd. ↗</a>
@@ -200,6 +200,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <select id="layerYearSel"></select>
           <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
         </div>
+        <div class="tool-row" id="scaleModeRow" style="margin-top:6px;">
+          <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
+          <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
+        </div>
+        <div class="field-hint">Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
         <div class="field-hint" id="layerStatus"></div>
         <div id="layerLegend" style="display:none;margin-top:6px;">
           <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
@@ -237,10 +242,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="field-hint">Lower is stricter. 20% or below is recommended for reliable composites — raise it only if the per-year image counts below come back too low.</div>
       </div>
       <div class="field">
-        <label>Vegetation index</label>
+        <label>Index</label>
         <div class="tool-row">
-          <button class="tool-btn active" id="idxEvi" data-idx="EVI">EVI</button>
-          <button class="tool-btn" id="idxNdvi" data-idx="NDVI">NDVI</button>
+          <button class="tool-btn active" id="idxEvi" data-idx="EVI" title="Enhanced Vegetation Index — greenness, resists saturation in dense canopy">EVI</button>
+          <button class="tool-btn" id="idxNdvi" data-idx="NDVI" title="Normalized Difference Vegetation Index — greenness, the common reference point">NDVI</button>
+          <button class="tool-btn" id="idxNbr" data-idx="NBR" title="Normalized Burn Ratio — fire/clearance signature (bare ground vs. canopy)">NBR</button>
+          <button class="tool-btn" id="idxNdmi" data-idx="NDMI" title="Normalized Difference Moisture Index — canopy water content, flags drought stress">NDMI</button>
         </div>
       </div>
       <div class="check-row">
@@ -254,7 +261,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     </div>
 
     <div class="sidebar-footer">
-      <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy vegetation. NDVI stays available since it's the more common reference point in time-series work. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
+      <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy vegetation. NDVI stays available since it's the more common reference point in time-series work. NBR and NDMI use different bands (shortwave-infrared) to pick up burn/clearance and moisture stress respectively. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
     </div>
   </div>
 
@@ -338,13 +345,16 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>How it works</h3>
     <ul>
       <li>Draw your area of interest on the map</li>
-      <li>Choose a year range, an optional season window, a cloud-cover threshold, and a vegetation index (EVI or NDVI)</li>
+      <li>Choose a year range, an optional season window, a cloud-cover threshold, and an index (EVI, NDVI, NBR or NDMI)</li>
       <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels. The index itself is computed at Sentinel-2's native 10m resolution; the cloud mask comes from the 20m Scene Classification Layer, resampled by Earth Engine to align — completely standard practice, but it means cloud/shadow edges are effectively decided at a coarser resolution than the index itself</li>
       <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
     </ul>
 
+    <h3>The four indices</h3>
+    <p>EVI and NDVI both measure how much near-infrared light bounces back relative to red light, which is a proxy for green leaf material — it works because healthy leaves reflect NIR strongly. NBR swaps red for shortwave-infrared band 12 instead, which makes it far more sensitive to bare ground and char left by fire or clearance than to leaf greenness itself — the standard index for burn/disturbance detection. NDMI uses shortwave-infrared band 11, which responds to how much water is actually in the canopy — it can drop under drought or water stress before the plant looks any less green, so it's worth checking alongside EVI/NDVI rather than instead of them. All four move in the same direction (higher = healthier/wetter, lower = stressed/disturbed), so the trend analysis and interpretation text below read the same way regardless of which one you pick.</p>
+
     <h3>This is built for vegetation — not water</h3>
-    <p>EVI/NDVI measure how much near-infrared light bounces back relative to red light, which is a proxy for green leaf material — it works because healthy leaves reflect NIR strongly. Water does the opposite: it absorbs NIR almost completely, driving the index sharply negative regardless of what's happening biologically. If your drawn area is mostly or entirely water, the numbers aren't measuring vegetation at all — more likely turbidity, sediment, or algae/chlorophyll in the water column, none of which this tool's interpretation (dieback, drought, pests, clearance) was built to explain. The cloud mask here also deliberately keeps water pixels rather than excluding them, so a marine polygon gets no automatic protection — draw a land area for the results to mean what this tool says they mean.</p>
+    <p>All four indices rely on near-infrared reflectance, and water absorbs NIR almost completely, driving every one of them sharply negative regardless of what's happening biologically. If your drawn area is mostly or entirely water, the numbers aren't measuring vegetation at all — more likely turbidity, sediment, or algae/chlorophyll in the water column, none of which this tool's interpretation (dieback, drought, pests, clearance) was built to explain. The cloud mask here also deliberately keeps water pixels rather than excluding them, so a marine polygon gets no automatic protection — draw a land area for the results to mean what this tool says they mean.</p>
 
     <h3>Why "no trend" doesn't always mean "nothing happened"</h3>
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
@@ -408,7 +418,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.5.0';
+const APP_VERSION = 'v0.7.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -450,7 +460,7 @@ cloudThresh.addEventListener('input', () => { cloudThreshVal.textContent = cloud
 let eeReady = false;
 
 let selectedIndex = 'EVI';
-const idxButtons = [document.getElementById('idxEvi'), document.getElementById('idxNdvi')];
+const idxButtons = [document.getElementById('idxEvi'), document.getElementById('idxNdvi'), document.getElementById('idxNbr'), document.getElementById('idxNdmi')];
 idxButtons.forEach(btn => btn.addEventListener('click', () => {
   selectedIndex = btn.dataset.idx;
   idxButtons.forEach(b => b.classList.toggle('active', b === btn));
@@ -591,9 +601,34 @@ function removeArea(id) {
    on demand as you pan/zoom), so it's a separate, lightweight request —
    not the reduceRegion stats query.
    --------------------------------------------------------------------- */
-const INDEX_VIS_PARAMS = { min: -0.2, max: 0.8, palette: ['a50026', 'd73027', 'f46d43', 'fdae61', 'fee08b', 'ffffbf', 'd9ef8b', 'a6d96a', '66bd63', '1a9850', '006837'] };
+const INDEX_PALETTE = ['a50026', 'd73027', 'f46d43', 'fdae61', 'fee08b', 'ffffbf', 'd9ef8b', 'a6d96a', '66bd63', '1a9850', '006837'];
+// EVI/NDVI sit in a narrow high band over healthy canopy (0.2-0.95); NBR and
+// NDMI are centred closer to zero and swing negative under stress/burn scars,
+// so each index gets its own fixed range rather than sharing one.
+const INDEX_RANGES = {
+  EVI:  { min: 0.2,  max: 0.95 },
+  NDVI: { min: 0.2,  max: 0.95 },
+  NBR:  { min: -0.2, max: 0.6 },
+  NDMI: { min: -0.2, max: 0.6 }
+};
+function visParamsFor(indexName) {
+  const range = INDEX_RANGES[indexName] || INDEX_RANGES.EVI;
+  return { min: range.min, max: range.max, palette: INDEX_PALETTE };
+}
 let indexMapLayers = [];
 let layersVisible = false;
+
+// 'fixed' shares INDEX_VIS_PARAMS across every tile so colours mean the same
+// value everywhere (comparable across areas/years); 'auto' stretches each
+// tile to its own 2nd-98th percentile so within-polygon variation shows up
+// even when the whole polygon sits in a narrow band of the index.
+let scaleMode = 'fixed';
+const scaleButtons = [document.getElementById('scaleFixed'), document.getElementById('scaleAuto')];
+scaleButtons.forEach(btn => btn.addEventListener('click', () => {
+  scaleMode = btn.dataset.scale;
+  scaleButtons.forEach(b => b.classList.toggle('active', b === btn));
+  if (layersVisible) showIndexLayers();
+}));
 
 function hideIndexLayers() {
   indexMapLayers.forEach(l => map.removeLayer(l));
@@ -616,31 +651,65 @@ function showIndexLayers() {
   const cloudPct = Number(cloudThresh.value);
   const seasonStart = Number(seasonStartSel.value), seasonEnd = Number(seasonEndSel.value);
 
-  document.getElementById('legendMin').textContent = INDEX_VIS_PARAMS.min;
-  document.getElementById('legendMax').textContent = INDEX_VIS_PARAMS.max;
   document.getElementById('legendIndexName').textContent = indexName;
   document.getElementById('layerLegend').style.display = 'block';
   document.getElementById('layerStatus').textContent = 'Loading ' + areas.length + (areas.length === 1 ? ' layer…' : ' layers…');
+
+  if (scaleMode === 'fixed') {
+    document.getElementById('legendMin').textContent = visParamsFor(indexName).min;
+    document.getElementById('legendMax').textContent = visParamsFor(indexName).max;
+  } else {
+    // Each area gets its own stretch in auto mode, so there's no single
+    // number that's true for the whole legend unless there's only one area.
+    document.getElementById('legendMin').textContent = 'low';
+    document.getElementById('legendMax').textContent = 'high';
+  }
 
   let pending = areas.length, failed = 0;
   try {
     areas.forEach(area => {
       const region = ee.Geometry(area.geojson.geometry);
       const composite = buildYearComposite(region, year, cloudPct, indexName, seasonStart, seasonEnd);
-      composite.getMapId(INDEX_VIS_PARAMS, (mapId, err) => {
-        pending--;
-        if (err) {
-          failed++;
-        } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
-          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.85 });
-          layer.addTo(map);
-          indexMapLayers.push(layer);
-          drawnItems.bringToFront();
-        }
-        if (pending === 0) {
-          document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
-        }
-      });
+
+      const addLayer = (visParams) => {
+        composite.getMapId(visParams, (mapId, err) => {
+          pending--;
+          if (err) {
+            failed++;
+          } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
+            const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.85, maxZoom: 20 });
+            layer.addTo(map);
+            indexMapLayers.push(layer);
+            drawnItems.bringToFront();
+          }
+          if (pending === 0) {
+            document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
+          }
+        });
+      };
+
+      if (scaleMode === 'fixed') {
+        addLayer(visParamsFor(indexName));
+      } else {
+        composite.reduceRegion({
+          reducer: ee.Reducer.percentile([2, 98]),
+          geometry: region,
+          scale: 10,
+          maxPixels: 1e9
+        }).evaluate((stats, err) => {
+          const lo = stats && stats[indexName + '_p2'];
+          const hi = stats && stats[indexName + '_p98'];
+          if (err || lo == null || hi == null || hi <= lo) {
+            addLayer(visParamsFor(indexName)); // not enough spread to stretch — fall back to the shared range
+            return;
+          }
+          if (areas.length === 1 && layersVisible) {
+            document.getElementById('legendMin').textContent = lo.toFixed(2);
+            document.getElementById('legendMax').textContent = hi.toFixed(2);
+          }
+          addLayer({ min: lo, max: hi, palette: INDEX_PALETTE });
+        });
+      }
     });
   } catch (err) {
     layersVisible = false;
@@ -789,7 +858,13 @@ function addIndices(image) {
     '2.5 * ((NIR - RED) / (NIR + 6 * RED - 7.5 * BLUE + 1))',
     { NIR: image.select('B8'), RED: image.select('B4'), BLUE: image.select('B2') }
   ).rename('EVI');
-  return image.addBands(ndvi).addBands(evi);
+  // NBR = (NIR - SWIR2) / (NIR + SWIR2) — burn/clearance signature; drops
+  // sharply where canopy or ground cover is lost, same direction as EVI/NDVI.
+  const nbr = image.normalizedDifference(['B8', 'B12']).rename('NBR');
+  // NDMI = (NIR - SWIR1) / (NIR + SWIR1) — canopy moisture content; drops
+  // under drought/water stress even before greenness (NDVI/EVI) responds.
+  const ndmi = image.normalizedDifference(['B8', 'B11']).rename('NDMI');
+  return image.addBands(ndvi).addBands(evi).addBands(nbr).addBands(ndmi);
 }
 
 // A .get(key, null) fallback turned out not to actually suppress
@@ -1384,16 +1459,20 @@ function handleComparisonResults(areaSeries, indexName) {
 }
 
 function renderComparisonChart(areaSeries) {
-  const w = 640, h = 240, padL = 44, padR = 16, padT = 16, padB = 28;
+  const w = 640, h = 180, padL = 44, padR = 16, padT = 12, padB = 24;
   const series = areaSeries.map(s => ({ area: s.area, valid: s.rows.filter(r => r.mean !== null && r.mean !== undefined) }));
-  const allYears = [], allMeans = [];
-  series.forEach(s => s.valid.forEach(r => { allYears.push(r.year); allMeans.push(r.mean); }));
+  const allYears = [], allMeans = [], allBounds = [];
+  series.forEach(s => s.valid.forEach(r => {
+    allYears.push(r.year); allMeans.push(r.mean);
+    const std = r.std || 0;
+    allBounds.push(r.mean - std, r.mean + std);
+  }));
   if (!allMeans.length) {
     document.getElementById('comparisonChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">No usable data to chart.</div>';
     document.getElementById('comparisonLegend').innerHTML = '';
     return;
   }
-  const yMin = Math.min(...allMeans), yMax = Math.max(...allMeans);
+  const yMin = Math.min(...allBounds), yMax = Math.max(...allBounds);
   const pad = (yMax - yMin) * 0.1 || 0.05;
   const y0 = yMin - pad, y1 = yMax + pad;
   const x0 = Math.min(...allYears), x1 = Math.max(...allYears);
@@ -1412,6 +1491,13 @@ function renderComparisonChart(areaSeries) {
     svg += '<text x="' + xScale(yr) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="var(--text3)">' + yr + '</text>';
   });
   series.forEach(s => {
+    // error bars first so the line/points sit on top of them
+    s.valid.forEach(r => {
+      const std = r.std || 0;
+      if (!std) return;
+      const cx = xScale(r.year);
+      svg += '<line x1="' + cx + '" y1="' + yScale(r.mean + std) + '" x2="' + cx + '" y2="' + yScale(r.mean - std) + '" stroke="' + s.area.color + '" stroke-width="1.5" opacity="0.45"/>';
+    });
     if (s.valid.length > 1) {
       svg += '<polyline points="' + s.valid.map(r => xScale(r.year) + ',' + yScale(r.mean)).join(' ') + '" fill="none" stroke="' + s.area.color + '" stroke-width="2"/>';
     }

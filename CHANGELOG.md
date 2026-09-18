@@ -1,5 +1,88 @@
 # Changelog
 
+## v0.7.1 — 2026-09-18
+
+- Added a brief hover tooltip (native `title` attribute, matching the
+  pattern already used for the resize handle and area-remove icon) to
+  each of the four index buttons, spelling out what the code stands for
+  and what it's for — EVI/NDVI/NBR/NDMI aren't self-explanatory at a
+  glance.
+
+## v0.7.0 — 2026-09-18
+
+- **Added NBR and NDMI as selectable indices**, alongside EVI/NDVI. Both
+  come from the same Sentinel-2 scene at no extra query cost — `addIndices`
+  now also computes NBR (NIR vs. SWIR2, band 12 — the standard fire/clearance
+  signature) and NDMI (NIR vs. SWIR1, band 11 — canopy moisture, tends to
+  respond to drought stress before greenness does). The whole stats/trend
+  pipeline (`yearStatsFeature`, `monthStatsFeature`, `buildYearComposite`)
+  was already generic over `indexName`, so no changes were needed there —
+  this was purely a matter of computing the extra bands and exposing them
+  as buttons.
+- The map-preview "fixed" colour scale used one shared `0.2–0.95` range for
+  every index. That range assumes a healthy-canopy EVI/NDVI value and
+  doesn't fit NBR/NDMI, which sit closer to zero and swing negative under
+  burn/stress — replaced with `INDEX_RANGES`/`visParamsFor()`, keyed per
+  index (NBR/NDMI use `-0.2–0.6`), so each index's fixed-scale legend and
+  tile colours are meaningful rather than borrowing EVI's range.
+- Updated the About modal and README with a short explanation of what each
+  of the four indices measures and why NBR/NDMI were added.
+
+## v0.6.2 — 2026-09-18
+
+- Restyled the header byline to match the "by **Rutherford** *ecology*"
+  treatment already used in Occurd's welcome modal — bold "Rutherford",
+  light italic lowercase "ecology" — instead of one flat 45%-opacity
+  string. Same burnt-orange header, no colour change.
+
+## v0.6.1 — 2026-09-18
+
+- **Added error bars to the multi-area comparison chart.** `renderChart`
+  (single area) always drew ±1σ error bars, but `renderComparisonChart`
+  never did — a gap between the two functions, not a shared bug. Each
+  series now gets bars in its own colour at reduced opacity, drawn
+  under the line/points so the trend stays legible with several areas
+  on screen. The y-axis range now accounts for the bars' extent too,
+  so they don't get clipped.
+- Shrunk the comparison chart's aspect ratio (`240` → `180` logical
+  height) — it's an SVG that fills its container width, so this makes
+  it noticeably more compact without needing a fixed pixel size.
+
+## v0.6.0 — 2026-09-18
+
+- **Added a second colour-scale mode for the map preview.** "Standard
+  scale" keeps the shared `0.2–0.95` range from v0.5.1, so a colour
+  means the same index value on every tile — comparable across areas
+  and years. The new "This area's range" mode stretches each tile to
+  its own 2nd–98th percentile instead, computed via `reduceRegion` per
+  area/year before requesting the tile, so subtle variation *within* one
+  polygon shows up even when the whole polygon sits in a narrow band
+  (e.g. all healthy canopy). Toggle lives under "Preview index on map";
+  switching it re-renders any layers currently shown. Falls back to the
+  standard range if an area's spread is too small to stretch (flat/no
+  data), and the legend shows the actual computed min/max when exactly
+  one area is on screen.
+
+## v0.5.2 — 2026-09-18
+
+- **Fixed the index tile layer disappearing when zoomed in close.** It
+  was created without a `maxZoom`, so Leaflet applied its default cap of
+  18 and stopped rendering the EE tiles past that zoom level, while the
+  base aerial imagery (explicitly capped at 19) kept going — leaving the
+  colour overlay blank up close but visible again once you zoomed back
+  out. Raised to 20; Earth Engine's tile service renders on demand per
+  request rather than from a fixed pyramid, so there's no native-res
+  ceiling to respect here.
+
+## v0.5.1 — 2026-09-18
+
+- **Tightened the map preview colour scale.** `INDEX_VIS_PARAMS` was
+  fixed at `-0.2–0.8`, but real EVI/NDVI values over vegetation rarely
+  go negative and mostly cluster in the upper half of that range — so
+  most tiles rendered as a wash of similar greens, with the red-yellow
+  half of the ramp never touched. Narrowed to `0.2–0.95` so subtle
+  differences between tiles actually show up as distinct colours.
+
 ## v0.5.0 — 2026-09-18
 
 - **Monthly detail now works across multiple areas.** Lifted the

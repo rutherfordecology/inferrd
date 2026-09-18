@@ -53,8 +53,8 @@ there's an `inferrd` preview entry that does this automatically.)
 
 1. Draw your area of interest on the map (polygon or rectangle tool)
 2. Choose a start/end year, an optional season window (month range, repeats
-   every year — see below), a max scene cloud-cover threshold, and a
-   vegetation index (EVI or NDVI)
+   every year — see below), a max scene cloud-cover threshold, and an index
+   (EVI, NDVI, NBR or NDMI)
 3. For each year, inferrd. builds a cloud-masked median composite from
    Sentinel-2 Level-2A surface reflectance (`COPERNICUS/S2_SR_HARMONIZED`) —
    atmospherically corrected via Sen2Cor, not raw top-of-atmosphere imagery,
@@ -97,6 +97,18 @@ EVI resists saturation better than NDVI in dense, closed-canopy vegetation —
 the technical pick for that case. NDVI stays available as a toggle since it
 remains the more common reference point in general time-series work, and
 costs nothing extra to compute alongside EVI.
+
+### NBR and NDMI
+
+Both are computed from the same Sentinel-2 scene, at no extra query cost —
+they just read different bands than EVI/NDVI. NBR (NIR vs. shortwave-infrared
+band 12) is the standard index for fire/clearance detection: it's driven by
+bare ground and char rather than leaf greenness, so it can separate "this
+area burned" from "this area just looks a bit less green." NDMI (NIR vs.
+shortwave-infrared band 11) tracks canopy moisture content, and tends to
+respond to drought or water stress before greenness-based indices do. All
+four indices move the same direction (higher = healthier/wetter), so the
+trend analysis works identically regardless of which one is selected.
 
 ## Limitations
 
