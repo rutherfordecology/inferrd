@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.4.0 — 2026-09-18
+
+- **Multiple areas, compared on one graph.** Draw as many polygons as you
+  want (each gets a name — editable inline — and a colour, shown in a
+  sidebar list matching Occurd's own multi-item list style). With one
+  area, the full single-area view (metrics, interpretation, monthly
+  detail) works exactly as before. With two or more, results switch to a
+  comparison view instead: one overlaid chart with a legend, plus a
+  per-area summary table (trend, Mann-Kendall p, Sen's slope, biggest
+  single-year change — computed independently per area, not pooled).
+  Monthly detail and the deseasonalized natural-variability baseline stay
+  single-area only, since they'd multiply cost per extra area.
+- The polygon edit tool (reshape) now keeps each area's stored geometry
+  in sync when dragged/reshaped, not just at first draw.
+- Default start year is now 2017 (matching the corrected Sentinel-2
+  Level-2A data-availability floor from the previous release).
+
+## v0.3.5 — 2026-09-18
+
+- Monthly chart x-axis now shows a small tick for every calendar month
+  in range, plus a taller, bolder tick and label at each January — the
+  monthly rhythm is visible at a glance while the year stays the primary
+  reference point, instead of only labelling January with no month ticks
+  at all.
+
+## v0.3.4 — 2026-09-18
+
+- Added an OLS linear trend line (dashed) to the monthly detail chart, so
+  the overall direction is visible at a glance alongside the seasonal
+  wave. Noisier than the annual Sen's-slope trend by nature — it doesn't
+  account for seasonality — so it's a visual cue, not a replacement for
+  the main trend analysis.
+
 ## v0.3.3 — 2026-09-18
 
 - **v0.3.1's fix for the missing-stdDev-key crash didn't actually work** —
