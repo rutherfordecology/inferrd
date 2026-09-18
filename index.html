@@ -247,8 +247,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <input type="checkbox" id="monthlyDetailChk">
         <label for="monthlyDetailChk" id="monthlyDetailLabel" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also fetch monthly detail (seasonal pattern + natural-variability baseline)</label>
       </div>
-      <div class="field-hint">Runs ~12x more sub-queries (one per month instead of one per year), so it's slower — but it's the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area's index normally fluctuate."</div>
-      <div class="field-hint" id="monthlyDisabledNote" style="display:none;color:var(--amber);">Only available with a single area — you have more than one drawn right now. Remove the others (✕ next to each, above) to use it.</div>
+      <div class="field-hint" id="monthlyHint">Runs ~12x more sub-queries (one per month instead of one per year, per area), so it's slower — but it's the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area's index normally fluctuate."</div>
 
       <button class="run-btn" id="runBtn" disabled>Run analysis</button>
       <div class="status-bar" id="statusBar"></div>
@@ -308,9 +307,14 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <div id="comparisonChartWrap"></div>
           <div id="comparisonLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;"></div>
         </div>
+        <div class="chart-card" id="monthlyCompareCard" style="display:none">
+          <div class="card-title">Monthly detail — seasonal pattern by area</div>
+          <div class="field-hint" style="margin:-4px 0 8px;">Same natural-variability baseline as the single-area view, computed independently per area — see the summary table below.</div>
+          <div id="monthlyCompareChartWrap"></div>
+        </div>
         <div class="interp-card">
           <div class="card-title">About this view</div>
-          <p>Each area gets its own trend analysis below — Mann-Kendall/Sen's-slope trend and the biggest single-year change are computed independently per area, not pooled together. Monthly detail and the deseasonalized natural-variability baseline aren't available in comparison mode — remove all but one area to use those.</p>
+          <p>Each area gets its own trend analysis below — Mann-Kendall/Sen's-slope trend, the biggest single-year change, and (with monthly detail on) the natural-variability baseline are all computed independently per area, not pooled together.</p>
         </div>
         <div class="table-card">
           <div class="table-card-head">
@@ -338,6 +342,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels. The index itself is computed at Sentinel-2's native 10m resolution; the cloud mask comes from the 20m Scene Classification Layer, resampled by Earth Engine to align — completely standard practice, but it means cloud/shadow edges are effectively decided at a coarser resolution than the index itself</li>
       <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
     </ul>
+
+    <h3>This is built for vegetation — not water</h3>
+    <p>EVI/NDVI measure how much near-infrared light bounces back relative to red light, which is a proxy for green leaf material — it works because healthy leaves reflect NIR strongly. Water does the opposite: it absorbs NIR almost completely, driving the index sharply negative regardless of what's happening biologically. If your drawn area is mostly or entirely water, the numbers aren't measuring vegetation at all — more likely turbidity, sediment, or algae/chlorophyll in the water column, none of which this tool's interpretation (dieback, drought, pests, clearance) was built to explain. The cloud mask here also deliberately keeps water pixels rather than excluding them, so a marine polygon gets no automatic protection — draw a land area for the results to mean what this tool says they mean.</p>
 
     <h3>Why "no trend" doesn't always mean "nothing happened"</h3>
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
@@ -401,7 +408,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.4.2';
+const APP_VERSION = 'v0.5.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -560,11 +567,9 @@ function renderAreaList() {
     nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
   });
   document.getElementById('drawHint').style.display = areas.length ? 'none' : 'block';
-  const monthlyChk = document.getElementById('monthlyDetailChk');
-  monthlyChk.disabled = areas.length > 1;
-  if (areas.length > 1) monthlyChk.checked = false;
-  document.getElementById('monthlyDetailLabel').title = areas.length > 1 ? 'Only available with a single area — remove the others to use it.' : '';
-  document.getElementById('monthlyDisabledNote').style.display = areas.length > 1 ? 'block' : 'none';
+  document.getElementById('monthlyHint').textContent = areas.length > 1
+    ? 'Runs ~12x more sub-queries per area (one per month instead of one per year), so with ' + areas.length + ' areas that\'s a real wait — but it\'s the only way to see each area\'s seasonal wave and a real, location-specific natural-variability baseline.'
+    : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   updateRunEnabled();
@@ -650,7 +655,11 @@ document.getElementById('layerToggleBtn').addEventListener('click', () => {
 });
 
 map.on(L.Draw.Event.CREATED, (e) => {
-  const color = AREA_COLORS[areas.length % AREA_COLORS.length];
+  // Colour keyed off the permanent, ever-incrementing id — not
+  // areas.length, which shrinks on removal and can hand out a colour
+  // already in use by a surviving area (draw 2, remove the 1st, draw a
+  // 3rd: length is back to 1, so the old "2nd colour" logic repeats it).
+  const color = AREA_COLORS[nextAreaNum % AREA_COLORS.length];
   if (e.layer.setStyle) e.layer.setStyle({ color: color, weight: 2, fillColor: color, fillOpacity: 0.15 });
   drawnItems.addLayer(e.layer);
   areas.push({ id: nextAreaNum, name: 'Area ' + nextAreaNum, color: color, layer: e.layer, geojson: e.layer.toGeoJSON() });
@@ -860,7 +869,7 @@ function monthDateRange(year, month) {
 // for the optional monthly-detail view, which exists to answer "how much
 // does this vary within a year, normally?" rather than to replace the
 // annual (or season-window) trend analysis.
-function monthStatsFeature(region, year, month, maxCloudPct, indexName) {
+function monthStatsFeature(region, year, month, maxCloudPct, indexName, areaId) {
   const { start, end } = monthDateRange(year, month);
   const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
@@ -880,6 +889,7 @@ function monthStatsFeature(region, year, month, maxCloudPct, indexName) {
 
   return ee.Feature(null, {
     kind: 'month',
+    areaId: areaId,
     year: year,
     month: month,
     mean: safeDictGet(stats, indexName + '_mean'),
@@ -904,13 +914,11 @@ function runAnalysis() {
   const seasonStart = Number(seasonStartSel.value);
   const seasonEnd = Number(seasonEndSel.value);
   const fullYear = seasonStart === 1 && seasonEnd === 12;
-  // Monthly detail multiplies cost per area (~12x sub-queries each), so
-  // it's restricted to the single-area case to keep multi-area runs sane.
-  const includeMonthly = areas.length === 1 && document.getElementById('monthlyDetailChk').checked;
+  const includeMonthly = document.getElementById('monthlyDetailChk').checked;
 
   document.getElementById('runBtn').disabled = true;
   setStatus('info', 'Pulling Sentinel-2 data for ' + areas.length + (areas.length === 1 ? ' area' : ' areas') + ' × ' + years.length + (fullYear ? ' years' : ' seasons')
-    + (includeMonthly ? ' plus monthly detail (~' + (years.length * 12) + ' extra sub-queries)' : '')
+    + (includeMonthly ? ' plus monthly detail (~' + (areas.length * years.length * 12) + ' extra sub-queries)' : '')
     + ' — this is a summary-statistics query (not a bulk download), typically seconds to a minute or so, longer with more areas or monthly detail on…');
 
   const slowNotice = setTimeout(() => {
@@ -927,7 +935,7 @@ function runAnalysis() {
       years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd, area.id)));
       if (includeMonthly) {
         years.forEach(y => {
-          for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName));
+          for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName, area.id));
         });
       }
     });
@@ -951,15 +959,15 @@ function runAnalysis() {
       const p = f.properties;
       return { ...p, mean: desentinel(p.mean), std: desentinel(p.std) };
     });
-    const monthRows = allRows.filter(r => r.kind === 'month').sort((a, b) => a.year - b.year || a.month - b.month);
-
     if (areas.length === 1) {
       const rows = allRows.filter(r => r.kind === 'year').sort((a, b) => a.year - b.year);
+      const monthRows = allRows.filter(r => r.kind === 'month').sort((a, b) => a.year - b.year || a.month - b.month);
       handleResults(rows, indexName, monthRows);
     } else {
       const areaSeries = areas.map(a => ({
         area: a,
-        rows: allRows.filter(r => r.kind === 'year' && r.areaId === a.id).sort((a2, b2) => a2.year - b2.year)
+        rows: allRows.filter(r => r.kind === 'year' && r.areaId === a.id).sort((a2, b2) => a2.year - b2.year),
+        monthRows: allRows.filter(r => r.kind === 'month' && r.areaId === a.id).sort((a2, b2) => a2.year - b2.year || a2.month - b2.month)
       }));
       handleComparisonResults(areaSeries, indexName);
     }
@@ -1366,6 +1374,11 @@ function handleComparisonResults(areaSeries, indexName) {
 
   document.getElementById('compareAreaCount').textContent = areaSeries.length;
 
+  const hasMonthly = areaSeries.some(s => s.monthRows && s.monthRows.length);
+  const monthlyCompareCard = document.getElementById('monthlyCompareCard');
+  monthlyCompareCard.style.display = hasMonthly ? 'block' : 'none';
+  if (hasMonthly) renderMonthlyComparisonChart(areaSeries);
+
   renderComparisonChart(areaSeries);
   renderComparisonTable(areaSeries);
 }
@@ -1419,28 +1432,97 @@ function renderComparisonChart(areaSeries) {
 
 function renderComparisonTable(areaSeries) {
   const table = document.getElementById('compareSummaryTable');
-  let html = '<thead><tr><th>Area</th><th>Years w/ data</th><th>Trend</th><th>MK p</th><th>Sen\'s slope/yr</th><th>Biggest single-year change</th></tr></thead><tbody>';
+  const hasMonthly = areaSeries.some(s => s.monthRows && s.monthRows.length);
+  let html = '<thead><tr><th>Area</th><th>Years w/ data</th><th>Trend</th><th>MK p</th><th>Sen\'s slope/yr</th><th>Biggest single-year change</th>' + (hasMonthly ? '<th>Natural variability (±1σ)</th>' : '') + '</tr></thead><tbody>';
   areaSeries.forEach(s => {
     const nameCell = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + s.area.color + ';margin-right:5px;vertical-align:middle;"></span>' + s.area.name.replace(/</g, '&lt;');
     const valid = s.rows.filter(r => r.mean !== null && r.mean !== undefined);
     if (valid.length < 2) {
-      html += '<tr><td>' + nameCell + '</td><td colspan="5" style="color:var(--text3);">Not enough usable data</td></tr>';
+      html += '<tr><td>' + nameCell + '</td><td colspan="' + (hasMonthly ? 6 : 5) + '" style="color:var(--text3);">Not enough usable data</td></tr>';
       return;
     }
     const years = valid.map(r => r.year), means = valid.map(r => r.mean), stds = valid.map(r => r.std || 0);
+    const baseline = computeSeasonalBaseline(s.monthRows);
     const trend = analyzeTrend(years, means);
-    const yoy = largestYoyChange(years, means, stds, null);
+    const yoy = largestYoyChange(years, means, stds, baseline);
     html += '<tr>' +
       '<td>' + nameCell + '</td>' +
       '<td>' + valid.length + '</td>' +
       '<td>' + trend.mkTrend + '</td>' +
       '<td>' + trend.mkPValue.toFixed(3) + '</td>' +
       '<td>' + trend.senSlope.toFixed(4) + '</td>' +
-      '<td>' + (yoy ? yoy.fromYear + '→' + yoy.toYear + ' ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(3) : '—') + '</td>' +
+      '<td>' + (yoy ? yoy.fromYear + '→' + yoy.toYear + ' ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(3) + (yoy.baselineSigma !== undefined ? ' (' + yoy.baselineSigma.toFixed(1) + 'σ)' : '') : '—') + '</td>' +
+      (hasMonthly ? '<td>' + (baseline ? '±' + baseline.anomalyStd.toFixed(4) : '—') + '</td>' : '') +
       '</tr>';
   });
   html += '</tbody>';
   table.innerHTML = html;
+}
+
+function renderMonthlyComparisonChart(areaSeries) {
+  const w = 640, h = 220, padL = 44, padR = 16, padT = 16, padB = 34;
+  const dec = r => r.year + (r.month - 1) / 12;
+  const series = areaSeries.filter(s => s.monthRows && s.monthRows.length).map(s => ({
+    area: s.area,
+    valid: s.monthRows.filter(r => r.mean !== null && r.mean !== undefined)
+  }));
+  const allX = [], allY = [];
+  series.forEach(s => s.valid.forEach(r => { allX.push(dec(r)); allY.push(r.mean); }));
+  if (!allY.length) {
+    document.getElementById('monthlyCompareChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">No usable monthly data to chart.</div>';
+    return;
+  }
+  const yMin = Math.min(...allY), yMax = Math.max(...allY);
+  const pad = (yMax - yMin) * 0.12 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = Math.min(...allX), x1 = Math.max(...allX);
+
+  const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  for (let i = 0; i <= 3; i++) {
+    const v = y0 + (i / 3) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="9" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  const axisY = h - padB;
+  svg += '<line x1="' + padL + '" y1="' + axisY + '" x2="' + (w - padR) + '" y2="' + axisY + '" stroke="var(--border2)" stroke-width="1"/>';
+  for (let yy2 = Math.floor(x0); yy2 <= Math.ceil(x1); yy2++) {
+    for (let mm = 1; mm <= 12; mm++) {
+      const xd = yy2 + (mm - 1) / 12;
+      if (xd < x0 - 1e-9 || xd > x1 + 1e-9) continue;
+      const xx = xScale(xd);
+      if (mm === 1) {
+        svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 7) + '" stroke="var(--text3)" stroke-width="1.3"/>';
+        svg += '<text x="' + xx + '" y="' + (h - 4) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text2)">' + yy2 + '</text>';
+      } else {
+        svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 3) + '" stroke="var(--border2)" stroke-width="1"/>';
+      }
+    }
+  }
+  series.forEach(s => {
+    // only connect truly consecutive months, same reasoning as the
+    // single-area monthly chart — a cloud-out gap shouldn't look smooth
+    let segment = [];
+    const flush = () => {
+      if (segment.length > 1) svg += '<polyline points="' + segment.map(p => xScale(p.x) + ',' + yScale(p.y)).join(' ') + '" fill="none" stroke="' + s.area.color + '" stroke-width="1.5"/>';
+      segment = [];
+    };
+    s.valid.forEach((r, i) => {
+      if (i > 0) {
+        const prev = s.valid[i - 1];
+        const consecutive = (r.year === prev.year && r.month === prev.month + 1) || (r.year === prev.year + 1 && prev.month === 12 && r.month === 1);
+        if (!consecutive) flush();
+      }
+      segment.push({ x: dec(r), y: r.mean });
+    });
+    flush();
+    s.valid.forEach(r => { svg += '<circle cx="' + xScale(dec(r)) + '" cy="' + yScale(r.mean) + '" r="2" fill="' + s.area.color + '"/>'; });
+  });
+  svg += '</svg>';
+  document.getElementById('monthlyCompareChartWrap').innerHTML = svg;
 }
 
 document.getElementById('exportCompareCsvBtn').addEventListener('click', () => {

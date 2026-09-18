@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.5.0 — 2026-09-18
+
+- **Monthly detail now works across multiple areas.** Lifted the
+  single-area restriction from v0.4.0 — with 2+ areas and monthly detail
+  on, the comparison view gains its own seasonal chart (one line per
+  area) and each area's natural-variability baseline appears in the
+  per-area summary table, computed independently rather than pooled.
+  Cost scales with areas × years × 12, so it's the slowest combination
+  available, but that trade-off is now available rather than blocked.
+- **Fixed a real colour-collision bug.** Area colours were assigned from
+  `areas.length` (the array's current size), which shrinks when an area
+  is removed — draw two areas, remove the first, draw a third, and the
+  new one could get handed a colour already in use by a survivor (found
+  via a real comparison where both areas rendered identically blue).
+  Colours are now keyed off each area's permanent id instead, which
+  never gets reused or reassigned.
+- Added a "this is built for vegetation, not water" caveat to the About
+  modal — EVI/NDVI over water measures turbidity/sediment/chlorophyll,
+  not anything the tool's dieback/drought/pest/clearance interpretation
+  was built to explain, and the cloud mask deliberately keeps water
+  pixels rather than excluding them.
+
 ## v0.4.2 — 2026-09-18
 
 - Made it visible, not just a hover tooltip, when "monthly detail" is
