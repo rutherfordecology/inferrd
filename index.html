@@ -75,6 +75,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .tool-row { display: flex; gap: 6px; margin-top: 0.3rem; }
 .tool-btn { flex: 1; padding: 7px; font-size: 12.5px; font-family: var(--font-sans); font-weight: 500; border-radius: var(--radius); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); transition: all 0.12s; text-align: center; }
 .tool-btn.active { background: var(--orange-dark); color: white; border-color: var(--orange-dark); }
+.tool-btn.previewing { box-shadow: 0 0 0 2px #000; }
 .tool-btn:hover:not(.active) { background: var(--border); }
 
 .poly-empty { font-size: 12.5px; color: var(--text3); padding: 6px 0; }
@@ -249,7 +250,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
           <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
         </div>
-        <div class="field-hint">Shows whichever index button above is selected first (if more than one is active) — "1 of N selected" in the legend below means that. Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
+        <div class="field-hint">Shows whichever index button above is selected first (if more than one is active) — that button gets a black border while the preview is on, and "1 of N selected" in the legend below means the same. Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
         <div class="field-hint" id="layerStatus"></div>
         <div id="layerLegend" style="display:none;margin-top:6px;">
           <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
@@ -448,7 +449,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.4';
+const APP_VERSION = 'v0.8.5';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -693,10 +694,16 @@ let layersVisible = false;
 // instant instead of another Earth Engine round trip.
 let layersHidden = false;
 let layerOpacity = 0.85;
+// Black border on the index button whose tiles the preview is showing.
+function updatePreviewMarker() {
+  const shown = layersVisible && !layersHidden ? selectedIndices[0] : null;
+  idxButtons.forEach(b => b.classList.toggle('previewing', b.dataset.idx === shown));
+}
 function effectiveLayerOpacity() { return layersHidden ? 0 : layerOpacity; }
 function applyLayerOpacity() {
   indexMapLayers.forEach(l => l.setOpacity(effectiveLayerOpacity()));
   document.getElementById('layerToggleBtn').textContent = layersVisible && !layersHidden ? 'Hide' : 'Show';
+  updatePreviewMarker();
 }
 document.getElementById('layerOpacity').addEventListener('input', (e) => {
   layerOpacity = Number(e.target.value) / 100;
@@ -722,6 +729,7 @@ function hideIndexLayers() {
   indexMapLayers = [];
   layersVisible = false;
   layersHidden = false;
+  updatePreviewMarker();
   document.getElementById('layerToggleBtn').textContent = 'Show';
   document.getElementById('layerLegend').style.display = 'none';
   document.getElementById('layerStatus').textContent = '';
@@ -733,6 +741,7 @@ function showIndexLayers() {
   hideIndexLayers();
   layersVisible = true;
   document.getElementById('layerToggleBtn').textContent = 'Hide';
+  updatePreviewMarker();
 
   const year = Number(layerYearSel.value);
   const indexName = selectedIndices[0]; // map preview only ever shows one band at a time

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.8.5 — 2026-09-19
+
+- **The index button being previewed on the map now gets a black
+  border.** The preview only ever shows one index (the first selected),
+  which wasn't obvious when several were active. The border appears while
+  the preview is visible and clears on Hide.
+
 ## v0.8.4 — 2026-09-19
 
 - **Fixed the map preview showing the old year after changing the year.**
