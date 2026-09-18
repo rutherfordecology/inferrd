@@ -194,6 +194,18 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="instruction-box">Draw one or more areas on the map (polygon tool, top-left). Draw more than one to compare them on the same graph.</div>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
+      <div id="layerControls" style="display:none;margin-top:0.6rem;">
+        <label style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px;">Preview index on map</label>
+        <div class="half">
+          <select id="layerYearSel"></select>
+          <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
+        </div>
+        <div class="field-hint" id="layerStatus"></div>
+        <div id="layerLegend" style="display:none;margin-top:6px;">
+          <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span id="legendMin"></span><span id="legendIndexName"></span><span id="legendMax"></span></div>
+        </div>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -388,7 +400,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.4.0';
+const APP_VERSION = 'v0.4.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -405,6 +417,10 @@ for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) {
 }
 yearStartSel.value = EARLIEST_YEAR;
 yearEndSel.value = CURRENT_YEAR;
+
+const layerYearSel = document.getElementById('layerYearSel');
+for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) layerYearSel.add(new Option(y, y));
+layerYearSel.value = CURRENT_YEAR;
 
 /* ── Season window (month range, repeats every year) ─────────────────── */
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -547,6 +563,8 @@ function renderAreaList() {
   monthlyChk.disabled = areas.length > 1;
   if (areas.length > 1) monthlyChk.checked = false;
   document.getElementById('monthlyDetailLabel').title = areas.length > 1 ? 'Only available with a single area — remove the others to use it.' : '';
+  document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
+  hideIndexLayers(); // areas changed — any layer already shown no longer matches
   updateRunEnabled();
 }
 
@@ -557,6 +575,77 @@ function removeArea(id) {
   areas.splice(idx, 1);
   renderAreaList();
 }
+
+/* ---------------------------------------------------------------------
+   Map preview — shows the actual EVI/NDVI composite as a tile layer,
+   clipped to each area, instead of only extracting summary statistics.
+   Independent of "Run analysis": Earth Engine's getMapId() just registers
+   a tile-serving endpoint for the composite (Leaflet then fetches tiles
+   on demand as you pan/zoom), so it's a separate, lightweight request —
+   not the reduceRegion stats query.
+   --------------------------------------------------------------------- */
+const INDEX_VIS_PARAMS = { min: -0.2, max: 0.8, palette: ['a50026', 'd73027', 'f46d43', 'fdae61', 'fee08b', 'ffffbf', 'd9ef8b', 'a6d96a', '66bd63', '1a9850', '006837'] };
+let indexMapLayers = [];
+let layersVisible = false;
+
+function hideIndexLayers() {
+  indexMapLayers.forEach(l => map.removeLayer(l));
+  indexMapLayers = [];
+  layersVisible = false;
+  document.getElementById('layerToggleBtn').textContent = 'Show';
+  document.getElementById('layerLegend').style.display = 'none';
+  document.getElementById('layerStatus').textContent = '';
+}
+
+function showIndexLayers() {
+  if (!eeReady) { setStatus('warning', 'Sign in to Earth Engine first to preview the index layer.'); return; }
+  if (!areas.length) return;
+  hideIndexLayers();
+  layersVisible = true;
+  document.getElementById('layerToggleBtn').textContent = 'Hide';
+
+  const year = Number(layerYearSel.value);
+  const indexName = selectedIndex;
+  const cloudPct = Number(cloudThresh.value);
+  const seasonStart = Number(seasonStartSel.value), seasonEnd = Number(seasonEndSel.value);
+
+  document.getElementById('legendMin').textContent = INDEX_VIS_PARAMS.min;
+  document.getElementById('legendMax').textContent = INDEX_VIS_PARAMS.max;
+  document.getElementById('legendIndexName').textContent = indexName;
+  document.getElementById('layerLegend').style.display = 'block';
+  document.getElementById('layerStatus').textContent = 'Loading ' + areas.length + (areas.length === 1 ? ' layer…' : ' layers…');
+
+  let pending = areas.length, failed = 0;
+  try {
+    areas.forEach(area => {
+      const region = ee.Geometry(area.geojson.geometry);
+      const composite = buildYearComposite(region, year, cloudPct, indexName, seasonStart, seasonEnd);
+      composite.getMapId(INDEX_VIS_PARAMS, (mapId, err) => {
+        pending--;
+        if (err) {
+          failed++;
+        } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
+          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.85 });
+          layer.addTo(map);
+          indexMapLayers.push(layer);
+          drawnItems.bringToFront();
+        }
+        if (pending === 0) {
+          document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
+        }
+      });
+    });
+  } catch (err) {
+    layersVisible = false;
+    document.getElementById('layerToggleBtn').textContent = 'Show';
+    document.getElementById('layerLegend').style.display = 'none';
+    document.getElementById('layerStatus').textContent = 'Failed: ' + (err && err.message ? err.message : err);
+  }
+}
+
+document.getElementById('layerToggleBtn').addEventListener('click', () => {
+  if (layersVisible) hideIndexLayers(); else showIndexLayers();
+});
 
 map.on(L.Draw.Event.CREATED, (e) => {
   const color = AREA_COLORS[areas.length % AREA_COLORS.length];
@@ -718,15 +807,27 @@ function seasonDateRange(year, startMonth, endMonth) {
   return { start, end };
 }
 
-function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endMonth, areaId) {
+// Shared by the stats query (yearStatsFeature) and the map-preview layer
+// (buildYearComposite) so both build the exact same composite.
+function yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth) {
   const { start, end } = seasonDateRange(year, startMonth, endMonth);
-  const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
     .filterDate(start, end)
     .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
     .map(maskS2Clouds)
     .map(addIndices);
+}
 
+// The same composite yearStatsFeature reduces to a mean/std, but returned
+// as an Image for map display instead of collapsed to statistics.
+function buildYearComposite(region, year, maxCloudPct, indexName, startMonth, endMonth) {
+  return yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth)
+    .select(indexName).median().clip(region);
+}
+
+function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endMonth, areaId) {
+  const col = yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth);
   const nImages = col.size();
   const composite = col.select(indexName).median().clip(region);
   const stats = composite.reduceRegion({
@@ -814,16 +915,26 @@ function runAnalysis() {
     setStatus('info', 'Still working — more areas, more years, monthly detail, or a wider cloud threshold all mean more imagery for Earth Engine to process server-side. No action needed, just waiting on Earth Engine.');
   }, 45000);
 
+  // Building the request graph is normally instant, but if Earth Engine
+  // throws synchronously here (rather than via fc.evaluate()'s async error
+  // callback below) without this guard, runBtn would stay disabled forever.
   let features = [];
-  areas.forEach(area => {
-    const region = ee.Geometry(area.geojson.geometry);
-    years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd, area.id)));
-    if (includeMonthly) {
-      years.forEach(y => {
-        for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName));
-      });
-    }
-  });
+  try {
+    areas.forEach(area => {
+      const region = ee.Geometry(area.geojson.geometry);
+      years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd, area.id)));
+      if (includeMonthly) {
+        years.forEach(y => {
+          for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName));
+        });
+      }
+    });
+  } catch (err) {
+    clearTimeout(slowNotice);
+    document.getElementById('runBtn').disabled = false;
+    setStatus('error', 'Earth Engine request failed: ' + (err && err.message ? err.message : err));
+    return;
+  }
 
   const fc = ee.FeatureCollection(features);
   fc.evaluate((result, err) => {

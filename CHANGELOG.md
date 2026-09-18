@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.1 — 2026-09-18
+
+- **Map preview of the actual EVI/NDVI composite**, not just summary
+  statistics. New "Preview index on map" control (year picker + Show/Hide)
+  in the areas sidebar section — renders the same composite the stats
+  query reduces, as a coloured tile layer clipped to each area, with a
+  legend. Independent of "Run analysis": Earth Engine's `getMapId()` just
+  registers a tile-serving endpoint (tiles are then fetched on demand as
+  you pan/zoom), so it's a separate, lightweight request rather than the
+  reduceRegion stats query. Works for all currently-drawn areas at once
+  (each clipped to its own footprint); auto-hides if the drawn areas
+  change, so a stale layer is never left showing.
+
 ## v0.4.0 — 2026-09-18
 
 - **Multiple areas, compared on one graph.** Draw as many polygons as you
