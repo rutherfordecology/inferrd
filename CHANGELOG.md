@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.2 — 2026-09-18
+
+- Made it visible, not just a hover tooltip, when "monthly detail" is
+  disabled because more than one area is drawn (v0.4.0 restricted it to
+  single-area use, since it multiplies Earth Engine cost per extra area).
+  Previously this only showed as a greyed-out checkbox with a title
+  attribute — easy to miss, and looked exactly like "ticking it doesn't
+  do anything" rather than "it's currently unavailable, here's why."
+
 ## v0.4.1 — 2026-09-18
 
 - **Map preview of the actual EVI/NDVI composite**, not just summary

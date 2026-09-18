@@ -248,6 +248,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <label for="monthlyDetailChk" id="monthlyDetailLabel" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also fetch monthly detail (seasonal pattern + natural-variability baseline)</label>
       </div>
       <div class="field-hint">Runs ~12x more sub-queries (one per month instead of one per year), so it's slower — but it's the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area's index normally fluctuate."</div>
+      <div class="field-hint" id="monthlyDisabledNote" style="display:none;color:var(--amber);">Only available with a single area — you have more than one drawn right now. Remove the others (✕ next to each, above) to use it.</div>
 
       <button class="run-btn" id="runBtn" disabled>Run analysis</button>
       <div class="status-bar" id="statusBar"></div>
@@ -400,7 +401,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.4.1';
+const APP_VERSION = 'v0.4.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -563,6 +564,7 @@ function renderAreaList() {
   monthlyChk.disabled = areas.length > 1;
   if (areas.length > 1) monthlyChk.checked = false;
   document.getElementById('monthlyDetailLabel').title = areas.length > 1 ? 'Only available with a single area — remove the others to use it.' : '';
+  document.getElementById('monthlyDisabledNote').style.display = areas.length > 1 ? 'block' : 'none';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   updateRunEnabled();
