@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.1 — 2026-09-18
+
+- **Moved "Preview index on map" below the Index picker**, instead of
+  above it. It always showed the first selected index's tiles, but sat
+  in "2 · Areas of interest" — above the Index buttons in "3 · Analysis
+  settings" — so there was no way to tell which index you were looking
+  at without scrolling down first. Now it's the next thing after the
+  Index field in the same section, and its hint spells out that it
+  follows whichever button is selected first. Purely a reorder — no
+  behaviour change.
+
 ## v0.8.0 — 2026-09-18
 
 - **Added multi-index comparison for a single area.** The index buttons

@@ -194,23 +194,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="instruction-box">Draw one or more areas on the map (polygon tool, top-left). Draw more than one to compare them on the same graph.</div>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
-      <div id="layerControls" style="display:none;margin-top:0.6rem;">
-        <label style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px;">Preview index on map</label>
-        <div class="half">
-          <select id="layerYearSel"></select>
-          <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
-        </div>
-        <div class="tool-row" id="scaleModeRow" style="margin-top:6px;">
-          <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
-          <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
-        </div>
-        <div class="field-hint">Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
-        <div class="field-hint" id="layerStatus"></div>
-        <div id="layerLegend" style="display:none;margin-top:6px;">
-          <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span id="legendMin"></span><span id="legendIndexName"></span><span id="legendMax"></span></div>
-        </div>
-      </div>
     </div>
 
     <div class="sidebar-section">
@@ -250,6 +233,23 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="tool-btn" id="idxNdmi" data-idx="NDMI" title="Normalized Difference Moisture Index — canopy water content, flags drought stress">NDMI</button>
         </div>
         <div class="field-hint">Pick more than one index to compare them as separate lines — but only when exactly one area is drawn. With more than one area drawn, only the first selected index is used, comparing that index across areas instead.</div>
+      </div>
+      <div id="layerControls" style="display:none;margin-top:0.2rem;">
+        <label style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--text3);margin-bottom:4px;">Preview index on map</label>
+        <div class="half">
+          <select id="layerYearSel"></select>
+          <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
+        </div>
+        <div class="tool-row" id="scaleModeRow" style="margin-top:6px;">
+          <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
+          <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
+        </div>
+        <div class="field-hint">Shows whichever index button above is selected first (if more than one is active) — "1 of N selected" in the legend below means that. Standard scale uses the same colour range on every area and year, so tiles are comparable to each other. "This area's range" stretches each tile to its own 2nd–98th percentile, so subtle variation within one polygon stands out more — at the cost of no longer meaning the same value across different tiles.</div>
+        <div class="field-hint" id="layerStatus"></div>
+        <div id="layerLegend" style="display:none;margin-top:6px;">
+          <div style="height:10px;border-radius:4px;background:linear-gradient(to right,#a50026,#d73027,#f46d43,#fdae61,#fee08b,#ffffbf,#d9ef8b,#a6d96a,#66bd63,#1a9850,#006837);"></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:2px;"><span id="legendMin"></span><span id="legendIndexName"></span><span id="legendMax"></span></div>
+        </div>
       </div>
       <div class="check-row">
         <input type="checkbox" id="monthlyDetailChk">
@@ -443,7 +443,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.8.0';
+const APP_VERSION = 'v0.8.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
