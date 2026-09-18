@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.3.0 — 2026-09-18
+
+- **Monthly detail (opt-in).** New checkbox fetches one composite per
+  calendar month instead of one per year (~12x more sub-queries, so it's
+  slower — off by default). From it: a monthly chart showing the actual
+  seasonal wave, and a real, location-specific "natural variability"
+  baseline — the spread of each month's deviation from its own calendar
+  month's average (deseasonalized anomalies), not a generic textbook
+  number. Answers "how stable is vegetation normally here" from the same
+  satellite record, not an assumption.
+- The "biggest single-year change" call-out now prefers this baseline
+  when available (reported as "N× typical natural variability") instead
+  of the cruder same-year spatial-std fallback used before.
+- **Resizable, adjustable results pane.** The map/results split is now a
+  draggable divider instead of a fixed 52vh — starts map-heavy (nothing
+  to show in results yet) and automatically expands to reveal the report
+  once an analysis actually completes. Drag it yourself anytime.
+
 ## v0.2.3 — 2026-09-18
 
 - **Fixed a misleading "no trend" case.** Real test data showed a cyclone-

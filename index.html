@@ -97,7 +97,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .note a { color: var(--orange); text-decoration: none; }
 .note a:hover { text-decoration: underline; }
 
-#map-wrap { position: relative; width: 100%; height: 52vh; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+#map-wrap { position: relative; width: 100%; height: 78vh; flex-shrink: 0; }
+#resizeHandle { height: 10px; flex-shrink: 0; background: var(--surface2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
+#resizeHandle:hover, #resizeHandle.dragging { background: var(--orange-light); }
+#resizeHandle .grip { width: 36px; height: 4px; border-radius: 2px; background: var(--border2); }
+#resizeHandle:hover .grip, #resizeHandle.dragging .grip { background: var(--orange-mid); }
 #map { position: absolute; inset: 0; }
 .draw-hint { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 900; background: rgba(122,46,10,0.92); color: #fff; font-size: 12.5px; font-weight: 500; padding: 6px 14px; border-radius: var(--radius-pill); box-shadow: 0 2px 8px rgba(0,0,0,0.25); pointer-events: none; }
 
@@ -224,6 +228,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="tool-btn" id="idxNdvi" data-idx="NDVI">NDVI</button>
         </div>
       </div>
+      <div class="check-row">
+        <input type="checkbox" id="monthlyDetailChk">
+        <label for="monthlyDetailChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also fetch monthly detail (seasonal pattern + natural-variability baseline)</label>
+      </div>
+      <div class="field-hint">Runs ~12x more sub-queries (one per month instead of one per year), so it's slower — but it's the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area's index normally fluctuate."</div>
 
       <button class="run-btn" id="runBtn" disabled>Run analysis</button>
       <div class="status-bar" id="statusBar"></div>
@@ -240,6 +249,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="draw-hint" id="drawHint">Use the polygon tool (top-left) to draw your area of interest</div>
     </div>
 
+    <div id="resizeHandle" title="Drag to resize"><div class="grip"></div></div>
+
     <div class="results-pane" id="resultsPane">
       <div class="results-empty" id="resultsEmpty">
         <span class="big">◌</span>
@@ -251,6 +262,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <div class="card-title">Vegetation index over time</div>
           <div class="field-hint" style="margin:-4px 0 8px;">Season used: <span id="chartSeasonLabel"></span></div>
           <div id="chartWrap"></div>
+        </div>
+        <div class="chart-card" id="monthlyCard" style="display:none">
+          <div class="card-title">Monthly detail — seasonal pattern</div>
+          <div class="field-hint" style="margin:-4px 0 8px;" id="monthlyBaselineNote"></div>
+          <div id="monthlyChartWrap"></div>
         </div>
         <div class="interp-card">
           <div class="card-title">Interpretation</div>
@@ -345,7 +361,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.2.3';
+const APP_VERSION = 'v0.3.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -419,6 +435,45 @@ const drawControl = new L.Control.Draw({
   edit: { featureGroup: drawnItems, remove: false }
 });
 map.addControl(drawControl);
+
+/* ---------------------------------------------------------------------
+   Map/results split — draggable, and starts map-heavy since there's
+   nothing to show in results yet. Grows the results pane automatically
+   once an analysis actually completes; the user can also drag it anytime.
+   --------------------------------------------------------------------- */
+const mapWrapEl = document.getElementById('map-wrap');
+const resizeHandleEl = document.getElementById('resizeHandle');
+const MIN_MAP_PX = 120, MIN_RESULTS_PX = 120;
+
+function setMapHeightPx(px) {
+  const maxPx = window.innerHeight - 52 - resizeHandleEl.offsetHeight - MIN_RESULTS_PX;
+  mapWrapEl.style.height = Math.max(MIN_MAP_PX, Math.min(px, maxPx)) + 'px';
+  map.invalidateSize();
+}
+
+(function initResizeDrag() {
+  let dragging = false;
+  resizeHandleEl.addEventListener('pointerdown', (e) => {
+    dragging = true;
+    resizeHandleEl.classList.add('dragging');
+    resizeHandleEl.setPointerCapture(e.pointerId);
+  });
+  resizeHandleEl.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    const mainTop = document.querySelector('.main').getBoundingClientRect().top;
+    setMapHeightPx(e.clientY - mainTop);
+  });
+  ['pointerup', 'pointercancel'].forEach(evt => resizeHandleEl.addEventListener(evt, () => {
+    dragging = false;
+    resizeHandleEl.classList.remove('dragging');
+  }));
+})();
+
+// Once real results land, pull the divider up so the report is actually
+// visible without the user having to drag it themselves.
+function expandResultsPane() {
+  setMapHeightPx(window.innerHeight * 0.42);
+}
 
 let drawnGeoJSON = null;
 
@@ -602,7 +657,47 @@ function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endM
   });
 
   return ee.Feature(null, {
+    kind: 'year',
     year: year,
+    mean: stats.get(indexName + '_mean'),
+    std: stats.get(indexName + '_stdDev'),
+    n_images: nImages
+  });
+}
+
+function monthDateRange(year, month) {
+  const start = year + '-' + pad2(month) + '-01';
+  let endYear = year, endMonth = month + 1;
+  if (endMonth > 12) { endMonth = 1; endYear += 1; }
+  return { start, end: endYear + '-' + pad2(endMonth) + '-01' };
+}
+
+// Same shape as yearStatsFeature, but for a single calendar month — used
+// for the optional monthly-detail view, which exists to answer "how much
+// does this vary within a year, normally?" rather than to replace the
+// annual (or season-window) trend analysis.
+function monthStatsFeature(region, year, month, maxCloudPct, indexName) {
+  const { start, end } = monthDateRange(year, month);
+  const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(region)
+    .filterDate(start, end)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .map(maskS2Clouds)
+    .map(addIndices);
+
+  const nImages = col.size();
+  const composite = col.select(indexName).median().clip(region);
+  const stats = composite.reduceRegion({
+    reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.stdDev(), sharedInputs: true }),
+    geometry: region,
+    scale: 10,
+    maxPixels: 1e9
+  });
+
+  return ee.Feature(null, {
+    kind: 'month',
+    year: year,
+    month: month,
     mean: stats.get(indexName + '_mean'),
     std: stats.get(indexName + '_stdDev'),
     n_images: nImages
@@ -627,14 +722,25 @@ function runAnalysis() {
   const seasonEnd = Number(seasonEndSel.value);
   const fullYear = seasonStart === 1 && seasonEnd === 12;
 
+  const includeMonthly = document.getElementById('monthlyDetailChk').checked;
+
   document.getElementById('runBtn').disabled = true;
-  setStatus('info', 'Pulling Sentinel-2 data for ' + years.length + (fullYear ? ' years' : ' seasons') + ' — this is a summary-statistics query (not a bulk download), typically seconds to a minute or so depending on area size…');
+  setStatus('info', 'Pulling Sentinel-2 data for ' + years.length + (fullYear ? ' years' : ' seasons')
+    + (includeMonthly ? ' plus monthly detail (~' + (years.length * 12) + ' extra sub-queries)' : '')
+    + ' — this is a summary-statistics query (not a bulk download), typically seconds to a minute or so, longer with monthly detail on…');
 
   const slowNotice = setTimeout(() => {
-    setStatus('info', 'Still working — a larger area, more years, or a wider cloud threshold all mean more imagery for Earth Engine to process server-side. No action needed, just waiting on Earth Engine.');
+    setStatus('info', 'Still working — a larger area, more years, monthly detail, or a wider cloud threshold all mean more imagery for Earth Engine to process server-side. No action needed, just waiting on Earth Engine.');
   }, 45000);
 
-  const fc = ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd)));
+  let features = years.map(y => yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd));
+  if (includeMonthly) {
+    years.forEach(y => {
+      for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName));
+    });
+  }
+
+  const fc = ee.FeatureCollection(features);
   fc.evaluate((result, err) => {
     clearTimeout(slowNotice);
     document.getElementById('runBtn').disabled = false;
@@ -642,8 +748,10 @@ function runAnalysis() {
       setStatus('error', 'Earth Engine request failed: ' + err);
       return;
     }
-    const rows = result.features.map(f => f.properties).sort((a, b) => a.year - b.year);
-    handleResults(rows, indexName);
+    const allRows = result.features.map(f => f.properties);
+    const rows = allRows.filter(r => r.kind === 'year').sort((a, b) => a.year - b.year);
+    const monthRows = allRows.filter(r => r.kind === 'month').sort((a, b) => a.year - b.year || a.month - b.month);
+    handleResults(rows, indexName, monthRows);
   });
 }
 document.getElementById('runBtn').addEventListener('click', runAnalysis);
@@ -703,12 +811,33 @@ function mannKendall(values) {
   return { s, varS, z, p, trend, senSlope };
 }
 
+// From a monthly time series, separates the normal seasonal wave (the
+// average value for each calendar month, across all years) from real
+// interannual anomalies (each month's deviation from its own calendar
+// month's average). The spread of those anomalies is a genuine,
+// location-specific "how much does this area's index normally vary"
+// baseline — built from the same satellite record, not a generic number.
+function computeSeasonalBaseline(monthRows) {
+  const valid = (monthRows || []).filter(r => r.mean !== null && r.mean !== undefined);
+  if (valid.length < 6) return null; // not enough monthly data for a meaningful climatology
+  const byMonth = {};
+  valid.forEach(r => { (byMonth[r.month] = byMonth[r.month] || []).push(r.mean); });
+  const climatology = {};
+  Object.keys(byMonth).forEach(m => {
+    climatology[m] = byMonth[m].reduce((a, b) => a + b, 0) / byMonth[m].length;
+  });
+  const anomalies = valid.map(r => r.mean - climatology[r.month]);
+  const meanAnom = anomalies.reduce((a, b) => a + b, 0) / anomalies.length;
+  const variance = anomalies.reduce((a, b) => a + (b - meanAnom) ** 2, 0) / Math.max(1, anomalies.length - 1);
+  return { climatology, anomalyStd: Math.sqrt(variance), n: valid.length };
+}
+
 // Mann-Kendall/Sen's slope only test for a monotonic trend across the whole
 // period — a sharp disturbance (fire, cyclone, clearance) followed by partial
 // recovery is non-monotonic, so those tests can legitimately report "no
 // trend" even when one year clearly dropped off a cliff. This finds that
 // single biggest year-over-year step independently, so it's never hidden.
-function largestYoyChange(years, values, stds) {
+function largestYoyChange(years, values, stds, baseline) {
   let best = null;
   for (let i = 0; i < years.length - 1; i++) {
     // only compare truly consecutive years — a gap (missing/low-quality year)
@@ -722,14 +851,20 @@ function largestYoyChange(years, values, stds) {
   if (!best) return null;
   const range = Math.max(...values) - Math.min(...values);
   best.pctOfRange = range > 0 ? Math.abs(best.delta) / range : 0;
-  // "Dominant" requires both: this step accounts for most of the series'
-  // total spread, AND it's large relative to the two years' own measurement
-  // uncertainty — otherwise a tiny, genuinely-flat series (small range, so
-  // any noise-level wobble looks like "most of the spread") would falsely
-  // trigger this on pure noise.
-  const combinedStd = Math.sqrt((best.fromStd || 0) ** 2 + (best.toStd || 0) ** 2);
-  const exceedsNoise = combinedStd > 0 ? Math.abs(best.delta) > 2 * combinedStd : true;
-  best.dominant = best.pctOfRange > 0.5 && exceedsNoise;
+
+  if (baseline && baseline.anomalyStd > 0) {
+    // Preferred check: compare against this location's own actual
+    // interannual variability (from the monthly climatology), not just
+    // this one composite's spatial pixel spread.
+    best.baselineSigma = Math.abs(best.delta) / baseline.anomalyStd;
+    best.dominant = best.pctOfRange > 0.5 && best.baselineSigma > 2;
+  } else {
+    // Fallback (no monthly baseline available): same-year spatial std is a
+    // weaker proxy, but still better than nothing at ruling out pure noise.
+    const combinedStd = Math.sqrt((best.fromStd || 0) ** 2 + (best.toStd || 0) ** 2);
+    const exceedsNoise = combinedStd > 0 ? Math.abs(best.delta) > 2 * combinedStd : true;
+    best.dominant = best.pctOfRange > 0.5 && exceedsNoise;
+  }
   return best;
 }
 
@@ -756,7 +891,10 @@ function interpret(rows, trend, yoy) {
   if (trend.mkTrend === 'no trend') {
     if (yoy && yoy.dominant) {
       lines.push({ warn: false, text: 'Overall assessment: no statistically significant monotonic trend across the full period. ' + trend.confidenceNote + ' That test looks for a gradual, sustained direction across every year — it is not designed to catch a sharp disturbance followed by partial recovery, which is exactly what this series looks like.' });
-      lines.push({ warn: true, text: 'The single biggest change in the series was ' + yoy.fromYear + '→' + yoy.toYear + ': ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(4) + ' (' + (yoy.pctOfRange * 100).toFixed(0) + '% of the series\' total spread). A jump that size, on its own, is worth ground-truthing regardless of what the overall trend test says — it can reflect a discrete event (storm damage, fire, clearance) that a multi-year monotonic-trend test isn\'t built to flag.' });
+      const sigmaText = (yoy.baselineSigma !== undefined)
+        ? ' — ' + yoy.baselineSigma.toFixed(1) + '× this location\'s own typical natural (deseasonalized) year-to-year variability, from the monthly detail'
+        : ' (' + (yoy.pctOfRange * 100).toFixed(0) + '% of the series\' total spread)';
+      lines.push({ warn: true, text: 'The single biggest change in the series was ' + yoy.fromYear + '→' + yoy.toYear + ': ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(4) + sigmaText + '. A jump that size, on its own, is worth ground-truthing regardless of what the overall trend test says — it can reflect a discrete event (storm damage, fire, clearance) that a multi-year monotonic-trend test isn\'t built to flag.' });
     } else {
       lines.push({ warn: false, text: 'Overall assessment: the index has been effectively stable over the monitored period. ' + trend.confidenceNote });
     }
@@ -774,7 +912,7 @@ function interpret(rows, trend, yoy) {
    --------------------------------------------------------------------- */
 let lastRows = null, lastIndexName = null;
 
-function handleResults(rows, indexName) {
+function handleResults(rows, indexName, monthRows) {
   const valid = rows.filter(r => r.mean !== null && r.mean !== undefined);
   if (valid.length < 2) {
     setStatus('warning', 'Not enough cloud-free data across these years to assess a trend — try widening the cloud % threshold or year range.');
@@ -788,11 +926,13 @@ function handleResults(rows, indexName) {
   const years = valid.map(r => r.year);
   const means = valid.map(r => r.mean);
   const stds = valid.map(r => r.std || 0);
+  const baseline = computeSeasonalBaseline(monthRows);
   const trend = analyzeTrend(years, means);
-  const yoy = largestYoyChange(years, means, stds);
+  const yoy = largestYoyChange(years, means, stds, baseline);
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
+  expandResultsPane();
 
   const seasonStart = Number(seasonStartSel.value), seasonEnd = Number(seasonEndSel.value);
   const seasonLabel = (seasonStart === 1 && seasonEnd === 12)
@@ -800,13 +940,25 @@ function handleResults(rows, indexName) {
     : MONTH_NAMES[seasonStart - 1] + '–' + MONTH_NAMES[seasonEnd - 1] + ' each year' + (seasonStart > seasonEnd ? ' (crosses into the following year)' : '');
   document.getElementById('chartSeasonLabel').textContent = seasonLabel;
 
-  renderMetrics(valid, trend, indexName, yoy);
+  const monthlyCard = document.getElementById('monthlyCard');
+  if (monthRows && monthRows.length) {
+    monthlyCard.style.display = 'block';
+    renderMonthlyChart(monthRows, indexName);
+    const note = document.getElementById('monthlyBaselineNote');
+    note.textContent = baseline
+      ? 'Typical natural (deseasonalized) variability at this location: ±' + baseline.anomalyStd.toFixed(4) + ' ' + indexName + ' (from ' + baseline.n + ' usable months)'
+      : 'Not enough usable monthly data to compute a natural-variability baseline — try a wider cloud threshold.';
+  } else {
+    monthlyCard.style.display = 'none';
+  }
+
+  renderMetrics(valid, trend, indexName, yoy, baseline);
   renderChart(valid, indexName);
   renderInterpretation(rows, trend, yoy);
   renderTable(rows, indexName);
 }
 
-function renderMetrics(valid, trend, indexName, yoy) {
+function renderMetrics(valid, trend, indexName, yoy, baseline) {
   const grid = document.getElementById('metricsGrid');
   grid.innerHTML = '';
   const items = [
@@ -816,6 +968,7 @@ function renderMetrics(valid, trend, indexName, yoy) {
     ["Sen's slope /yr", trend.senSlope.toFixed(4)]
   ];
   if (yoy) items.push(['Biggest single-year change', yoy.fromYear + '→' + yoy.toYear + ' ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(3)]);
+  if (baseline) items.push(['Natural variability (±1σ)', baseline.anomalyStd.toFixed(4)]);
   items.forEach(([label, val]) => {
     const d = document.createElement('div');
     d.className = 'metric';
@@ -865,6 +1018,64 @@ function renderChart(valid, indexName) {
   });
   svg += '</svg>';
   document.getElementById('chartWrap').innerHTML = svg;
+}
+
+function renderMonthlyChart(monthRows, indexName) {
+  const valid = monthRows.filter(r => r.mean !== null && r.mean !== undefined);
+  if (valid.length < 2) {
+    document.getElementById('monthlyChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">Not enough usable months to chart.</div>';
+    return;
+  }
+  const w = 640, h = 180, padL = 44, padR = 16, padT = 16, padB = 24;
+  const dec = r => r.year + (r.month - 1) / 12;
+  const xs = valid.map(dec);
+  const means = valid.map(r => r.mean);
+  const yMin = Math.min(...means), yMax = Math.max(...means);
+  const pad = (yMax - yMin) * 0.12 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+
+  const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  for (let i = 0; i <= 3; i++) {
+    const v = y0 + (i / 3) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="9" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  // year tick labels (at January of each year present)
+  const yearsSeen = new Set();
+  valid.forEach(r => {
+    if (!yearsSeen.has(r.year)) {
+      yearsSeen.add(r.year);
+      svg += '<text x="' + xScale(r.year) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="9" fill="var(--text3)">' + r.year + '</text>';
+    }
+  });
+  // line — only connect points that are truly consecutive months, so a
+  // cloud-out gap doesn't get drawn as a misleadingly smooth interpolation
+  let segment = [];
+  const flushSegment = () => {
+    if (segment.length > 1) {
+      svg += '<polyline points="' + segment.map(p => xScale(p.x) + ',' + yScale(p.y)).join(' ') + '" fill="none" stroke="var(--orange-dark)" stroke-width="1.5"/>';
+    }
+    segment = [];
+  };
+  valid.forEach((r, i) => {
+    if (i > 0) {
+      const prev = valid[i - 1];
+      const consecutive = (r.year === prev.year && r.month === prev.month + 1) || (r.year === prev.year + 1 && prev.month === 12 && r.month === 1);
+      if (!consecutive) flushSegment();
+    }
+    segment.push({ x: dec(r), y: r.mean });
+  });
+  flushSegment();
+  valid.forEach(r => {
+    svg += '<circle cx="' + xScale(dec(r)) + '" cy="' + yScale(r.mean) + '" r="2.5" fill="var(--orange-dark)"/>';
+  });
+  svg += '</svg>';
+  document.getElementById('monthlyChartWrap').innerHTML = svg;
 }
 
 function renderInterpretation(rows, trend, yoy) {
