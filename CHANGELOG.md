@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.3.2 — 2026-09-18
+
+- **Added a "Y-axis starts at 0" toggle** for both the annual and monthly
+  charts — off by default (auto-scaled to the data, which shows subtle
+  change more clearly), on shows the change in the context of the index's
+  full range. Toggling re-draws from the already-fetched data, no new
+  Earth Engine call.
+- **Corrected a factual error**: the app and README claimed Sentinel-2
+  data goes back to "mid-2015" — true for raw Level-1C data, but this
+  tool deliberately uses Level-2A surface reflectance
+  (`COPERNICUS/S2_SR_HARMONIZED`), which actually only starts **28 March
+  2017**. Fixed the claim everywhere it appeared, and moved the year
+  selectors' floor from 2016 to 2017 (2018 is the first fully-complete
+  calendar year, since 2017 is missing Jan-Mar).
+
 ## v0.3.1 — 2026-09-18
 
 - **Fixed a real crash from live testing**: `Dictionary.get: Dictionary

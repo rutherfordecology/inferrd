@@ -259,7 +259,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div id="resultsContent" style="display:none">
         <div class="metrics" id="metricsGrid"></div>
         <div class="chart-card">
-          <div class="card-title">Vegetation index over time</div>
+          <div class="table-card-head">
+            <div class="card-title">Vegetation index over time</div>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);cursor:pointer;">
+              <input type="checkbox" id="yAxisZeroChk">Y-axis starts at 0
+            </label>
+          </div>
           <div class="field-hint" style="margin:-4px 0 8px;">Season used: <span id="chartSeasonLabel"></span></div>
           <div id="chartWrap"></div>
         </div>
@@ -307,7 +312,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Read this before trusting a result</h3>
     <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
-    <p>Sentinel-2 only goes back to mid-2015, so "change over time" only covers the post-2015 period.</p>
+    <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). 2017 itself is a partial year (missing January–March), so the first full calendar year available is 2018.</p>
 
     <h3>Your data, your account</h3>
     <p>inferrd. has no server. It runs entirely in your browser and talks directly to Google Earth Engine using your own sign-in — nothing is sent to Rutherford Ecology, and boundaries you draw are never stored anywhere but your own session.</p>
@@ -361,18 +366,22 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.3.1';
+const APP_VERSION = 'v0.3.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
 const CURRENT_YEAR = new Date().getFullYear();
 const yearStartSel = document.getElementById('yearStart');
 const yearEndSel = document.getElementById('yearEnd');
-for (let y = 2016; y <= CURRENT_YEAR; y++) {
+// COPERNICUS/S2_SR_HARMONIZED (the Level-2A surface reflectance collection
+// this tool actually queries) starts 2017-03-28 — 2017 itself is partial
+// (missing Jan-Mar), so 2018 is the first genuinely full calendar year.
+const EARLIEST_YEAR = 2017;
+for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) {
   yearStartSel.add(new Option(y, y));
   yearEndSel.add(new Option(y, y));
 }
-yearStartSel.value = Math.max(2016, CURRENT_YEAR - 6);
+yearStartSel.value = Math.max(2018, CURRENT_YEAR - 6);
 yearEndSel.value = CURRENT_YEAR;
 
 /* ── Season window (month range, repeats every year) ─────────────────── */
@@ -400,6 +409,14 @@ idxButtons.forEach(btn => btn.addEventListener('click', () => {
   selectedIndex = btn.dataset.idx;
   idxButtons.forEach(b => b.classList.toggle('active', b === btn));
 }));
+
+// Re-draws the already-fetched results with the new axis setting — no new
+// Earth Engine call needed, this is purely a display preference.
+document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
+  if (!lastValid) return;
+  renderChart(lastValid, lastIndexName, e.target.checked);
+  if (lastMonthRows) renderMonthlyChart(lastMonthRows, lastIndexName, e.target.checked);
+});
 
 /* ── About modal ───────────────────────────────────────────────────── */
 function openAbout() { document.getElementById('aboutModal').classList.add('open'); }
@@ -920,7 +937,7 @@ function interpret(rows, trend, yoy) {
 /* ---------------------------------------------------------------------
    Results rendering
    --------------------------------------------------------------------- */
-let lastRows = null, lastIndexName = null;
+let lastRows = null, lastIndexName = null, lastValid = null, lastMonthRows = null;
 
 function handleResults(rows, indexName, monthRows) {
   const valid = rows.filter(r => r.mean !== null && r.mean !== undefined);
@@ -932,6 +949,8 @@ function handleResults(rows, indexName, monthRows) {
 
   lastRows = rows;
   lastIndexName = indexName;
+  lastValid = valid;
+  lastMonthRows = (monthRows && monthRows.length) ? monthRows : null;
 
   const years = valid.map(r => r.year);
   const means = valid.map(r => r.mean);
@@ -951,9 +970,10 @@ function handleResults(rows, indexName, monthRows) {
   document.getElementById('chartSeasonLabel').textContent = seasonLabel;
 
   const monthlyCard = document.getElementById('monthlyCard');
+  const startAtZero = document.getElementById('yAxisZeroChk').checked;
   if (monthRows && monthRows.length) {
     monthlyCard.style.display = 'block';
-    renderMonthlyChart(monthRows, indexName);
+    renderMonthlyChart(monthRows, indexName, startAtZero);
     const note = document.getElementById('monthlyBaselineNote');
     note.textContent = baseline
       ? 'Typical natural (deseasonalized) variability at this location: ±' + baseline.anomalyStd.toFixed(4) + ' ' + indexName + ' (from ' + baseline.n + ' usable months)'
@@ -963,7 +983,7 @@ function handleResults(rows, indexName, monthRows) {
   }
 
   renderMetrics(valid, trend, indexName, yoy, baseline);
-  renderChart(valid, indexName);
+  renderChart(valid, indexName, startAtZero);
   renderInterpretation(rows, trend, yoy);
   renderTable(rows, indexName);
 }
@@ -987,7 +1007,7 @@ function renderMetrics(valid, trend, indexName, yoy, baseline) {
   });
 }
 
-function renderChart(valid, indexName) {
+function renderChart(valid, indexName, startAtZero) {
   const w = 640, h = 220, padL = 44, padR = 16, padT = 16, padB = 28;
   const years = valid.map(r => r.year);
   const means = valid.map(r => r.mean);
@@ -995,7 +1015,10 @@ function renderChart(valid, indexName) {
   const yMin = Math.min(...means.map((m, i) => m - stds[i]));
   const yMax = Math.max(...means.map((m, i) => m + stds[i]));
   const pad = (yMax - yMin) * 0.1 || 0.05;
-  const y0 = yMin - pad, y1 = yMax + pad;
+  // startAtZero extends the axis down to 0 — never crops actual data even
+  // if some value is already negative (rare for EVI/NDVI, but possible
+  // over water/snow), it only ever adds more headroom below.
+  const y0 = startAtZero ? Math.min(0, yMin - pad) : yMin - pad, y1 = yMax + pad;
   const x0 = Math.min(...years), x1 = Math.max(...years);
 
   const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
@@ -1030,7 +1053,7 @@ function renderChart(valid, indexName) {
   document.getElementById('chartWrap').innerHTML = svg;
 }
 
-function renderMonthlyChart(monthRows, indexName) {
+function renderMonthlyChart(monthRows, indexName, startAtZero) {
   const valid = monthRows.filter(r => r.mean !== null && r.mean !== undefined);
   if (valid.length < 2) {
     document.getElementById('monthlyChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">Not enough usable months to chart.</div>';
@@ -1042,7 +1065,7 @@ function renderMonthlyChart(monthRows, indexName) {
   const means = valid.map(r => r.mean);
   const yMin = Math.min(...means), yMax = Math.max(...means);
   const pad = (yMax - yMin) * 0.12 || 0.05;
-  const y0 = yMin - pad, y1 = yMax + pad;
+  const y0 = startAtZero ? Math.min(0, yMin - pad) : yMin - pad, y1 = yMax + pad;
   const x0 = Math.min(...xs), x1 = Math.max(...xs);
 
   const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);

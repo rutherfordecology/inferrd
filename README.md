@@ -108,8 +108,10 @@ costs nothing extra to compute alongside EVI.
   drought stress, pest/weed incursion, and clearance can all look similar
   from space. Use this to flag where to send someone to look, not as a
   substitute for ground-truthing.
-- Sentinel-2 only goes back to mid-2015, capping how far back "change over
-  time" can go.
+- The Level-2A surface reflectance data this tool queries only goes back
+  to 28 March 2017 — capping how far back "change over time" can go, and
+  meaning 2017 itself is a partial year (missing Jan-Mar). The year
+  selectors start at 2017 accordingly.
 - Every visitor needs their own free, Earth-Engine-registered Google
   account — there's no way around this without adding a backend that holds
   service-account credentials (a deliberate trade-off to keep this a plain
