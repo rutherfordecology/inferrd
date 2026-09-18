@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.8.0 — 2026-09-18
+
+- **Added multi-index comparison for a single area.** The index buttons
+  are now multi-select (at least one stays active) instead of an
+  exclusive toggle. Drawing exactly one area and selecting 2+ indices
+  now overlays them as separate coloured lines on one chart — same
+  treatment as the existing multi-area comparison view (per-series
+  trend/Sen's-slope/biggest-change, its own summary table, CSV export),
+  just keyed by index instead of by area. Selecting multiple indices
+  with multiple areas drawn falls back to the first selected index for
+  the area comparison (an area×index grid of lines would get messy
+  fast) — the status line says so when it happens.
+- `yearStatsFeature`/`monthStatsFeature` now tag each result with `idx`
+  so multi-index queries (one Earth Engine sub-query per index, same
+  cost scaling as the existing monthly-detail option) can be split back
+  out client-side.
+- Each index now has a fixed colour (`INDEX_COLORS`) so its line means
+  the same thing on every chart, rather than depending on selection
+  order.
+- The map preview always shows one index's tiles at a time — with
+  multiple indices selected, it now shows the first and says so in the
+  legend ("1 of N selected") instead of silently picking one.
+
 ## v0.7.1 — 2026-09-18
 
 - Added a brief hover tooltip (native `title` attribute, matching the

@@ -249,6 +249,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="tool-btn" id="idxNbr" data-idx="NBR" title="Normalized Burn Ratio — fire/clearance signature (bare ground vs. canopy)">NBR</button>
           <button class="tool-btn" id="idxNdmi" data-idx="NDMI" title="Normalized Difference Moisture Index — canopy water content, flags drought stress">NDMI</button>
         </div>
+        <div class="field-hint">Pick more than one index to compare them as separate lines — but only when exactly one area is drawn. With more than one area drawn, only the first selected index is used, comparing that index across areas instead.</div>
       </div>
       <div class="check-row">
         <input type="checkbox" id="monthlyDetailChk">
@@ -329,6 +330,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <button class="dl-btn" id="exportCompareCsvBtn">Export CSV</button>
           </div>
           <table class="stats-table" id="compareSummaryTable"></table>
+        </div>
+      </div>
+
+      <div id="indexComparisonContent" style="display:none">
+        <div class="chart-card">
+          <div class="card-title">Index comparison — <span id="compareIndexBlockName"></span></div>
+          <div id="indexComparisonChartWrap"></div>
+          <div id="indexComparisonLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;"></div>
+        </div>
+        <div class="chart-card" id="monthlyIndexCompareCard" style="display:none">
+          <div class="card-title">Monthly detail — seasonal pattern by index</div>
+          <div class="field-hint" style="margin:-4px 0 8px;">Same natural-variability baseline approach as the single-index view, computed independently per index — see the summary table below.</div>
+          <div id="monthlyIndexCompareChartWrap"></div>
+        </div>
+        <div class="interp-card">
+          <div class="card-title">About this view</div>
+          <p>Each index gets its own trend analysis below — Mann-Kendall/Sen's-slope trend, the biggest single-year change, and (with monthly detail on) the natural-variability baseline are all computed independently per index on this one area, not pooled together. The indices aren't on the same physical scale (EVI/NDVI vs. NBR/NDMI use different bands), so compare direction and trend significance across indices, not raw magnitude.</p>
+        </div>
+        <div class="table-card">
+          <div class="table-card-head">
+            <div class="card-title">Per-index summary</div>
+            <button class="dl-btn" id="exportIndexCompareCsvBtn">Export CSV</button>
+          </div>
+          <table class="stats-table" id="indexCompareSummaryTable"></table>
         </div>
       </div>
     </div>
@@ -418,7 +443,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.7.1';
+const APP_VERSION = 'v0.8.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -459,11 +484,19 @@ cloudThresh.addEventListener('input', () => { cloudThreshVal.textContent = cloud
 /* ── Vegetation index toggle ───────────────────────────────────────── */
 let eeReady = false;
 
-let selectedIndex = 'EVI';
+// Multi-select: any number of indices can be active at once. Clicking the
+// last remaining active button is a no-op — there must always be at least
+// one selected. Selection order is preserved (order buttons were clicked
+// most recently isn't tracked; idxButtons' own DOM order is used instead),
+// so selectedIndices[0] is always well-defined as "the primary index" for
+// single-index code paths (map preview, multi-area comparison).
+let selectedIndices = ['EVI'];
 const idxButtons = [document.getElementById('idxEvi'), document.getElementById('idxNdvi'), document.getElementById('idxNbr'), document.getElementById('idxNdmi')];
 idxButtons.forEach(btn => btn.addEventListener('click', () => {
-  selectedIndex = btn.dataset.idx;
-  idxButtons.forEach(b => b.classList.toggle('active', b === btn));
+  const activeCount = idxButtons.filter(b => b.classList.contains('active')).length;
+  if (btn.classList.contains('active') && activeCount === 1) return;
+  btn.classList.toggle('active');
+  selectedIndices = idxButtons.filter(b => b.classList.contains('active')).map(b => b.dataset.idx);
 }));
 
 // Re-draws the already-fetched results with the new axis setting — no new
@@ -552,6 +585,10 @@ function expandResultsPane() {
 // both on the map and as its chart line), and its own geometry. Drawing
 // more than one is what makes the comparison view kick in later.
 const AREA_COLORS = ['#b5451a', '#2c5f8a', '#3f7d4f', '#7b4fa0', '#a0522d', '#c9184a'];
+// Fixed per-index colours (drawn from the same palette as AREA_COLORS) so an
+// index's line/legend colour means the same thing across every chart it
+// appears on, rather than depending on selection order.
+const INDEX_COLORS = { EVI: '#b5451a', NDVI: '#3f7d4f', NBR: '#c9184a', NDMI: '#2c5f8a' };
 let areas = [];
 let nextAreaNum = 1;
 
@@ -647,11 +684,11 @@ function showIndexLayers() {
   document.getElementById('layerToggleBtn').textContent = 'Hide';
 
   const year = Number(layerYearSel.value);
-  const indexName = selectedIndex;
+  const indexName = selectedIndices[0]; // map preview only ever shows one band at a time
   const cloudPct = Number(cloudThresh.value);
   const seasonStart = Number(seasonStartSel.value), seasonEnd = Number(seasonEndSel.value);
 
-  document.getElementById('legendIndexName').textContent = indexName;
+  document.getElementById('legendIndexName').textContent = indexName + (selectedIndices.length > 1 ? ' (1 of ' + selectedIndices.length + ' selected)' : '');
   document.getElementById('layerLegend').style.display = 'block';
   document.getElementById('layerStatus').textContent = 'Loading ' + areas.length + (areas.length === 1 ? ' layer…' : ' layers…');
 
@@ -926,6 +963,7 @@ function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endM
   return ee.Feature(null, {
     kind: 'year',
     areaId: areaId,
+    idx: indexName,
     year: year,
     mean: safeDictGet(stats, indexName + '_mean'),
     std: safeDictGet(stats, indexName + '_stdDev'),
@@ -965,6 +1003,7 @@ function monthStatsFeature(region, year, month, maxCloudPct, indexName, areaId) 
   return ee.Feature(null, {
     kind: 'month',
     areaId: areaId,
+    idx: indexName,
     year: year,
     month: month,
     mean: safeDictGet(stats, indexName + '_mean'),
@@ -985,19 +1024,32 @@ function runAnalysis() {
   for (let y = yearStart; y <= yearEnd; y++) years.push(y);
 
   const cloudPct = Number(cloudThresh.value);
-  const indexName = selectedIndex;
   const seasonStart = Number(seasonStartSel.value);
   const seasonEnd = Number(seasonEndSel.value);
   const fullYear = seasonStart === 1 && seasonEnd === 12;
   const includeMonthly = document.getElementById('monthlyDetailChk').checked;
 
+  // Two comparison modes, never both at once: multiple indices on exactly
+  // one area (compareIndices), or one index across multiple areas (the
+  // pre-existing behaviour). With multiple areas AND multiple indices
+  // selected, an area×index grid of lines would get messy fast, so this
+  // falls back to the first selected index and says so in the status line.
+  const compareIndices = areas.length === 1 && selectedIndices.length > 1;
+  const indexName = selectedIndices[0];
+  const queryMultiplier = compareIndices ? selectedIndices.length : 1;
+
   document.getElementById('runBtn').disabled = true;
-  setStatus('info', 'Pulling Sentinel-2 data for ' + areas.length + (areas.length === 1 ? ' area' : ' areas') + ' × ' + years.length + (fullYear ? ' years' : ' seasons')
-    + (includeMonthly ? ' plus monthly detail (~' + (areas.length * years.length * 12) + ' extra sub-queries)' : '')
-    + ' — this is a summary-statistics query (not a bulk download), typically seconds to a minute or so, longer with more areas or monthly detail on…');
+  let statusMsg = 'Pulling Sentinel-2 data for ' + areas.length + (areas.length === 1 ? ' area' : ' areas') + ' × ' + years.length + (fullYear ? ' years' : ' seasons')
+    + (compareIndices ? ' × ' + selectedIndices.length + ' indices' : '')
+    + (includeMonthly ? ' plus monthly detail (~' + (areas.length * years.length * 12 * queryMultiplier) + ' extra sub-queries)' : '')
+    + ' — this is a summary-statistics query (not a bulk download), typically seconds to a minute or so, longer with more areas, indices, or monthly detail on…';
+  if (!compareIndices && areas.length > 1 && selectedIndices.length > 1) {
+    statusMsg += ' Multiple indices are selected along with multiple areas — comparing across areas only uses ' + indexName + '; draw just one area to compare indices instead.';
+  }
+  setStatus('info', statusMsg);
 
   const slowNotice = setTimeout(() => {
-    setStatus('info', 'Still working — more areas, more years, monthly detail, or a wider cloud threshold all mean more imagery for Earth Engine to process server-side. No action needed, just waiting on Earth Engine.');
+    setStatus('info', 'Still working — more areas, more indices, more years, monthly detail, or a wider cloud threshold all mean more imagery for Earth Engine to process server-side. No action needed, just waiting on Earth Engine.');
   }, 45000);
 
   // Building the request graph is normally instant, but if Earth Engine
@@ -1005,15 +1057,27 @@ function runAnalysis() {
   // callback below) without this guard, runBtn would stay disabled forever.
   let features = [];
   try {
-    areas.forEach(area => {
-      const region = ee.Geometry(area.geojson.geometry);
-      years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd, area.id)));
-      if (includeMonthly) {
-        years.forEach(y => {
-          for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName, area.id));
-        });
-      }
-    });
+    if (compareIndices) {
+      const region = ee.Geometry(areas[0].geojson.geometry);
+      selectedIndices.forEach(idx => {
+        years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, idx, seasonStart, seasonEnd, areas[0].id)));
+        if (includeMonthly) {
+          years.forEach(y => {
+            for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, idx, areas[0].id));
+          });
+        }
+      });
+    } else {
+      areas.forEach(area => {
+        const region = ee.Geometry(area.geojson.geometry);
+        years.forEach(y => features.push(yearStatsFeature(region, y, cloudPct, indexName, seasonStart, seasonEnd, area.id)));
+        if (includeMonthly) {
+          years.forEach(y => {
+            for (let m = 1; m <= 12; m++) features.push(monthStatsFeature(region, y, m, cloudPct, indexName, area.id));
+          });
+        }
+      });
+    }
   } catch (err) {
     clearTimeout(slowNotice);
     document.getElementById('runBtn').disabled = false;
@@ -1034,7 +1098,15 @@ function runAnalysis() {
       const p = f.properties;
       return { ...p, mean: desentinel(p.mean), std: desentinel(p.std) };
     });
-    if (areas.length === 1) {
+    if (compareIndices) {
+      const indexSeries = selectedIndices.map((idx, i) => ({
+        idx,
+        color: INDEX_COLORS[idx] || AREA_COLORS[i % AREA_COLORS.length],
+        rows: allRows.filter(r => r.kind === 'year' && r.idx === idx).sort((a, b) => a.year - b.year),
+        monthRows: allRows.filter(r => r.kind === 'month' && r.idx === idx).sort((a, b) => a.year - b.year || a.month - b.month)
+      }));
+      handleIndexComparisonResults(indexSeries, areas[0]);
+    } else if (areas.length === 1) {
       const rows = allRows.filter(r => r.kind === 'year').sort((a, b) => a.year - b.year);
       const monthRows = allRows.filter(r => r.kind === 'month').sort((a, b) => a.year - b.year || a.month - b.month);
       handleResults(rows, indexName, monthRows);
@@ -1228,6 +1300,7 @@ function handleResults(rows, indexName, monthRows) {
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
+  document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
   expandResultsPane();
 
@@ -1444,6 +1517,7 @@ function handleComparisonResults(areaSeries, indexName) {
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'block';
   expandResultsPane();
 
@@ -1623,6 +1697,214 @@ document.getElementById('exportCompareCsvBtn').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'inferrd-' + lastIndexName.toLowerCase() + '-comparison.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+/* ---------------------------------------------------------------------
+   Multi-index comparison — the mirror image of the multi-area comparison
+   above: one area, several indices, each analyzed independently and
+   overlaid on one chart. Deliberately a parallel set of functions rather
+   than a shared abstraction with the area-comparison ones above (same
+   choice already made between renderChart/renderComparisonChart) — the
+   two modes differ in exactly the fields that would make a shared
+   function's signature awkward (s.area vs s.idx), and duplicating ~150
+   lines here is cheaper to read than parameterizing over the difference.
+   --------------------------------------------------------------------- */
+let lastIndexSeries = null, lastIndexCompareArea = null;
+
+function handleIndexComparisonResults(indexSeries, area) {
+  const anyData = indexSeries.some(s => s.rows.some(r => r.mean !== null && r.mean !== undefined));
+  if (!anyData) {
+    setStatus('warning', 'No usable cloud-free data for this area across any selected index — try widening the cloud % threshold or year range.');
+    return;
+  }
+  setStatus('success', 'Analysis complete — comparing ' + indexSeries.length + ' indices for ' + area.name + '.');
+
+  lastIndexSeries = indexSeries;
+  lastIndexCompareArea = area;
+
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('comparisonContent').style.display = 'none';
+  document.getElementById('indexComparisonContent').style.display = 'block';
+  expandResultsPane();
+
+  document.getElementById('compareIndexBlockName').textContent = area.name;
+
+  const hasMonthly = indexSeries.some(s => s.monthRows && s.monthRows.length);
+  const monthlyCard = document.getElementById('monthlyIndexCompareCard');
+  monthlyCard.style.display = hasMonthly ? 'block' : 'none';
+  if (hasMonthly) renderIndexMonthlyComparisonChart(indexSeries);
+
+  renderIndexComparisonChart(indexSeries);
+  renderIndexComparisonTable(indexSeries);
+}
+
+function renderIndexComparisonChart(indexSeries) {
+  const w = 640, h = 180, padL = 44, padR = 16, padT = 12, padB = 24;
+  const series = indexSeries.map(s => ({ idx: s.idx, color: s.color, valid: s.rows.filter(r => r.mean !== null && r.mean !== undefined) }));
+  const allYears = [], allMeans = [], allBounds = [];
+  series.forEach(s => s.valid.forEach(r => {
+    allYears.push(r.year); allMeans.push(r.mean);
+    const std = r.std || 0;
+    allBounds.push(r.mean - std, r.mean + std);
+  }));
+  if (!allMeans.length) {
+    document.getElementById('indexComparisonChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">No usable data to chart.</div>';
+    document.getElementById('indexComparisonLegend').innerHTML = '';
+    return;
+  }
+  const yMin = Math.min(...allBounds), yMax = Math.max(...allBounds);
+  const pad = (yMax - yMin) * 0.1 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = Math.min(...allYears), x1 = Math.max(...allYears);
+
+  const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  for (let i = 0; i <= 4; i++) {
+    const v = y0 + (i / 4) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="10" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  [...new Set(allYears)].sort((a, b) => a - b).forEach(yr => {
+    svg += '<text x="' + xScale(yr) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="var(--text3)">' + yr + '</text>';
+  });
+  series.forEach(s => {
+    // error bars first so the line/points sit on top of them
+    s.valid.forEach(r => {
+      const std = r.std || 0;
+      if (!std) return;
+      const cx = xScale(r.year);
+      svg += '<line x1="' + cx + '" y1="' + yScale(r.mean + std) + '" x2="' + cx + '" y2="' + yScale(r.mean - std) + '" stroke="' + s.color + '" stroke-width="1.5" opacity="0.45"/>';
+    });
+    if (s.valid.length > 1) {
+      svg += '<polyline points="' + s.valid.map(r => xScale(r.year) + ',' + yScale(r.mean)).join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="2"/>';
+    }
+    s.valid.forEach(r => {
+      svg += '<circle cx="' + xScale(r.year) + '" cy="' + yScale(r.mean) + '" r="3.5" fill="' + s.color + '"/>';
+    });
+  });
+  svg += '</svg>';
+  document.getElementById('indexComparisonChartWrap').innerHTML = svg;
+
+  document.getElementById('indexComparisonLegend').innerHTML = indexSeries.map(s =>
+    '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);">' +
+      '<span style="width:10px;height:10px;border-radius:50%;background:' + s.color + ';display:inline-block;"></span>' +
+      s.idx +
+    '</span>'
+  ).join('');
+}
+
+function renderIndexComparisonTable(indexSeries) {
+  const table = document.getElementById('indexCompareSummaryTable');
+  const hasMonthly = indexSeries.some(s => s.monthRows && s.monthRows.length);
+  let html = '<thead><tr><th>Index</th><th>Years w/ data</th><th>Trend</th><th>MK p</th><th>Sen\'s slope/yr</th><th>Biggest single-year change</th>' + (hasMonthly ? '<th>Natural variability (±1σ)</th>' : '') + '</tr></thead><tbody>';
+  indexSeries.forEach(s => {
+    const nameCell = '<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + s.color + ';margin-right:5px;vertical-align:middle;"></span>' + s.idx;
+    const valid = s.rows.filter(r => r.mean !== null && r.mean !== undefined);
+    if (valid.length < 2) {
+      html += '<tr><td>' + nameCell + '</td><td colspan="' + (hasMonthly ? 6 : 5) + '" style="color:var(--text3);">Not enough usable data</td></tr>';
+      return;
+    }
+    const years = valid.map(r => r.year), means = valid.map(r => r.mean), stds = valid.map(r => r.std || 0);
+    const baseline = computeSeasonalBaseline(s.monthRows);
+    const trend = analyzeTrend(years, means);
+    const yoy = largestYoyChange(years, means, stds, baseline);
+    html += '<tr>' +
+      '<td>' + nameCell + '</td>' +
+      '<td>' + valid.length + '</td>' +
+      '<td>' + trend.mkTrend + '</td>' +
+      '<td>' + trend.mkPValue.toFixed(3) + '</td>' +
+      '<td>' + trend.senSlope.toFixed(4) + '</td>' +
+      '<td>' + (yoy ? yoy.fromYear + '→' + yoy.toYear + ' ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(3) + (yoy.baselineSigma !== undefined ? ' (' + yoy.baselineSigma.toFixed(1) + 'σ)' : '') : '—') + '</td>' +
+      (hasMonthly ? '<td>' + (baseline ? '±' + baseline.anomalyStd.toFixed(4) : '—') + '</td>' : '') +
+      '</tr>';
+  });
+  html += '</tbody>';
+  table.innerHTML = html;
+}
+
+function renderIndexMonthlyComparisonChart(indexSeries) {
+  const w = 640, h = 220, padL = 44, padR = 16, padT = 16, padB = 34;
+  const dec = r => r.year + (r.month - 1) / 12;
+  const series = indexSeries.filter(s => s.monthRows && s.monthRows.length).map(s => ({
+    idx: s.idx, color: s.color,
+    valid: s.monthRows.filter(r => r.mean !== null && r.mean !== undefined)
+  }));
+  const allX = [], allY = [];
+  series.forEach(s => s.valid.forEach(r => { allX.push(dec(r)); allY.push(r.mean); }));
+  if (!allY.length) {
+    document.getElementById('monthlyIndexCompareChartWrap').innerHTML = '<div class="results-empty" style="padding:1rem 0;">No usable monthly data to chart.</div>';
+    return;
+  }
+  const yMin = Math.min(...allY), yMax = Math.max(...allY);
+  const pad = (yMax - yMin) * 0.12 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = Math.min(...allX), x1 = Math.max(...allX);
+
+  const xScale = (x) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((x - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  for (let i = 0; i <= 3; i++) {
+    const v = y0 + (i / 3) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="9" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  const axisY = h - padB;
+  svg += '<line x1="' + padL + '" y1="' + axisY + '" x2="' + (w - padR) + '" y2="' + axisY + '" stroke="var(--border2)" stroke-width="1"/>';
+  for (let yy2 = Math.floor(x0); yy2 <= Math.ceil(x1); yy2++) {
+    for (let mm = 1; mm <= 12; mm++) {
+      const xd = yy2 + (mm - 1) / 12;
+      if (xd < x0 - 1e-9 || xd > x1 + 1e-9) continue;
+      const xx = xScale(xd);
+      if (mm === 1) {
+        svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 7) + '" stroke="var(--text3)" stroke-width="1.3"/>';
+        svg += '<text x="' + xx + '" y="' + (h - 4) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text2)">' + yy2 + '</text>';
+      } else {
+        svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 3) + '" stroke="var(--border2)" stroke-width="1"/>';
+      }
+    }
+  }
+  series.forEach(s => {
+    let segment = [];
+    const flush = () => {
+      if (segment.length > 1) svg += '<polyline points="' + segment.map(p => xScale(p.x) + ',' + yScale(p.y)).join(' ') + '" fill="none" stroke="' + s.color + '" stroke-width="1.5"/>';
+      segment = [];
+    };
+    s.valid.forEach((r, i) => {
+      if (i > 0) {
+        const prev = s.valid[i - 1];
+        const consecutive = (r.year === prev.year && r.month === prev.month + 1) || (r.year === prev.year + 1 && prev.month === 12 && r.month === 1);
+        if (!consecutive) flush();
+      }
+      segment.push({ x: dec(r), y: r.mean });
+    });
+    flush();
+    s.valid.forEach(r => { svg += '<circle cx="' + xScale(dec(r)) + '" cy="' + yScale(r.mean) + '" r="2" fill="' + s.color + '"/>'; });
+  });
+  svg += '</svg>';
+  document.getElementById('monthlyIndexCompareChartWrap').innerHTML = svg;
+}
+
+document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', () => {
+  if (!lastIndexSeries) return;
+  let csv = 'index,year,mean,std,n_images\n';
+  lastIndexSeries.forEach(s => {
+    s.rows.forEach(r => {
+      csv += [s.idx, r.year, r.mean ?? '', r.std ?? '', r.n_images].join(',') + '\n';
+    });
+  });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const blockSlug = (lastIndexCompareArea && lastIndexCompareArea.name ? lastIndexCompareArea.name : 'area').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  a.download = 'inferrd-' + (blockSlug || 'area') + '-index-comparison.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 });
