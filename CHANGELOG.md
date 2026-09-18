@@ -1,5 +1,42 @@
 # Changelog
 
+## v0.9.2 — 2026-09-19
+
+- **Added an optional 12-month moving mean to the monthly chart.** A new
+  "Overlay" selector on the monthly detail card chooses between the
+  existing dashed trend line (still the default), a 12-month moving mean,
+  or nothing. The moving mean is a centred 12-month window, so it
+  averages out the seasonal wave and shows the slower change underneath.
+  Months lost to cloud just mean fewer points in a window; a point needs
+  at least 3 real months to be drawn, and the line breaks across gaps
+  rather than bridging them.
+
+## v0.9.1 — 2026-09-19
+
+- **Added a statistical comparison between areas.** The multi-area view
+  now has an "Are the areas different from each other?" table with one
+  row per pair of areas, comparing them year by year over the years both
+  have data for. "Level" is an exact Wilcoxon signed-rank test on the
+  yearly differences (is one area consistently higher?); "Gap over time"
+  is a Mann-Kendall test on the differences (is the gap widening or
+  narrowing?). Exact rather than approximate because there are only
+  about 5-10 paired years; at least 6 shared years are needed to reach
+  p < 0.05. Yearly means are treated as independent, and with 3+ areas
+  the extra pairs raise the false-positive risk — the on-screen note says
+  so.
+
+## v0.9.0 — 2026-09-19
+
+- **Added the QEII covenant layer, behind a Projects dropdown**, matching
+  Occurd: a key-gated "Projects" menu in the header (same key as Occurd)
+  that shows QEII National Trust covenant boundaries on the map, with a
+  popup per covenant (number, type, area, registered date, TA, region).
+  The boundaries are fetched live from QEII's public ArcGIS service for
+  the current map view and refresh as you pan and zoom — no covenant data
+  is stored in inferrd. Covenants sit under the drawn areas and index
+  tiles, and stop intercepting clicks while you're drawing a shape. Once
+  unlocked, choosing QEII again toggles the layer on and off.
+
 ## v0.8.8 — 2026-09-19
 
 - **The explanatory text in the left column can now be minimised.** Each
