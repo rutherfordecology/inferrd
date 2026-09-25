@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.10.0 — 2026-09-25
+
+- **Replaced the Google sign-in with an access key.** The popup sign-in
+  was awkward and, with the OAuth app in "Testing" mode, blocked anyone
+  who wasn't a listed test user. Now you type an access key; a small
+  Cloudflare Worker (`worker/`, "inferrd-auth") checks it and returns a
+  short-lived, read-only Earth Engine token minted from a service account.
+  The service-account private key lives only in the Worker as a secret.
+  Tokens are renewed automatically before they expire, and there's an
+  optional "Remember on this device". Keys can be added or revoked per
+  person by editing one Worker secret.
+- Removed the Google Identity Services script, the OAuth client ID, the
+  popup watchdog and the "use your own Earth Engine account" wording.
+- **Needs one-time setup before the live site works** — see
+  `worker/README.md`: create a service account, register it for Earth
+  Engine, deploy the Worker, and put its URL in `WORKER_URL`.
+
 ## v0.9.3 — 2026-09-19
 
 - **Added a "Buy me a coffee" link**, matching Occurd: in the header next

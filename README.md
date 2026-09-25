@@ -5,38 +5,28 @@ Sentinel-2 EVI/NDVI history, and get a statistically defensible read on
 whether it's changing over time.
 
 A single self-contained static page (`index.html`) — no build step, no
-backend, no framework. It talks directly to Google Earth Engine from your
-browser using your own sign-in.
+framework. It talks to Google Earth Engine from your browser using a
+short-lived token from a tiny key-checking Worker.
 
 Port of an earlier `inferrd.py` notebook script (Python + geemap), rebuilt as
 a web app so it doesn't need Jupyter/Colab to run.
 
 ## One-time setup
 
-Earth Engine sign-in needs two values filled in before it will work — both
-are set as constants near the top of the `<script>` block in `index.html`:
+inferrd. signs in with an **access key**, not a Google account. A small
+Cloudflare Worker (`worker/`) checks the key and returns a short-lived,
+read-only Earth Engine token minted from a service account, so visitors never
+see a Google sign-in. Follow [`worker/README.md`](worker/README.md) to create
+the service account, register it for Earth Engine, and deploy the Worker, then
+set the two constants near the top of the `<script>` block in `index.html`:
 
 ```js
-const CLIENT_ID = 'REPLACE_WITH_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com';
-const EE_PROJECT = 'REPLACE_WITH_YOUR_EE_CLOUD_PROJECT_ID';
+const WORKER_URL = 'https://inferrd-auth.<your-subdomain>.workers.dev';
+const EE_PROJECT = 'your-ee-cloud-project-id';
 ```
 
-1. **Register for Earth Engine** (free, non-commercial use) at
-   [code.earthengine.google.com/register](https://code.earthengine.google.com/register)
-   if you haven't already — this also creates/links a Google Cloud project.
-   `EE_PROJECT` is that project's ID (Cloud Console → project selector).
-2. **Create an OAuth Client ID** in that same Cloud project:
-   Cloud Console → *APIs & Services* → *Credentials* → *Create Credentials* →
-   *OAuth client ID* → Application type **Web application**. Under
-   *Authorized JavaScript origins*, add every origin you'll open this page
-   from — e.g. `http://localhost:7899` for local preview, and your GitHub
-   Pages origin (e.g. `https://rutherfordecology.github.io`) once deployed.
-   Copy the resulting Client ID into `CLIENT_ID` above.
-
-Neither value is secret — both are safe to commit once issued. Anyone who
-opens the deployed page still signs in with their **own** free Earth Engine
-account; these two constants only identify *this app* to Google, they don't
-grant access to anyone's data.
+Neither value is secret. The service-account key and the access keys live only
+as Worker secrets.
 
 ## Running it locally
 

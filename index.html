@@ -10,7 +10,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css">
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { height: 100%; }
@@ -195,10 +194,18 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div class="sidebar-section">
       <div class="section-label">1 · Earth Engine account</div>
       <div id="eeSignInBox">
-        <div class="ee-label">Sign in required</div>
-        <button class="ee-signin-btn" id="eeSignInBtn">Sign in with Google</button>
-        <div id="eeSignedIn"><span><span class="dot"></span><span id="eeSignedInEmail">Signed in</span></span><button id="eeSignOutBtn">sign out</button></div>
-        <div class="ee-note">Your own free <a href="https://code.earthengine.google.com/register" target="_blank">Earth Engine account</a> is required. Nothing is sent anywhere except Google — inferrd. has no server of its own.</div>
+        <div class="ee-label">Access key</div>
+        <div id="eeKeyForm">
+          <div style="display:flex;gap:6px;">
+            <input id="eeKeyInput" type="password" placeholder="Enter access key…" autocomplete="off" spellcheck="false" style="flex:1;min-width:0;font-size:13px;font-family:var(--font-sans);padding:7px 9px;border:1.5px solid var(--border2);border-radius:var(--radius);outline:none;color:var(--text);background:var(--surface);">
+            <button class="ee-signin-btn" id="eeSignInBtn" style="width:auto;padding:7px 14px;">Unlock</button>
+          </div>
+          <label style="display:flex;align-items:center;gap:5px;margin-top:7px;font-size:11.5px;color:var(--text2);cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:400;">
+            <input type="checkbox" id="eeRememberChk">Remember on this device
+          </label>
+        </div>
+        <div id="eeSignedIn"><span><span class="dot"></span><span id="eeSignedInEmail">Unlocked</span></span><button id="eeSignOutBtn">lock</button></div>
+        <div class="ee-note">inferrd. runs on a shared Earth Engine account and needs an access key. No key? Ask Rutherford Ecology.</div>
       </div>
     </div>
 
@@ -295,7 +302,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div class="results-pane" id="resultsPane">
       <div class="results-empty" id="resultsEmpty">
         <span class="big">◌</span>
-        Draw a boundary, sign in, and run an analysis to see results here.
+        Draw a boundary, unlock with your access key, and run an analysis to see results here.
       </div>
       <div id="resultsContent" style="display:none">
         <div class="metrics" id="metricsGrid"></div>
@@ -431,7 +438,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). 2017 itself is a partial year (missing January–March), so the first full calendar year available is 2018.</p>
 
     <h3>Your data, your account</h3>
-    <p>inferrd. has no server. It runs entirely in your browser and talks directly to Google Earth Engine using your own sign-in — nothing is sent to Rutherford Ecology, and boundaries you draw are never stored anywhere but your own session.</p>
+    <p>inferrd. runs in your browser and talks to Google Earth Engine through a shared Rutherford Ecology service account. An access key is swapped, via a small Cloudflare Worker, for a short-lived read-only token — there is no Google sign-in. The boundaries you draw and your results stay in your browser and are never stored on a server.</p>
 
     <p style="font-size:12px;color:var(--text3);">If this tool saves you a whole lot of time, feel free to <a href="https://buymeacoffee.com/rutherfordecology" target="_blank" rel="noopener" style="color:#b8892b;font-weight:500;">buy me a coffee</a>.</p>
 
@@ -470,21 +477,18 @@ table.stats-table tr:last-child td { border-bottom: none; }
 'use strict';
 
 /* ---------------------------------------------------------------------
-   ONE-TIME SETUP — replace these two constants with your own.
-   See README.md for exact steps.
-   - CLIENT_ID: OAuth 2.0 "Web application" Client ID from the Google
-     Cloud project tied to your Earth Engine account (console.cloud.google.com
-     → APIs & Services → Credentials). Authorized JavaScript origins must
-     include wherever this page is served from (e.g. http://localhost:7899
-     for local preview, and your GitHub Pages URL once deployed).
-   - EE_PROJECT: the Earth-Engine-enabled Cloud Project ID that account
-     is registered under.
-   Neither value is secret — both are safe to commit once issued.
+   ONE-TIME SETUP — see worker/README.md.
+   - WORKER_URL: the deployed inferrd-auth Cloudflare Worker. It swaps an
+     access key for a short-lived, read-only Earth Engine token, so
+     visitors never see a Google sign-in.
+   - EE_PROJECT: the Earth-Engine-enabled Cloud Project the token's
+     service account belongs to (its quota is what analyses use).
+   Neither value is secret.
    --------------------------------------------------------------------- */
-const CLIENT_ID = '414999584013-fevbjt8g474c7p530p2q0bhto5fl5tn0.apps.googleusercontent.com';
+const WORKER_URL = 'https://inferrd-auth.REPLACE_WITH_WORKER_SUBDOMAIN.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.9.3';
+const APP_VERSION = 'v0.10.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -806,7 +810,7 @@ function hideIndexLayers() {
 }
 
 function showIndexLayers() {
-  if (!eeReady) { setStatus('warning', 'Sign in to Earth Engine first to preview the index layer.'); return; }
+  if (!eeReady) { setStatus('warning', 'Unlock with your access key first to preview the index layer.'); return; }
   if (!areas.length) return;
   hideIndexLayers();
   layersVisible = true;
@@ -926,10 +930,10 @@ map.on(L.Draw.Event.EDITED, (e) => {
 renderAreaList();
 
 /* ---------------------------------------------------------------------
-   Earth Engine auth (client-side OAuth — every user signs into their
-   own EE-enabled Google account; inferrd. has no server and never sees
-   or stores credentials). See README.md for the one-time setup this
-   needs before sign-in will work.
+   Earth Engine auth — an access key is swapped (via the inferrd-auth
+   Worker) for a short-lived Earth Engine token from a service account.
+   The service account's private key stays in the Worker; the browser only
+   ever holds the ~1 hour token. See worker/README.md.
    --------------------------------------------------------------------- */
 function updateRunEnabled() {
   document.getElementById('runBtn').disabled = !(eeReady && areas.length > 0);
@@ -939,84 +943,98 @@ function eeLog(stage, detail) {
   console.log('[inferrd EE auth] ' + stage + (detail !== undefined ? ': ' : ''), detail !== undefined ? detail : '');
 }
 
-let signInWatchdog = null;
-function clearSignInWatchdog() {
-  if (signInWatchdog) { clearTimeout(signInWatchdog); signInWatchdog = null; }
-}
 function resetSignInButton(message) {
-  clearSignInWatchdog();
   const btn = document.getElementById('eeSignInBtn');
   btn.removeAttribute('disabled');
-  btn.textContent = 'Sign in with Google';
+  btn.textContent = 'Unlock';
   if (message) setStatus('warning', message);
 }
 
 function onEeInitError(err) {
   eeLog('ee.initialize failed', err);
-  resetSignInButton('Signed in, but Earth Engine failed to initialize: ' + err + '. Check that inferrd-508920 is registered for Earth Engine and try again.');
+  resetSignInButton('Unlocked, but Earth Engine failed to initialize: ' + err + '. Check that the service account is registered for Earth Engine on ' + EE_PROJECT + '.');
 }
 
 function onEeInitSuccess() {
   eeLog('ee.initialize succeeded — ready');
-  clearSignInWatchdog();
   eeReady = true;
   document.getElementById('eeSignInBox').querySelector('.ee-label').style.display = 'none';
-  document.getElementById('eeSignInBtn').style.display = 'none';
+  document.getElementById('eeKeyForm').style.display = 'none';
   document.getElementById('eeSignedIn').style.display = 'flex';
   setStatus('info', '');
   updateRunEnabled();
 }
 
-function onAuthSuccess() {
-  eeLog('OAuth sign-in succeeded, calling ee.initialize');
-  ee.initialize(null, null, onEeInitSuccess, onEeInitError, null, EE_PROJECT);
+async function fetchEeToken(key) {
+  let res;
+  try {
+    res = await fetch(WORKER_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: key }) });
+  } catch (e) {
+    throw new Error('could not reach the access service — check your connection');
+  }
+  if (res.status === 401) throw new Error('wrong key');
+  if (!res.ok) throw new Error('the access service returned an error (HTTP ' + res.status + ')');
+  return res.json();
 }
 
-function onAuthError(err) {
-  eeLog('OAuth sign-in failed', err);
-  resetSignInButton('Earth Engine sign-in failed: ' + err);
+// Tokens last about an hour. Quietly swap in a fresh one shortly before
+// expiry (retrying every minute on failure) so a long session doesn't die.
+function scheduleTokenRenewal(key, expiresInSec) {
+  setTimeout(async () => {
+    try {
+      const t = await fetchEeToken(key);
+      ee.data.setAuthToken('', 'Bearer', t.access_token, t.expires_in, [], undefined, false);
+      eeLog('token renewed');
+      scheduleTokenRenewal(key, t.expires_in);
+    } catch (e) {
+      eeLog('token renewal failed, retrying in 60s', String(e));
+      scheduleTokenRenewal(key, 360); // fires again in 60s
+    }
+  }, Math.max(30, expiresInSec - 300) * 1000);
 }
 
-document.getElementById('eeSignInBtn').addEventListener('click', () => {
-  eeLog('sign-in button clicked — calling authenticateViaPopup');
-  document.getElementById('eeSignInBtn').setAttribute('disabled', 'disabled');
-  document.getElementById('eeSignInBtn').textContent = 'Signing in…';
-  setStatus('info', 'Waiting for Google sign-in — check for a popup window, or a blocked-popup icon in your address bar.');
+async function unlockWithKey(key) {
+  const btn = document.getElementById('eeSignInBtn');
+  btn.setAttribute('disabled', 'disabled');
+  btn.textContent = 'Unlocking…';
+  try {
+    const t = await fetchEeToken(key);
+    ee.data.setAuthToken('', 'Bearer', t.access_token, t.expires_in, [], undefined, false);
+    scheduleTokenRenewal(key, t.expires_in);
+    try {
+      if (document.getElementById('eeRememberChk').checked) localStorage.setItem('inferrd.key', key);
+    } catch (e) {}
+    ee.initialize(null, null, onEeInitSuccess, onEeInitError, null, EE_PROJECT);
+  } catch (err) {
+    eeLog('unlock failed', String(err));
+    try { localStorage.removeItem('inferrd.key'); } catch (e) {}
+    resetSignInButton('Could not unlock: ' + err.message + '.');
+  }
+}
 
-  clearSignInWatchdog();
-  signInWatchdog = setTimeout(() => {
-    eeLog('WATCHDOG: no response after 15s — likely a blocked or lost popup');
-    resetSignInButton('Still nothing after 15 seconds — your browser probably blocked the Google sign-in popup. Look for a blocked-popup icon in the address bar, allow popups for this site, then try again.');
-  }, 15000);
-
-  // authenticateViaOauth (below, on page load) is old gapi.auth2-based and
-  // no longer reliably calls back at all — Google archived gapi.auth2 in
-  // April 2026. authenticateViaPopup is EE's newer, Google-Identity-
-  // Services-based popup flow and is what actually works; it relies on
-  // the client ID/scopes that the page-load call already configured.
-  ee.data.authenticateViaPopup(onAuthSuccess, onAuthError);
-});
+function submitKey() {
+  const key = document.getElementById('eeKeyInput').value.trim();
+  if (!key) return;
+  unlockWithKey(key);
+}
+document.getElementById('eeSignInBtn').addEventListener('click', submitKey);
+document.getElementById('eeKeyInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') submitKey(); });
 document.getElementById('eeSignOutBtn').addEventListener('click', () => {
+  try { localStorage.removeItem('inferrd.key'); } catch (e) {}
   location.reload();
 });
 
-// Fire-and-forget on load: this registers CLIENT_ID/scopes with the EE
-// client library (a synchronous side effect of calling it) and opportunistically
-// attempts a silent sign-in — but per the above, its own callbacks are not
-// reliable right now, so nothing here is depended on. The actual sign-in
-// happens via authenticateViaPopup from the button click, above.
 window.addEventListener('load', () => {
-  if (CLIENT_ID.indexOf('REPLACE_WITH') === 0) {
-    setStatus('warning', 'inferrd. needs a one-time setup before it can sign in to Earth Engine — see README.md.');
+  if (WORKER_URL.indexOf('REPLACE_WITH') !== -1) {
+    setStatus('warning', 'inferrd. needs a one-time setup before it can unlock Earth Engine — see worker/README.md.');
     return;
   }
-  eeLog('configuring EE client + attempting opportunistic silent sign-in');
-  ee.data.authenticateViaOauth(
-    CLIENT_ID, onAuthSuccess, () => {},
-    ['https://www.googleapis.com/auth/earthengine.readonly'],
-    () => { eeLog('silent sign-in not available — use the sign-in button'); },
-    true
-  );
+  let saved = null;
+  try { saved = localStorage.getItem('inferrd.key'); } catch (e) {}
+  if (saved) {
+    document.getElementById('eeRememberChk').checked = true;
+    unlockWithKey(saved);
+  }
 });
 
 /* ---------------------------------------------------------------------
