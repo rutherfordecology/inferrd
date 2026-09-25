@@ -13,9 +13,10 @@ only ever receives a ~1 hour, read-only Earth Engine token.
 - Give it the roles **Earth Engine Resource Viewer** and **Service Usage Consumer**.
 - *Keys → Add key → Create new key → JSON*. Keep the downloaded file private.
 
-**2. Register the service account for Earth Engine**
-- <https://code.earthengine.google.com/register> (or the project's Earth Engine
-  configuration page) → register the service account against the project.
+**2. Earth Engine registration**
+- Nothing extra to do: the project just needs to be registered for Earth Engine already
+  (a separate service-account registration wasn't required — checked 2026-09-25 by running
+  a test computation as the service account).
 
 **3. Deploy the Worker**
 

@@ -13,9 +13,10 @@
   person by editing one Worker secret.
 - Removed the Google Identity Services script, the OAuth client ID, the
   popup watchdog and the "use your own Earth Engine account" wording.
-- **Needs one-time setup before the live site works** — see
-  `worker/README.md`: create a service account, register it for Earth
-  Engine, deploy the Worker, and put its URL in `WORKER_URL`.
+- The Worker is deployed at `inferrd-auth.rutherfordecology.workers.dev`. Its service
+  account needs only the project's Earth Engine roles (Resource Viewer + Service
+  Usage Consumer) — no separate Earth Engine registration was required.
+  Setup notes are in `worker/README.md`.
 
 ## v0.9.3 — 2026-09-19
 
