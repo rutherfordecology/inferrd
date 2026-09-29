@@ -121,4 +121,4 @@ trend analysis works identically regardless of which one is selected.
 
 ## Licence
 
-CC BY-NC — free to use and adapt for non-commercial purposes.
+Code: [PolyForm Strict 1.0.0](LICENSE) — free to use for non-commercial purposes; redistributing or modifying it is not permitted. Written content and original images: [CC BY-NC-ND 4.0](https://creativecommons.org/licenses/by-nc-nd/4.0/). Third-party data and media keep their own licences. For commercial use, contact Rutherford Ecology.

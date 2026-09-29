@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.10.1 — 2026-09-29
+
+- **Changed the licence** from CC BY-NC to PolyForm Strict 1.0.0 for the
+  code (free for non-commercial use; no redistribution or modified
+  versions) and CC BY-NC-ND 4.0 for written content. Added a `LICENSE`
+  file and updated the README and the About dialog to match.
+
 ## v0.10.0 — 2026-09-25
 
 - **Replaced the Google sign-in with an access key.** The popup sign-in
