@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.19.0 — 2026-10-16
+
+- **Condition check trend adjusted for the time of year.** The whole-area
+  chart now uses the area average on every clear image (with at least
+  half the area clear), less the normal value for its calendar month, so
+  spring growth, winter dips and a year that happened to get mostly winter
+  images no longer move the yearly value. Each year is the average of its
+  adjusted images with a 95% confidence interval, and the chart adds the
+  single images as faint dots and a 12-month moving median. The old
+  between-pixel SD moves to the tables, where it describes how varied the
+  area is. `trend.csv` is rebuilt around the adjusted values and a new
+  `images.csv` lists every image used.
+- **"Allow for area-wide change" tick box** in the condition check. Off,
+  sudden drops and slow decline are measured from zero instead of from
+  what the area as a whole did, so a decline across most of the area is
+  flagged too.
+
 ## v0.18.0 — 2026-10-16
 
 - **Satellite images of each spot.** The condition export now includes
