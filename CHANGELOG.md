@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.23.1 — 2026-10-16
+
+- **Deleting a block clears its condition check.** Removing the area
+  (✕ in section 2) now removes its results panel and what Export for
+  report would save, so the next block starts clean. Removing an area
+  while a check is still running no longer leaves "Run condition check"
+  switched off.
+
 ## v0.23.0 — 2026-10-16
 
 - **Canopy decline spots cover the whole dieback patch.** A spot still has

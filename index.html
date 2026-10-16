@@ -754,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.23.0';
+const APP_VERSION = 'v0.23.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -997,6 +997,13 @@ function clearResults() {
 // single-area and multi-index results for the removed area are cleared.
 function pruneResultsForArea(id) {
   const shown = (elId) => document.getElementById(elId).style.display === 'block';
+  // A condition check belongs to one area: removing it removes the results
+  // and what Export for report would save, so a new block starts clean.
+  if (lastCondition && lastCondition.area.id === id) {
+    lastCondition = null;
+    if (shown('conditionContent')) clearResults();
+    return;
+  }
   if (shown('comparisonContent') && lastAreaSeries && lastAreaSeries.some(s => s.area.id === id)) {
     const remaining = lastAreaSeries.filter(s => s.area.id !== id);
     const indexName = lastIndexName;
@@ -1490,7 +1497,9 @@ let lastCondition = null;
 })();
 
 function hideConditionLayers() {
-  conditionRunId++;
+  conditionRunId++; // a check still running is dropped when it returns…
+  conditionRunning = false; // …so the Run button must come back now, not then
+  if (typeof updateRunEnabled === 'function') updateRunEnabled();
   if (conditionLayer) { map.removeLayer(conditionLayer); conditionLayer = null; }
   const legend = document.getElementById('conditionLegend');
   if (legend) legend.style.display = 'none';
