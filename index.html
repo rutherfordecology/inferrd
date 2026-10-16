@@ -754,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.22.0';
+const APP_VERSION = 'v0.22.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -829,13 +829,13 @@ document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
 });
 
 /* ── Collapsible sidebar explanations ──────────────────────────────────
-   Each static hint/note in the left column gets a chevron toggle. The
-   open/closed choice is remembered per hint (localStorage is a
-   convenience only — everything works without it). */
+   Each static hint/note in the left column gets a chevron toggle, closed
+   until opened. The open/closed choice is remembered per hint
+   (localStorage is a convenience only — everything works without it). */
 document.querySelectorAll('.sidebar .field-hint:not(#layerStatus):not(.live-hint), .sidebar p.note').forEach((el, i) => {
   const key = 'inferrd.hint.' + i;
-  let collapsed = false;
-  try { collapsed = localStorage.getItem(key) === '1'; } catch (e) {}
+  let collapsed = true;
+  try { collapsed = localStorage.getItem(key) !== '0'; } catch (e) {}
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'hint-toggle';

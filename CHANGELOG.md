@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.22.1 — 2026-10-16
+
+- **Explanations start closed.** Each "Explanation" in the sidebar is
+  folded away until opened; one you open stays open next time.
+
 ## v0.22.0 — 2026-10-16
 
 - **Canopy decline at any point in the period.** Instead of comparing the
