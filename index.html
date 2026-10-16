@@ -1920,8 +1920,9 @@ async function conditionPdf(c, mapBlob, trendBlob) {
   };
   const newPage = () => { footer(); doc.addPage(); page++; y = M; };
   const need = (h) => { if (y + h > PH - 20) newPage(); };
+  // Keeps a heading with at least the first ~40 mm of what follows.
   const heading = (text, size) => {
-    need(size * 0.9 + 6);
+    need(size * 0.9 + 6 + 40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(size); doc.setTextColor(...GREEN);
     doc.text(text, M, y + size * 0.35); y += size * 0.5 + 4;
     doc.setTextColor(0, 0, 0);
@@ -2004,7 +2005,13 @@ async function conditionPdf(c, mapBlob, trendBlob) {
   // ── 2 The area as a whole ──
   heading('2  The area as a whole', 13);
   await image(trendBlob, 70, 'Figure 2. The vegetation signal for the whole area, year by year. Dots are each year\'s average; bars show how much it varied from place to place within the area that year (plus or minus one standard deviation), not measurement error.');
-  para(trendSentence);
+  if (valid.length > 1) {
+    const range = Math.max(...valid.map(r => r.mean)) - Math.min(...valid.map(r => r.mean));
+    const typSd = median(valid.map(r => r.std || 0));
+    para(trendSentence + ' ' + (range < typSd
+      ? 'The differences between years are small compared with how much the vegetation varies from place to place within the area: every year sits well inside the error bars of the others.'
+      : 'Some years differ by more than the variation within the area, so the change between those years is likely to be real rather than chance.'));
+  } else para(trendSentence);
 
   // ── 3 Spots ──
   heading('3  What is happening inside the area', 13);
