@@ -728,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.17.2';
+const APP_VERSION = 'v0.17.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1586,7 +1586,7 @@ function runCondition() {
       .evaluate((res, err) => {
         if (err) { failed = failed || err; return finish(); }
         trendRows = res.features.map(f => f.properties)
-          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, n_images: p.n_images }))
+          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images }))
           .sort((a, b) => a.year - b.year);
         finish();
       });
@@ -1640,8 +1640,12 @@ function conditionTrend(rows) {
     slopes.push((valid[j].mean - valid[i].mean) / (valid[j].year - valid[i].year));
   }
   const slope = median(slopes);
-  const verdict = mk.p < 0.05 ? (slope < 0 ? 'declined' : 'improved') : 'no clear trend up or down';
-  return { valid, verdict, p: mk.p, slope };
+  // Change over the period as a share of the typical within-area spread:
+  // above 1, the change is bigger than the error bars.
+  const typicalSd = median(valid.map(r => r.std || 0)) || null;
+  const changeVsSpread = typicalSd ? +(Math.abs(slope * (valid[valid.length - 1].year - valid[0].year)) / typicalSd).toFixed(2) : null;
+  const verdict = mk.p < 0.05 && changeVsSpread > 1 ? (slope < 0 ? 'declined' : 'improved') : 'no clear trend up or down';
+  return { valid, verdict, p: mk.p, slope, changeVsSpread };
 }
 
 function showConditionResults(area, s, trendRows, res) {
@@ -1719,19 +1723,22 @@ function showConditionResults(area, s, trendRows, res) {
   setStatus('success', 'Condition check done: ' + features.length + ' spot' + (features.length === 1 ? '' : 's') + '.');
 }
 
-// A plain chart of the yearly values and the Sen's slope line, drawn on a
-// canvas so the same picture goes into the report export.
+// A plain chart of the yearly values with error bars (± 1 standard
+// deviation across the area's pixels, i.e. how much the block varied that
+// year), drawn on a canvas so the same picture goes into the report
+// export. No fitted trend line: the reader judges the pattern against the
+// bars, and the trend test stays in the text and the appendix.
 function drawConditionChart(canvas, trend, s) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height, L0 = 70, R0 = 20, T0 = 20, B0 = 45;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
   const pts = trend.valid;
   if (!pts.length) return;
-  const vals = pts.map(p => p.mean);
-  let lo = Math.min(...vals), hi = Math.max(...vals);
-  const pad = Math.max((hi - lo) * 0.2, 0.02); lo -= pad; hi += pad;
+  const sd = (p) => p.std || 0;
+  let lo = Math.min(...pts.map(p => p.mean - sd(p))), hi = Math.max(...pts.map(p => p.mean + sd(p)));
+  const pad = Math.max((hi - lo) * 0.1, 0.02); lo -= pad; hi += pad;
   const x0 = s.years[0], x1 = s.years[s.years.length - 1];
-  const X = (y) => L0 + (y - x0) / Math.max(x1 - x0, 1) * (W - L0 - R0);
+  const X = (y) => L0 + 20 + (y - x0) / Math.max(x1 - x0, 1) * (W - L0 - R0 - 40);
   const Y = (v) => T0 + (hi - v) / (hi - lo) * (H - T0 - B0);
   ctx.strokeStyle = '#ccc'; ctx.fillStyle = '#555'; ctx.font = '14px sans-serif'; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
@@ -1741,19 +1748,17 @@ function drawConditionChart(canvas, trend, s) {
   }
   ctx.textAlign = 'center';
   s.years.forEach(y => ctx.fillText(String(y), X(y), H - B0 + 22));
-  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ' (yearly median)', 0, 0); ctx.restore();
-  ctx.strokeStyle = '#2c5f8a'; ctx.lineWidth = 2.5; ctx.beginPath();
+  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ' (yearly mean ± 1 SD)', 0, 0); ctx.restore();
+  ctx.strokeStyle = '#2c5f8a'; ctx.lineWidth = 1.5;
+  pts.forEach(p => {
+    const x = X(p.year), ya = Y(p.mean - sd(p)), yb = Y(p.mean + sd(p));
+    ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.moveTo(x - 7, ya); ctx.lineTo(x + 7, ya); ctx.moveTo(x - 7, yb); ctx.lineTo(x + 7, yb); ctx.stroke();
+  });
+  ctx.lineWidth = 2.5; ctx.beginPath();
   pts.forEach((p, i) => { if (i) ctx.lineTo(X(p.year), Y(p.mean)); else ctx.moveTo(X(p.year), Y(p.mean)); });
   ctx.stroke();
   ctx.fillStyle = '#2c5f8a';
-  pts.forEach(p => { ctx.beginPath(); ctx.arc(X(p.year), Y(p.mean), 4.5, 0, 2 * Math.PI); ctx.fill(); });
-  if (trend.slope != null) {
-    const ys = pts.map(p => p.year), ms = pts.map(p => p.mean - trend.slope * p.year);
-    const b = median(ms);
-    ctx.strokeStyle = '#b5451a'; ctx.setLineDash([7, 5]); ctx.lineWidth = 2; ctx.beginPath();
-    ctx.moveTo(X(ys[0]), Y(b + trend.slope * ys[0])); ctx.lineTo(X(ys[ys.length - 1]), Y(b + trend.slope * ys[ys.length - 1])); ctx.stroke();
-    ctx.setLineDash([]);
-  }
+  pts.forEach(p => { ctx.beginPath(); ctx.arc(X(p.year), Y(p.mean), 5, 0, 2 * Math.PI); ctx.fill(); });
 }
 
 /* ── Export for report ──────────────────────────────────────────────── */
@@ -1904,7 +1909,7 @@ async function exportCondition() {
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
       trend: {
-        verdict: c.trend.verdict, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
+        verdict: c.trend.verdict, change_vs_spread: c.trend.changeVsSpread, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
         years_used: c.trend.valid.length, years_requested: c.s.years.length
       },
       recent_scan: { clear_images: c.res.nScan, baseline_images: c.res.nBase, typical_spread: c.res.sigmaR },
@@ -1918,8 +1923,8 @@ async function exportCondition() {
       files_missing: missing
     };
     dir.file('summary.json', JSON.stringify(summary, null, 2));
-    dir.file('trend.csv', 'year,' + c.s.trendIndex.toLowerCase() + ',clear_images\n' +
-      c.trendRows.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
+    dir.file('trend.csv', 'year,' + c.s.trendIndex.toLowerCase() + '_mean,' + c.s.trendIndex.toLowerCase() + '_sd,clear_images\n' +
+      c.trendRows.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.std == null ? '' : r.std.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
     dir.file('spots.csv', SPOT_FIELDS.join(',') + '\n' + spots.map(sp => SPOT_FIELDS.map(f => csvCell(sp[f])).join(',')).join('\n') + '\n');
     dir.file('spots.geojson', JSON.stringify({ type: 'FeatureCollection', features: c.spots.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }));
     dir.file('area.geojson', JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: c.area.geojson.geometry, properties: { name: c.area.name } }] }));

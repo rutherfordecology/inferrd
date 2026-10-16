@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.17.3 — 2026-10-16
+
+- **Condition check chart: error bars, no trend line.** The whole-area
+  chart shows each year's mean with ± 1 standard deviation across the
+  area's pixels, and no fitted line, so a reader can judge the pattern
+  (a dip and recovery, say) against the spread. "Declined" or "improved"
+  now also needs the change over the period to be bigger than the typical
+  error bar, not just a significant trend test. `trend.csv` gains an SD
+  column; `summary.json` gains `change_vs_spread`.
+
 ## v0.17.2 — 2026-10-16
 
 - **Report map from the aerial basemap.** The export's `map.png` is now
