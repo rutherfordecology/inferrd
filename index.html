@@ -728,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.17.1';
+const APP_VERSION = 'v0.17.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1780,45 +1780,89 @@ function bboxOf(geojsonGeom) {
   return [w, s, e, n];
 }
 
-// A Sentinel-2 true-colour picture of the last 12 months with the area
-// outline and every spot, labelled. Earth Engine draws the picture; the
-// labels go on with a canvas.
+// The map for the report: the same aerial basemap the app shows (Esri
+// World Imagery tiles, which allow canvas use), with the area outline,
+// every spot and its label, a legend, a scale bar and the imagery credit
+// drawn on a canvas. No Earth Engine thumbnail, so the service account
+// needs no extra permission.
+const MAP_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+const MAP_CREDIT = 'Imagery: Esri, Maxar, Earthstar Geographics';
 function conditionMapPng(c) {
-  return new Promise((resolve, reject) => {
-    const [w0, s0, e0, n0] = bboxOf(c.area.geojson.geometry);
-    const padX = (e0 - w0) * 0.1 || 0.002, padY = (n0 - s0) * 0.1 || 0.002;
-    const bb = [w0 - padX, s0 - padY, e0 + padX, n0 + padY];
-    const rect = ee.Geometry.Rectangle(bb, null, false);
-    const end = ee.Date(c.s.today), start = end.advance(-1, 'year');
-    const bg = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(rect).filterDate(start, end)
-      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', c.s.cloudPct)).map(maskS2Clouds)
-      .select(['B4', 'B3', 'B2']).median().visualize({ min: 0, max: 2500, gamma: 1.3 });
-    const outline = ee.Image().byte().paint(ee.FeatureCollection([ee.Feature(ee.Geometry(c.area.geojson.geometry))]), 1, 3).visualize({ palette: ['ffffff'] });
-    const kindNum = { sudden_drop: 1, slow_decline: 2, gain: 3 };
-    const spotFc = ee.FeatureCollection(c.spots.map(x => ee.Feature(ee.Geometry(x.geometry), { k: kindNum[x.spot.kind] })));
-    const spotsImg = ee.Image().byte().paint(spotFc, 'k', 2).visualize({ min: 1, max: 3, palette: ['cb181d', 'e08214', '238b45'] });
-    bg.blend(outline).blend(spotsImg).getThumbURL({ region: rect, dimensions: 1600, format: 'png', crs: 'EPSG:3857' }, (url, err) => {
-      if (err || !url) return reject(new Error(err || 'no thumbnail'));
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onerror = () => reject(new Error('map image could not be loaded'));
-      img.onload = () => {
-        const cv = document.createElement('canvas');
-        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
-        const g = cv.getContext('2d');
-        g.drawImage(img, 0, 0);
-        const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
-        const px = (lon) => (lon - bb[0]) / (bb[2] - bb[0]) * cv.width;
-        const py = (lat) => (merc(bb[3]) - merc(lat)) / (merc(bb[3]) - merc(bb[1])) * cv.height;
-        g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 4;
-        c.spots.forEach(x => {
-          g.strokeStyle = '#000'; g.strokeText(x.spot.spot_id, px(x.spot.lon), py(x.spot.lat));
-          g.fillStyle = '#fff'; g.fillText(x.spot.spot_id, px(x.spot.lon), py(x.spot.lat));
-        });
-        cv.toBlob(b => b ? resolve(b) : reject(new Error('map image could not be saved')), 'image/png');
-      };
-      img.src = url;
+  const [w0, s0, e0, n0] = bboxOf(c.area.geojson.geometry);
+  const padX = (e0 - w0) * 0.12 || 0.002, padY = (n0 - s0) * 0.12 || 0.002;
+  const bb = [w0 - padX, s0 - padY, e0 + padX, n0 + padY];
+  const wx = (lon, z) => (lon + 180) / 360 * 256 * Math.pow(2, z);
+  const wy = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256 * Math.pow(2, z); };
+  let z = 18;
+  while (z > 8 && (wx(bb[2], z) - wx(bb[0], z) > 1800 || wy(bb[1], z) - wy(bb[3], z) > 1800)) z--;
+  const x0 = wx(bb[0], z), y0 = wy(bb[3], z);
+  const W = Math.round(wx(bb[2], z) - x0), H = Math.round(wy(bb[1], z) - y0);
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ddd'; g.fillRect(0, 0, W, H);
+  const tiles = [];
+  for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) {
+    for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++) {
+      tiles.push(new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { g.drawImage(img, tx * 256 - x0, ty * 256 - y0); resolve(true); };
+        img.onerror = () => resolve(false);
+        img.src = MAP_TILE_URL.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
+      }));
+    }
+  }
+  return Promise.all(tiles).then(ok => {
+    if (!ok.some(Boolean)) throw new Error('aerial tiles could not be loaded');
+    const P = ([lon, lat]) => [wx(lon, z) - x0, wy(lat, z) - y0];
+    const polys = (geom) => geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+    const trace = (geom) => {
+      g.beginPath();
+      polys(geom).forEach(rings => rings.forEach(ring => ring.forEach((pt, i) => { const [x, y] = P(pt); if (i) g.lineTo(x, y); else g.moveTo(x, y); })));
+    };
+    g.lineJoin = 'round';
+    c.spots.forEach(x => {
+      trace(x.geometry);
+      g.fillStyle = COND_COLORS[x.spot.kind] + '66'; g.fill('evenodd');
+      g.strokeStyle = COND_COLORS[x.spot.kind]; g.lineWidth = 2.5; g.stroke();
     });
+    trace(c.area.geojson.geometry);
+    g.strokeStyle = '#000'; g.lineWidth = 6; g.stroke();
+    g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
+    const halo = (text, x, y, font) => {
+      g.font = font; g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText(text, x, y); g.fillStyle = '#fff'; g.fillText(text, x, y);
+    };
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    c.spots.forEach(x => { const [lx, ly] = P([x.spot.lon, x.spot.lat]); halo(x.spot.spot_id, lx, ly, 'bold 20px sans-serif'); });
+    // Legend, top left
+    const rows = [['Area boundary', null]].concat(Object.keys(COND_COLORS).map(k => [COND_PREFIX[k] + ' · ' + COND_KIND_NAME[k], COND_COLORS[k]]));
+    g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = '15px sans-serif';
+    const lw = 12 + Math.max(...rows.map(r => g.measureText(r[0]).width)) + 38, lh = 12 + rows.length * 24;
+    g.fillStyle = 'rgba(255,255,255,0.88)'; g.fillRect(12, 12, lw, lh);
+    rows.forEach(([label, col], i) => {
+      const y = 12 + 18 + i * 24;
+      if (col) { g.fillStyle = col + '99'; g.fillRect(22, y - 7, 22, 14); g.strokeStyle = col; g.lineWidth = 2; g.strokeRect(22, y - 7, 22, 14); }
+      else { g.strokeStyle = '#000'; g.lineWidth = 4; g.strokeRect(22, y - 7, 22, 14); g.strokeStyle = '#fff'; g.lineWidth = 2; g.strokeRect(22, y - 7, 22, 14); }
+      g.fillStyle = '#222'; g.fillText(label, 52, y);
+    });
+    // Scale bar, bottom left: a round length near a fifth of the width
+    const midLat = (bb[1] + bb[3]) / 2;
+    const mPerPx = 156543.03392 * Math.cos(midLat * Math.PI / 180) / Math.pow(2, z);
+    const target = W / 5 * mPerPx, mag = Math.pow(10, Math.floor(Math.log10(target)));
+    const len = [1, 2, 5, 10].map(m => m * mag).filter(m => m <= target).pop();
+    const px = len / mPerPx, sx = 16, sy = H - 22;
+    g.fillStyle = 'rgba(255,255,255,0.88)'; g.fillRect(sx - 6, sy - 26, px + 12, 36);
+    g.fillStyle = '#222'; g.fillRect(sx, sy, px, 5);
+    g.font = '14px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    g.fillText(len >= 1000 ? (len / 1000) + ' km' : len + ' m', sx + px / 2, sy - 7);
+    // North and credit, top right / bottom right
+    halo('N ↑', W - 30, 28, 'bold 18px sans-serif');
+    g.font = '12px sans-serif'; g.textAlign = 'right';
+    const cw = g.measureText(MAP_CREDIT).width;
+    g.fillStyle = 'rgba(255,255,255,0.8)'; g.fillRect(W - cw - 14, H - 22, cw + 10, 18);
+    g.fillStyle = '#333'; g.fillText(MAP_CREDIT, W - 8, H - 8);
+    return new Promise((resolve, reject) => cv.toBlob(b => b ? resolve(b) : reject(new Error('map image could not be saved (tiles blocked canvas use)')), 'image/png'));
   });
 }
 
@@ -1850,7 +1894,7 @@ async function exportCondition() {
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
-      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Scene Classification (SCL) band: vegetation, bare soil, water and unclassified kept', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10 },
+      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Scene Classification (SCL) band: vegetation, bare soil, water and unclassified kept', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10, map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today },
       settings: {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,

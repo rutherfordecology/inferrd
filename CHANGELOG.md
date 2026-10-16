@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.17.2 — 2026-10-16
+
+- **Report map from the aerial basemap.** The export's `map.png` is now
+  drawn from the same Esri World Imagery tiles the app shows, with the
+  area outline, labelled spots, a legend, scale bar, north arrow and
+  imagery credit. It no longer needs Earth Engine's thumbnail permission,
+  which the service account doesn't have.
+
 ## v0.17.1 — 2026-10-16
 
 - **Condition check fixes from the first live runs.** Spots now come back
