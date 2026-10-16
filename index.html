@@ -1747,7 +1747,7 @@ function conditionTrend(rows, series) {
 
 function showConditionResults(area, s, trendRows, res, series) {
   const trend = conditionTrend(trendRows, series);
-  const counters = { S: 0, D: 0, G: 0 };
+  const counters = { S: 0, R: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
     const p = f.properties;
     const kind = p.cls === 5 ? 'dropped_recovered' : p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
