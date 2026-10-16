@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.17.0 — 2026-10-16
+
+- **Condition check.** A third analysis type for one area, such as a
+  covenant or PMA picked with "Analyse this area". It gives the whole
+  area's trend (Mann-Kendall and Sen's slope on yearly composites) and
+  traces spots inside it: sudden drops (recent ones from each clear image
+  in a look-back window against the 180 days before; older ones from a
+  single big step between two years), slow decline and gains (each
+  pixel's change over the years against the area's typical spread). The
+  tolerance is adjustable: smallest drop, spread multiple, how many clear
+  images a drop must stay down for, and smallest spot.
+- **Export for report.** Saves a zip for the report workflow: summary,
+  trend and spot tables, spot outlines, the area, a labelled map and the
+  trend chart.
+
 ## v0.16.0 — 2026-10-16
 
 - **Analyse a covenant or plan area.** QEII covenant popups and reference

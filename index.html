@@ -88,6 +88,8 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .mode-btn.active { background: var(--orange-light); border-color: var(--orange-dark); box-shadow: inset 3px 0 0 var(--orange-dark); }
 .mode-name { font-size: 13px; font-weight: 600; }
 .mode-btn.active .mode-name { color: var(--orange-dark); }
+.leaflet-tooltip.cond-label { background: transparent; border: none; box-shadow: none; padding: 0; color: #fff; font-weight: 700; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+.leaflet-tooltip.cond-label::before { display: none; }
 .mode-desc { font-size: 11.5px; color: var(--text2); line-height: 1.4; }
 .change-legend-row { display: flex; align-items: center; gap: 4px; }
 .change-legend-label { width: 34px; flex-shrink: 0; }
@@ -240,6 +242,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <span class="mode-name">Change between two dates</span>
           <span class="mode-desc">A map of where vegetation increased or decreased</span>
         </button>
+        <button class="mode-btn" id="modeCondition" data-mode="condition" type="button" role="radio" aria-checked="false">
+          <span class="mode-name">Condition check</span>
+          <span class="mode-desc">One area: its trend, plus spots of sudden drop, slow decline or regrowth inside it, ready for a report</span>
+        </button>
       </div>
     </div>
 
@@ -373,6 +379,95 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, severe over 0.3 (measured from the area-wide change when that's on). The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a severe NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
       <div class="field-hint live-hint" id="changeStatus"></div>
       <div class="field-hint live-hint" id="changeSummary"></div>
+      </div>
+      <div id="conditionSettings" hidden>
+      <div class="field half">
+        <div>
+          <label for="condYearStart">From year</label>
+          <select id="condYearStart"></select>
+        </div>
+        <div>
+          <label for="condYearEnd">To year</label>
+          <select id="condYearEnd"></select>
+        </div>
+      </div>
+      <div class="field half">
+        <div>
+          <label for="condTrendIndex">Trend index</label>
+          <select id="condTrendIndex">
+            <option value="EVI" selected>EVI</option>
+            <option value="NDVI">NDVI</option>
+            <option value="NBR">NBR</option>
+            <option value="NDMI">NDMI</option>
+          </select>
+        </div>
+        <div>
+          <label for="condDropIndex">Drop index</label>
+          <select id="condDropIndex">
+            <option value="NBR" selected>NBR</option>
+            <option value="EVI">EVI</option>
+            <option value="NDVI">NDVI</option>
+            <option value="NDMI">NDMI</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-hint">The trend index is used for the whole-area trend and for slow decline or regrowth year by year. The drop index is used to find recent sudden drops; NBR responds most strongly to canopy turning into bare ground or slash.</div>
+      <div class="field half">
+        <div>
+          <label for="condLookback">Look for recent drops over</label>
+          <select id="condLookback">
+            <option value="30">last 30 days</option>
+            <option value="90" selected>last 90 days</option>
+            <option value="180">last 180 days</option>
+            <option value="365">last year</option>
+          </select>
+        </div>
+        <div>
+          <label for="condFloor">Smallest drop</label>
+          <select id="condFloor">
+            <option value="0.1">0.10</option>
+            <option value="0.15" selected>0.15</option>
+            <option value="0.2">0.20</option>
+            <option value="0.3">0.30</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="condK">And beyond</label>
+        <div class="range-row">
+          <input type="range" id="condK" min="1.5" max="6" step="0.5" value="3">
+          <span class="range-val" id="condKVal" style="min-width:78px;">3× typical</span>
+        </div>
+      </div>
+      <div class="field half">
+        <div>
+          <label for="condPersist">Must stay down for</label>
+          <select id="condPersist">
+            <option value="1">1 clear image</option>
+            <option value="2" selected>2 clear images</option>
+            <option value="3">3 clear images</option>
+            <option value="4">4 clear images</option>
+          </select>
+        </div>
+        <div>
+          <label for="condMinHa">Smallest spot</label>
+          <select id="condMinHa">
+            <option value="0.03">0.03 ha</option>
+            <option value="0.1" selected>0.1 ha</option>
+            <option value="0.25">0.25 ha</option>
+            <option value="0.5">0.5 ha</option>
+            <option value="1">1 ha</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
+      <div id="conditionLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
+        <div class="change-legend-row"><span class="sw" style="background:#cb181d;flex:0 0 14px;"></span>S · sudden drop (possible clearance or damage)</div>
+        <div class="change-legend-row"><span class="sw" style="background:#e08214;flex:0 0 14px;"></span>D · slow decline (possible poor forest health)</div>
+        <div class="change-legend-row"><span class="sw" style="background:#238b45;flex:0 0 14px;"></span>G · gain (regrowth or recovery)</div>
+      </div>
+      <div class="field-hint live-hint" id="conditionStatus"></div>
       </div>
       <div class="status-bar" id="statusBar"></div>
     </div>
@@ -519,6 +614,22 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <table class="stats-table" id="whenTable"></table>
         </div>
       </div>
+      <div id="conditionContent" style="display:none">
+        <div class="metrics" id="condMetrics"></div>
+        <div class="chart-card">
+          <div class="card-title">Whole area — <span id="condTitle"></span></div>
+          <div class="field-hint" style="margin:-4px 0 8px;" id="condTrendText"></div>
+          <canvas id="condTrendCanvas" width="900" height="300" style="width:100%;height:auto;"></canvas>
+        </div>
+        <div class="table-card">
+          <div class="table-card-head">
+            <div class="card-title">Spots inside the area</div>
+            <button class="dl-btn" id="condExportBtn">Export for report</button>
+          </div>
+          <div class="field-hint" style="margin:-4px 0 8px;">Click a row to zoom to the spot. Every spot is a reason to go and look, not proof of what happened.</div>
+          <table class="stats-table" id="condTable"></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -551,6 +662,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Change between two dates</h3>
     <p>Choose "Change between two dates" in section 3 to map which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
     <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
+
+    <h3>Condition check</h3>
+    <p>Choose "Condition check" in section 3 for one area, such as a covenant or Protection Management Area added with "Analyse this area". It reports the area's trend over the years and traces spots inside it: sudden drops (recent ones, found image by image in the look-back window and required to stay down; older ones, where most of a pixel's decline happened between two years), slow decline, and gains. Every pixel is judged against what the area as a whole did and against the area's typical spread, as in the change map, and only spots at least the smallest size are kept. "Export for report" saves the results as a zip for writing a condition report. A spot is a place to go and look, not proof of clearance or of a breach.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
@@ -614,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.16.0';
+const APP_VERSION = 'v0.17.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -827,6 +941,7 @@ function renderAreaList() {
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
+  hideConditionLayers();
   updateRunEnabled();
 }
 
@@ -845,6 +960,7 @@ function clearResults() {
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('whenContent').style.display = 'none';
+  document.getElementById('conditionContent').style.display = 'none';
   document.getElementById('resultsEmpty').style.display = '';
   setStatus('', '');
 }
@@ -1285,12 +1401,499 @@ function showChangeLayers() {
   });
 }
 
+/* ---------------------------------------------------------------------
+   Condition check — one area, three questions, for a report:
+   1. The whole area's trend: the yearly composites of the trend index,
+      Mann-Kendall and Sen's slope (the same as Trend over years).
+   2. Spots inside it, each a group of flagged 10 m pixels:
+      S  sudden drop. Recent: in the look-back window, each clear image of
+         the drop index is compared with a median of the 180 days before
+         the window, minus the area's median change for that image (so
+         season and weather cancel). A pixel is flagged when it fell by at
+         least the floor AND more than k × the area's typical spread, and
+         has stayed down on at least N clear images with no clear image
+         back up since. Older: a pixel whose decline over the years
+         (below) happened mostly between two years.
+      D  slow decline, and G gain: each pixel's Sen's slope across the
+         yearly composites, × the period, measured against the area's
+         median and robust spread with the same rule as the change map
+         (classifyChange).
+   3. "Export for report" bundles it for the report workflow
+      (OneDrive\Workflow\skills\condition-writer.md describes the files).
+   --------------------------------------------------------------------- */
+const COND_BASELINE_DAYS = 180;
+const COND_PAST_STEP_SHARE = 0.6; // a decline counts as a past sudden drop when one year's step is this share of it
+const COND_MAX_SPOTS = 300;
+const COND_COLORS = { sudden_drop: '#cb181d', slow_decline: '#e08214', gain: '#238b45' };
+const COND_PREFIX = { sudden_drop: 'S', slow_decline: 'D', gain: 'G' };
+const COND_KIND_NAME = { sudden_drop: 'Sudden drop', slow_decline: 'Slow decline', gain: 'Gain' };
+let conditionLayer = null;
+let conditionRunning = false;
+let conditionRunId = 0;
+let lastCondition = null;
+
+(function initConditionSettings() {
+  const ys = document.getElementById('condYearStart'), ye = document.getElementById('condYearEnd');
+  for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) { ys.add(new Option(y, y)); ye.add(new Option(y, y)); }
+  ys.value = 2018; // first full year of Sentinel-2 surface reflectance
+  ye.value = CURRENT_YEAR - 1; // last full year
+  const k = document.getElementById('condK');
+  k.addEventListener('input', () => { document.getElementById('condKVal').textContent = k.value + '× typical'; });
+})();
+
+function hideConditionLayers() {
+  conditionRunId++;
+  if (conditionLayer) { map.removeLayer(conditionLayer); conditionLayer = null; }
+  const legend = document.getElementById('conditionLegend');
+  if (legend) legend.style.display = 'none';
+  const st = document.getElementById('conditionStatus');
+  if (st) st.textContent = '';
+}
+
+// Robust median of an image over the area; 0 when there's nothing to
+// reduce (If treats a null result as false).
+function eeAreaMedian(img, region, proj) {
+  const v = img.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 10, maxPixels: 1e9, tileScale: 4 }).values().get(0);
+  return ee.Number(ee.Algorithms.If(v, v, 0));
+}
+
+function condCollection(region, start, end, cloudPct, indexName) {
+  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(region)
+    .filterDate(start, end)
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', cloudPct))
+    .map(maskS2Clouds)
+    .map(addIndices)
+    .select(indexName);
+}
+
+const eeMaskedConst = (names) => ee.Image.constant(names.map(() => 0)).rename(names).updateMask(ee.Image.constant(0)).float();
+
+// Per-pixel images behind the spots; see the header for the rules.
+function conditionImages(region, proj, s) {
+  // ── Years: slow decline, gain, older sudden drops ──
+  const yearImgs = s.years.map(y => {
+    const col = yearIndexCollection(region, y, s.cloudPct, 1, 12).select(s.trendIndex);
+    const v = ee.Image(ee.Algorithms.If(col.size().gt(0), col.median().rename('v').float(), eeMaskedConst(['v'])));
+    return v.addBands(ee.Image.constant(y).float().rename('t').updateMask(v.mask()));
+  });
+  const annual = ee.ImageCollection(yearImgs);
+  const nYears = annual.select('v').count().unmask(0).rename('nYears');
+  const minYears = Math.max(3, Math.ceil(0.6 * s.years.length));
+  const span = s.years[s.years.length - 1] - s.years[0];
+  const total = annual.select(['t', 'v']).reduce(ee.Reducer.sensSlope()).select('slope')
+    .multiply(span).rename('d').updateMask(nYears.gte(minYears)).clip(region);
+  const medT = eeAreaMedian(total, region, proj);
+  const sigmaT = eeAreaMedian(total.subtract(medT).abs(), region, proj).multiply(1.4826).max(1e-6);
+  const slow = classifyChange(total, medT, sigmaT, s.k);
+  const steps = ee.ImageCollection(yearImgs.slice(1).map((img, i) => {
+    const step = img.select('v').subtract(yearImgs[i].select('v'));
+    return step.rename('step').addBands(step.multiply(-1).rename('q')).addBands(ee.Image.constant(s.years[i + 1]).float().rename('yr'));
+  }));
+  const biggest = steps.qualityMosaic('q');
+  const maxDrop = biggest.select('q');
+  const pastSudden = slow.loss.and(maxDrop.gte(s.floor)).and(maxDrop.gte(slow.resid.multiply(-COND_PAST_STEP_SHARE)));
+
+  // ── Recent sudden drops ──
+  const today = ee.Date(s.today);
+  const scanStart = today.advance(-s.lookback, 'day');
+  const base = condCollection(region, scanStart.advance(-COND_BASELINE_DAYS, 'day'), scanStart, s.cloudPct, s.dropIndex);
+  const scan = condCollection(region, scanStart, today.advance(1, 'day'), s.cloudPct, s.dropIndex).sort('system:time_start');
+  const recentNames = ['rFlag', 'rMag', 'tDown', 'tUp', 'nClear', 'nDown'];
+  const recent = ee.Image(ee.Algorithms.If(base.size().gt(0).and(scan.size().gt(0)), (() => {
+    const baseImg = base.median();
+    const resid = scan.map(img => {
+      const d = img.select(s.dropIndex).subtract(baseImg).rename('r');
+      const r = d.subtract(eeAreaMedian(d, region, proj)).rename('r');
+      return r.addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
+    });
+    const sigmaR = eeAreaMedian(resid.select('r').map(i => i.abs()).median(), region, proj).multiply(1.4826).max(1e-6);
+    const down = (i) => i.select('r').lte(-s.floor).and(i.select('r').lte(sigmaR.multiply(-s.k)));
+    const tDown = resid.map(i => i.select('t').updateMask(down(i))).min().rename('tDown');
+    const nDown = resid.map(i => down(i).rename('n')).sum().unmask(0).rename('nDown');
+    const upAfter = resid.map(i => down(i).not().and(i.select('t').gt(tDown)).unmask(0).rename('n')).sum().unmask(0);
+    const tUp = resid.map(i => i.select('t').updateMask(down(i).not().and(i.select('t').lt(tDown)))).max()
+      .unmask(ee.Number(scanStart.millis())).rename('tUp');
+    const nClear = resid.select('r').count().unmask(0).rename('nClear');
+    const rFlag = nDown.gte(s.persist).and(upAfter.eq(0)).unmask(0).rename('rFlag');
+    const rMag = resid.select('r').mosaic().multiply(-1).rename('rMag'); // latest clear image
+    return ee.Image.cat([rFlag, rMag, tDown.double(), tUp.double(), nClear, nDown]).set('sigmaR', sigmaR);
+  })(), ee.Image.constant([0, 0, 0, 0, 0, 0]).rename(recentNames).updateMask(ee.Image.constant(0)).set('sigmaR', 0)));
+  const rFlag = recent.select('rFlag').unmask(0);
+
+  // ── Classes: 1 recent sudden, 2 older sudden, 3 slow decline, 4 gain ──
+  let cls = ee.Image(0)
+    .where(slow.gain.unmask(0), 4)
+    .where(slow.loss.unmask(0), 3)
+    .where(pastSudden.unmask(0), 2)
+    .where(rFlag, 1);
+  cls = cls.updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
+  const mag = ee.Image(0)
+    .where(cls.eq(4), slow.resid)
+    .where(cls.eq(3), slow.resid.multiply(-1))
+    .where(cls.eq(2), maxDrop)
+    .where(cls.eq(1), recent.select('rMag'))
+    .rename('mag');
+  const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), biggest.select('yr'), nYears]);
+  return { cls, stats, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
+}
+
+function runCondition() {
+  if (!eeReady || conditionRunning) return;
+  const statusEl = document.getElementById('conditionStatus');
+  if (areas.length !== 1) {
+    statusEl.textContent = areas.length ? 'A condition check runs on one area. Remove the others (✕ in section 2) first.' : 'Draw an area, or pick one with "Analyse this area" on a covenant or plan-layer popup.';
+    return;
+  }
+  const area = areas[0];
+  const y0 = Number(document.getElementById('condYearStart').value), y1 = Number(document.getElementById('condYearEnd').value);
+  if (y1 - y0 < 3) { statusEl.textContent = 'Pick a period of at least four years.'; return; }
+  const years = [];
+  for (let y = y0; y <= y1; y++) years.push(y);
+  const s = {
+    years,
+    trendIndex: document.getElementById('condTrendIndex').value,
+    dropIndex: document.getElementById('condDropIndex').value,
+    lookback: Number(document.getElementById('condLookback').value),
+    floor: Number(document.getElementById('condFloor').value),
+    k: Number(document.getElementById('condK').value),
+    persist: Number(document.getElementById('condPersist').value),
+    minHa: Number(document.getElementById('condMinHa').value),
+    cloudPct: Number(cloudThresh.value),
+    today: isoDate(new Date())
+  };
+  hideConditionLayers();
+  const runId = conditionRunId;
+  conditionRunning = true;
+  updateRunEnabled();
+  statusEl.textContent = 'Working out the trend and tracing spots for ' + area.name + ' — usually under a minute, longer for big areas…';
+
+  const region = ee.Geometry(area.geojson.geometry);
+  const proj = s2Projection(region, s.today, 60);
+  let trendRows = null, spotsRes = null, failed = null;
+  const finish = () => {
+    if (runId !== conditionRunId) return;
+    if (failed) { conditionRunning = false; updateRunEnabled(); statusEl.textContent = 'Condition check failed: ' + failed; return; }
+    if (!trendRows || !spotsRes) return;
+    conditionRunning = false;
+    updateRunEnabled();
+    statusEl.textContent = '';
+    showConditionResults(area, s, trendRows, spotsRes);
+  };
+
+  try {
+    ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, s.cloudPct, s.trendIndex, 1, 12, area.id)))
+      .evaluate((res, err) => {
+        if (err) { failed = failed || err; return finish(); }
+        trendRows = res.features.map(f => f.properties)
+          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, n_images: p.n_images }))
+          .sort((a, b) => a.year - b.year);
+        finish();
+      });
+
+    const c = conditionImages(region, proj, s);
+    const minPx = Math.max(1, Math.round(s.minHa * 100)); // 10 m pixels = 0.01 ha each
+    const vectors = c.cls.reduceToVectors({
+      geometry: region, crs: proj, scale: 10, geometryType: 'polygon', eightConnected: true,
+      labelProperty: 'cls', reducer: ee.Reducer.countEvery(), maxPixels: 1e9, tileScale: 4
+    }).filter(ee.Filter.gte('count', minPx)).sort('count', false).limit(COND_MAX_SPOTS);
+    const spots = c.stats.reduceRegions({ collection: vectors, reducer: ee.Reducer.median(), crs: proj, scale: 10, tileScale: 4 })
+      .map(f => {
+        const g = f.geometry().transform('EPSG:4326', 1);
+        return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
+      });
+    ee.Dictionary({
+      spots: spots, medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR,
+      nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd')
+    }).evaluate((res, err) => {
+      if (err) { failed = failed || err; return finish(); }
+      spotsRes = res;
+      finish();
+    });
+  } catch (e) {
+    failed = e && e.message ? e.message : String(e);
+    finish();
+  }
+}
+document.getElementById('conditionRunBtn').addEventListener('click', runCondition);
+
+function gradeOf(mag) {
+  const g = CHANGE_GRADES.slice().reverse().find(gr => mag >= gr.lo);
+  return g ? g.name : 'slight';
+}
+function isoFromMs(ms) { return ms ? new Date(ms).toISOString().slice(0, 10) : null; }
+
+// Whole-area trend in the report's fixed wording (condition-writer.md).
+function conditionTrend(rows) {
+  const valid = rows.filter(r => r.mean != null && r.n_images > 0);
+  if (valid.length < 4) return { valid, verdict: 'not enough clear years', p: null, slope: null };
+  const mk = mannKendall(valid.map(r => r.mean));
+  const slopes = [];
+  for (let i = 0; i < valid.length - 1; i++) for (let j = i + 1; j < valid.length; j++) {
+    slopes.push((valid[j].mean - valid[i].mean) / (valid[j].year - valid[i].year));
+  }
+  const slope = median(slopes);
+  const verdict = mk.p < 0.05 ? (slope < 0 ? 'declined' : 'improved') : 'no clear trend up or down';
+  return { valid, verdict, p: mk.p, slope };
+}
+
+function showConditionResults(area, s, trendRows, res) {
+  const trend = conditionTrend(trendRows);
+  const counters = { S: 0, D: 0, G: 0 };
+  const features = (res.spots.features || []).map(f => {
+    const p = f.properties;
+    const kind = p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
+    const prefix = COND_PREFIX[kind];
+    const recent = p.cls === 1;
+    const spot = {
+      spot_id: null, kind, recent: kind === 'sudden_drop' ? recent : null,
+      severity: gradeOf(Math.abs(p.mag || 0)),
+      area_ha: +(p.count / 100).toFixed(2),
+      lat: +p.centroid[1].toFixed(6), lon: +p.centroid[0].toFixed(6),
+      date_before: kind !== 'sudden_drop' ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
+      date_after: kind !== 'sudden_drop' ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
+      change: +(kind === 'gain' ? 1 : -1) * Math.abs(p.mag || 0),
+      index: kind === 'sudden_drop' && recent ? s.dropIndex : s.trendIndex,
+      clear_images: recent ? p.nClear : null,
+      years_with_data: recent ? null : p.nYears,
+      low_confidence: recent ? (p.nDown < 2 || p.nClear < 3) : (p.nYears < 0.8 * s.years.length)
+    };
+    spot.change = +spot.change.toFixed(3);
+    return { spot, geometry: f.geometry, prefix };
+  });
+  // Number within each kind, biggest first.
+  ['S', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
+    .sort((a, b) => b.spot.area_ha - a.spot.area_ha)
+    .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
+  features.sort((a, b) => 'SDG'.indexOf(a.prefix) - 'SDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
+
+  lastCondition = { area, s, trendRows, trend, spots: features, res, runAt: new Date().toISOString() };
+
+  // Map
+  conditionLayer = L.geoJSON({ type: 'FeatureCollection', features: features.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }, {
+    style: f => ({ color: COND_COLORS[f.properties.kind], weight: 2, fillColor: COND_COLORS[f.properties.kind], fillOpacity: 0.35 }),
+    onEachFeature: (f, lyr) => lyr.bindTooltip(f.properties.spot_id, { permanent: true, direction: 'center', className: 'cond-label' })
+  }).addTo(map);
+  document.getElementById('conditionLegend').style.display = 'flex';
+
+  // Results pane
+  ['resultsEmpty', 'resultsContent', 'comparisonContent', 'indexComparisonContent', 'whenContent'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('conditionContent').style.display = 'block';
+  expandResultsPane();
+  const esc = (v) => String(v).replace(/</g, '&lt;');
+  document.getElementById('condTitle').textContent = area.name + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
+  const sum = (kind) => features.filter(x => x.spot.kind === kind);
+  const ha = (list) => list.reduce((a, x) => a + x.spot.area_ha, 0);
+  const metric = (label, value) => '<div class="metric"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
+  document.getElementById('condMetrics').innerHTML =
+    metric('Whole area', trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
+    metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
+    metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
+    metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
+  document.getElementById('condTrendText').innerHTML = trend.p == null
+    ? 'Too few years with clear images for a trend test.'
+    : 'Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
+      'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').';
+  drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
+
+  const when = (sp) => sp.kind !== 'sudden_drop' ? s.years[0] + '–' + s.years[s.years.length - 1]
+    : sp.recent ? 'between ' + fmtDate(Date.parse(sp.date_before)) + ' and ' + fmtDate(Date.parse(sp.date_after))
+    : 'between ' + sp.date_before + ' and ' + sp.date_after;
+  const table = document.getElementById('condTable');
+  table.innerHTML = '<tr><th>Spot</th><th>Kind</th><th>Size (ha)</th><th>When</th><th>Strength</th><th>Change</th><th></th></tr>' +
+    (features.length ? features.map((x, i) => '<tr data-i="' + i + '" style="cursor:pointer;"><td><strong>' + x.spot.spot_id + '</strong></td><td>' + COND_KIND_NAME[x.spot.kind] +
+      '</td><td>' + fmtHa(x.spot.area_ha) + '</td><td>' + esc(when(x.spot)) + '</td><td>' + x.spot.severity + '</td><td>' + (x.spot.change > 0 ? '+' : '') + x.spot.change.toFixed(3) + ' ' + x.spot.index +
+      '</td><td>' + (x.spot.low_confidence ? '<span title="Few clear images behind this spot" style="color:var(--red);">low confidence</span>' : '') + '</td></tr>').join('')
+      : '<tr><td colspan="7">No spots found with these settings.</td></tr>');
+  table.querySelectorAll('tr[data-i]').forEach(tr => tr.addEventListener('click', () => {
+    const x = features[Number(tr.dataset.i)];
+    map.fitBounds(L.geoJSON(x.geometry).getBounds(), { padding: [60, 60], maxZoom: 18 });
+  }));
+  setStatus('success', 'Condition check done: ' + features.length + ' spot' + (features.length === 1 ? '' : 's') + '.');
+}
+
+// A plain chart of the yearly values and the Sen's slope line, drawn on a
+// canvas so the same picture goes into the report export.
+function drawConditionChart(canvas, trend, s) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, L0 = 70, R0 = 20, T0 = 20, B0 = 45;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+  const pts = trend.valid;
+  if (!pts.length) return;
+  const vals = pts.map(p => p.mean);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.2, 0.02); lo -= pad; hi += pad;
+  const x0 = s.years[0], x1 = s.years[s.years.length - 1];
+  const X = (y) => L0 + (y - x0) / Math.max(x1 - x0, 1) * (W - L0 - R0);
+  const Y = (v) => T0 + (hi - v) / (hi - lo) * (H - T0 - B0);
+  ctx.strokeStyle = '#ccc'; ctx.fillStyle = '#555'; ctx.font = '14px sans-serif'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const v = lo + (hi - lo) * i / 4, y = Y(v);
+    ctx.beginPath(); ctx.moveTo(L0, y); ctx.lineTo(W - R0, y); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillText(v.toFixed(2), L0 - 8, y + 5);
+  }
+  ctx.textAlign = 'center';
+  s.years.forEach(y => ctx.fillText(String(y), X(y), H - B0 + 22));
+  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ' (yearly median)', 0, 0); ctx.restore();
+  ctx.strokeStyle = '#2c5f8a'; ctx.lineWidth = 2.5; ctx.beginPath();
+  pts.forEach((p, i) => { if (i) ctx.lineTo(X(p.year), Y(p.mean)); else ctx.moveTo(X(p.year), Y(p.mean)); });
+  ctx.stroke();
+  ctx.fillStyle = '#2c5f8a';
+  pts.forEach(p => { ctx.beginPath(); ctx.arc(X(p.year), Y(p.mean), 4.5, 0, 2 * Math.PI); ctx.fill(); });
+  if (trend.slope != null) {
+    const ys = pts.map(p => p.year), ms = pts.map(p => p.mean - trend.slope * p.year);
+    const b = median(ms);
+    ctx.strokeStyle = '#b5451a'; ctx.setLineDash([7, 5]); ctx.lineWidth = 2; ctx.beginPath();
+    ctx.moveTo(X(ys[0]), Y(b + trend.slope * ys[0])); ctx.lineTo(X(ys[ys.length - 1]), Y(b + trend.slope * ys[ys.length - 1])); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+/* ── Export for report ──────────────────────────────────────────────── */
+let jszipPromise = null;
+function loadJSZip() {
+  if (window.JSZip) return Promise.resolve(window.JSZip);
+  if (!jszipPromise) jszipPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    sc.onload = () => resolve(window.JSZip);
+    sc.onerror = () => { jszipPromise = null; reject(new Error('could not load the zip library')); };
+    document.head.appendChild(sc);
+  });
+  return jszipPromise;
+}
+
+const csvCell = (v) => { if (v == null) return ''; const t = String(v); return /[,"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'change', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
+
+function bboxOf(geojsonGeom) {
+  let w = 180, s = 90, e = -180, n = -90;
+  const walk = (c) => { if (typeof c[0] === 'number') { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); } else c.forEach(walk); };
+  walk(geojsonGeom.coordinates);
+  return [w, s, e, n];
+}
+
+// A Sentinel-2 true-colour picture of the last 12 months with the area
+// outline and every spot, labelled. Earth Engine draws the picture; the
+// labels go on with a canvas.
+function conditionMapPng(c) {
+  return new Promise((resolve, reject) => {
+    const [w0, s0, e0, n0] = bboxOf(c.area.geojson.geometry);
+    const padX = (e0 - w0) * 0.1 || 0.002, padY = (n0 - s0) * 0.1 || 0.002;
+    const bb = [w0 - padX, s0 - padY, e0 + padX, n0 + padY];
+    const rect = ee.Geometry.Rectangle(bb, null, false);
+    const end = ee.Date(c.s.today), start = end.advance(-1, 'year');
+    const bg = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(rect).filterDate(start, end)
+      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', c.s.cloudPct)).map(maskS2Clouds)
+      .select(['B4', 'B3', 'B2']).median().visualize({ min: 0, max: 2500, gamma: 1.3 });
+    const outline = ee.Image().byte().paint(ee.FeatureCollection([ee.Feature(ee.Geometry(c.area.geojson.geometry))]), 1, 3).visualize({ palette: ['ffffff'] });
+    const kindNum = { sudden_drop: 1, slow_decline: 2, gain: 3 };
+    const spotFc = ee.FeatureCollection(c.spots.map(x => ee.Feature(ee.Geometry(x.geometry), { k: kindNum[x.spot.kind] })));
+    const spotsImg = ee.Image().byte().paint(spotFc, 'k', 2).visualize({ min: 1, max: 3, palette: ['cb181d', 'e08214', '238b45'] });
+    bg.blend(outline).blend(spotsImg).getThumbURL({ region: rect, dimensions: 1600, format: 'png', crs: 'EPSG:3857' }, (url, err) => {
+      if (err || !url) return reject(new Error(err || 'no thumbnail'));
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onerror = () => reject(new Error('map image could not be loaded'));
+      img.onload = () => {
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        const g = cv.getContext('2d');
+        g.drawImage(img, 0, 0);
+        const merc = (lat) => Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360));
+        const px = (lon) => (lon - bb[0]) / (bb[2] - bb[0]) * cv.width;
+        const py = (lat) => (merc(bb[3]) - merc(lat)) / (merc(bb[3]) - merc(bb[1])) * cv.height;
+        g.font = 'bold 22px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 4;
+        c.spots.forEach(x => {
+          g.strokeStyle = '#000'; g.strokeText(x.spot.spot_id, px(x.spot.lon), py(x.spot.lat));
+          g.fillStyle = '#fff'; g.fillText(x.spot.spot_id, px(x.spot.lon), py(x.spot.lat));
+        });
+        cv.toBlob(b => b ? resolve(b) : reject(new Error('map image could not be saved')), 'image/png');
+      };
+      img.src = url;
+    });
+  });
+}
+
+async function exportCondition() {
+  const c = lastCondition;
+  if (!c) return;
+  const btn = document.getElementById('condExportBtn');
+  btn.disabled = true;
+  const oldText = btn.textContent;
+  btn.textContent = 'Preparing…';
+  try {
+    const JSZip = await loadJSZip();
+    const slug = c.area.name.replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'area';
+    const folderName = 'inferrd_' + slug + '_' + c.s.today;
+    const zip = new JSZip();
+    const dir = zip.folder(folderName);
+    const missing = [];
+
+    let mapBlob = null;
+    try { mapBlob = await conditionMapPng(c); } catch (e) { missing.push('map.png (' + e.message + ')'); }
+    if (mapBlob) dir.file('map.png', mapBlob);
+    const trendBlob = await new Promise(r => document.getElementById('condTrendCanvas').toBlob(r, 'image/png'));
+    if (trendBlob) dir.file('trend.png', trendBlob); else missing.push('trend.png');
+
+    const spots = c.spots.map(x => x.spot);
+    const count = (kind) => spots.filter(sp => sp.kind === kind);
+    const haSum = (list) => +list.reduce((a, sp) => a + sp.area_ha, 0).toFixed(2);
+    const areaHa = (() => { try { return +(turf.area(c.area.geojson) / 10000).toFixed(2); } catch (e) { return null; } })();
+    const summary = {
+      tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
+      area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
+      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Scene Classification (SCL) band: vegetation, bare soil, water and unclassified kept', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10 },
+      settings: {
+        years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
+        recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
+        drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
+        past_drop_share: COND_PAST_STEP_SHARE, area_wide_change_allowed_for: true,
+        severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
+      },
+      trend: {
+        verdict: c.trend.verdict, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
+        years_used: c.trend.valid.length, years_requested: c.s.years.length
+      },
+      recent_scan: { clear_images: c.res.nScan, baseline_images: c.res.nBase, typical_spread: c.res.sigmaR },
+      slow_change: { area_median_change: c.res.medT, typical_spread: c.res.sigmaT },
+      spots: {
+        sudden_drop: { count: count('sudden_drop').length, area_ha: haSum(count('sudden_drop')) },
+        slow_decline: { count: count('slow_decline').length, area_ha: haSum(count('slow_decline')) },
+        gain: { count: count('gain').length, area_ha: haSum(count('gain')) },
+        capped_at: spots.length >= COND_MAX_SPOTS ? COND_MAX_SPOTS : null
+      },
+      files_missing: missing
+    };
+    dir.file('summary.json', JSON.stringify(summary, null, 2));
+    dir.file('trend.csv', 'year,' + c.s.trendIndex.toLowerCase() + ',clear_images\n' +
+      c.trendRows.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
+    dir.file('spots.csv', SPOT_FIELDS.join(',') + '\n' + spots.map(sp => SPOT_FIELDS.map(f => csvCell(sp[f])).join(',')).join('\n') + '\n');
+    dir.file('spots.geojson', JSON.stringify({ type: 'FeatureCollection', features: c.spots.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }));
+    dir.file('area.geojson', JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: c.area.geojson.geometry, properties: { name: c.area.name } }] }));
+
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = folderName + '.zip';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setStatus(missing.length ? 'warning' : 'success', 'Exported ' + folderName + '.zip' + (missing.length ? ' — missing: ' + missing.join('; ') : '.'));
+  } catch (e) {
+    setStatus('error', 'Export failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = oldText;
+  }
+}
+document.getElementById('condExportBtn').addEventListener('click', exportCondition);
+
 /* ── Mode: trend over years, or change between two dates ─────────────
    The two are separate jobs with their own settings and map layers, so
    only one set of settings shows at a time. Switching drops the other
    mode's map layers; results already in the results pane stay put. */
 let analysisMode = 'trend';
-const modeButtons = [document.getElementById('modeTrend'), document.getElementById('modeChange')];
+const modeButtons = [document.getElementById('modeTrend'), document.getElementById('modeChange'), document.getElementById('modeCondition')];
 function setAnalysisMode(mode) {
   analysisMode = mode;
   modeButtons.forEach(b => {
@@ -1300,8 +1903,11 @@ function setAnalysisMode(mode) {
   });
   document.getElementById('trendSettings').hidden = mode !== 'trend';
   document.getElementById('changeSettings').hidden = mode !== 'change';
-  document.getElementById('settingsLabel').textContent = mode === 'trend' ? '4 · Trend settings' : '4 · Change settings';
-  if (mode === 'trend') hideChangeLayers(); else hideIndexLayers();
+  document.getElementById('conditionSettings').hidden = mode !== 'condition';
+  document.getElementById('settingsLabel').textContent = '4 · ' + { trend: 'Trend', change: 'Change', condition: 'Condition check' }[mode] + ' settings';
+  if (mode !== 'change') hideChangeLayers();
+  if (mode !== 'trend') hideIndexLayers();
+  if (mode !== 'condition') hideConditionLayers();
   updateRunEnabled();
   try { localStorage.setItem('inferrd.mode', mode); } catch (e) {}
 }
@@ -1600,6 +2206,7 @@ function handleWhenResults(area, ctx, latlng, res) {
   document.getElementById('resultsContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
+  document.getElementById('conditionContent').style.display = 'none';
   document.getElementById('whenContent').style.display = 'block';
   expandResultsPane();
 
@@ -1771,7 +2378,7 @@ document.getElementById('exportWhenCsvBtn').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-function addArea(layer, name) {
+function addArea(layer, name, meta) {
   // Colour keyed off the permanent, ever-incrementing id — not
   // areas.length, which shrinks on removal and can hand out a colour
   // already in use by a surviving area (draw 2, remove the 1st, draw a
@@ -1779,7 +2386,8 @@ function addArea(layer, name) {
   const color = AREA_COLORS[nextAreaNum % AREA_COLORS.length];
   if (layer.setStyle) layer.setStyle({ color: color, weight: 2, fillColor: color, fillOpacity: 0.15 });
   drawnItems.addLayer(layer);
-  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, geojson: layer.toGeoJSON() });
+  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, geojson: layer.toGeoJSON(),
+    source: meta && meta.source, properties: meta && meta.properties });
   nextAreaNum++;
   renderAreaList();
 }
@@ -1792,14 +2400,14 @@ map.on(L.Draw.Event.CREATED, (e) => {
 // "Analyse this area" on a QEII covenant or reference-layer popup: the
 // feature's own boundary becomes an area, exactly as if it had been drawn.
 // Polygon or MultiPolygon (a covenant in several blocks stays one area).
-function addAreaFromGeometry(geometry, name) {
+function addAreaFromGeometry(geometry, name, meta) {
   if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
     setStatus('warning', 'Only polygon features can be analysed.');
     return;
   }
   const latlngs = L.GeoJSON.coordsToLatLngs(geometry.coordinates, geometry.type === 'Polygon' ? 1 : 2);
   const layer = L.polygon(latlngs);
-  addArea(layer, name);
+  addArea(layer, name, meta);
   map.closePopup();
   map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 17 });
 }
@@ -1821,7 +2429,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
   });
 });
 renderAreaList();
-try { if (localStorage.getItem('inferrd.mode') === 'change') setAnalysisMode('change'); } catch (e) {}
+try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
    Earth Engine auth — an access key is swapped (via the inferrd-auth
@@ -1832,6 +2440,7 @@ try { if (localStorage.getItem('inferrd.mode') === 'change') setAnalysisMode('ch
 function updateRunEnabled() {
   const ready = eeReady && areas.length > 0;
   document.getElementById('runBtn').disabled = !ready;
+  document.getElementById('conditionRunBtn').disabled = !ready || conditionRunning;
   document.getElementById('changeToggleBtn').disabled = !ready && !changeVisible;
 }
 
@@ -2359,6 +2968,7 @@ function handleResults(rows, indexName, monthRows) {
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('whenContent').style.display = 'none';
+  document.getElementById('conditionContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
   expandResultsPane();
@@ -2599,6 +3209,7 @@ function handleComparisonResults(areaSeries, indexName) {
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'none';
   document.getElementById('whenContent').style.display = 'none';
+  document.getElementById('conditionContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'block';
   expandResultsPane();
@@ -2905,6 +3516,7 @@ function handleIndexComparisonResults(indexSeries, area) {
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'none';
   document.getElementById('whenContent').style.display = 'none';
+  document.getElementById('conditionContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'block';
   expandResultsPane();
@@ -3153,7 +3765,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
             (p.QEIIRegion ? '<span style="color:#555;">Region: ' + esc(p.QEIIRegion) + '</span>' : '') +
             '</div>';
           popup.appendChild(analyseAreaButton(() =>
-            addAreaFromGeometry(feature.geometry, p.CovNumber ? 'Covenant ' + p.CovNumber : 'QEII covenant')));
+            addAreaFromGeometry(feature.geometry, p.CovNumber ? 'Covenant ' + p.CovNumber : 'QEII covenant', { source: 'QEII National Trust covenant', properties: p })));
           layer.bindPopup(popup, { maxWidth: 240 });
           layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.38, weight: 2.5 }));
           layer.on('mouseout',  () => layer.setStyle({ fillOpacity: 0.22, weight: 1.5 }));
@@ -3266,7 +3878,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     // feature with its full-detail boundary (the map shows a simplified one).
     featureAction: {
       button: analyseAreaButton,
-      run: (feature, label) => addAreaFromGeometry(feature.geometry, label)
+      run: (feature, label, layerName) => addAreaFromGeometry(feature.geometry, label, { source: layerName || 'reference layer', properties: feature.properties })
     }
   };
   let layersLoaded = false, layersFailed = false;
