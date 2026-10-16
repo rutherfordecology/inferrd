@@ -82,6 +82,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .tool-btn.previewing { box-shadow: 0 0 0 2px #000; }
 .tool-btn:hover:not(.active) { background: var(--border); }
 
+.change-legend-row { display: flex; align-items: center; gap: 4px; }
+.change-legend-label { width: 34px; flex-shrink: 0; }
+.change-legend-row .sw { flex: 1; height: 10px; border-radius: 2px; }
+.change-legend-row .sw-cap { flex: 1; text-align: center; font-size: 10px; color: var(--text3); }
+
 .poly-empty { font-size: 12.5px; color: var(--text3); padding: 6px 0; }
 .area-item { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--radius); background: var(--surface2); border: 1px solid var(--border); margin-bottom: 6px; }
 .area-swatch { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
@@ -337,10 +342,14 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <label for="changeGainsChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also show gains</label>
       </div>
       <button class="tool-btn" id="changeToggleBtn" type="button" style="width:100%;margin-top:8px;">Show change</button>
-      <div id="changeLegend" style="display:none;gap:12px;margin-top:6px;font-size:11px;color:var(--text2);">
-        <span><span style="display:inline-block;width:10px;height:10px;background:#d7191c;border-radius:2px;margin-right:4px;vertical-align:-1px;"></span>Loss</span>
-        <span id="changeLegendGain"><span style="display:inline-block;width:10px;height:10px;background:#1a9641;border-radius:2px;margin-right:4px;vertical-align:-1px;"></span>Gain</span>
+      <div id="changeLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
+        <div class="change-legend-row"><span class="change-legend-label">Loss</span><span class="sw" style="background:#fcae91"></span><span class="sw" style="background:#fb6a4a"></span><span class="sw" style="background:#cb181d"></span></div>
+        <div class="change-legend-row" id="changeLegendGain"><span class="change-legend-label">Gain</span><span class="sw" style="background:#c7e9c0"></span><span class="sw" style="background:#74c476"></span><span class="sw" style="background:#238b45"></span></div>
+        <div class="change-legend-row"><span class="change-legend-label"></span><span class="sw-cap">slight</span><span class="sw-cap">moderate</span><span class="sw-cap">severe</span></div>
+        <div class="change-legend-row"><span class="sw" style="background:#7f7f7f;flex:0 0 14px;"></span>No clear view (cloud or shadow on every pass)</div>
+        <div class="change-legend-row"><span class="sw" style="background:#d9d9d9;flex:0 0 14px;"></span>Low confidence (only one clear image)</div>
       </div>
+      <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, severe over 0.3 (measured from the area-wide change when that's on). The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a severe NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
       <div class="field-hint live-hint" id="changeStatus"></div>
       <div class="field-hint live-hint" id="changeSummary"></div>
     </div>
@@ -490,7 +499,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
 
     <h3>Change between two dates</h3>
-    <p>Section 4 maps which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
+    <p>Section 4 maps which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
@@ -550,7 +559,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.11.0';
+const APP_VERSION = 'v0.11.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -983,6 +992,18 @@ document.getElementById('layerToggleBtn').addEventListener('click', () => {
    gets its own baseline.
    --------------------------------------------------------------------- */
 const CHANGE_MIN_ABS = 0.05; // never flag a change smaller than this, however tight the spread
+// Shades for flagged pixels, by size of change in index units (relative to
+// the area-wide change when that's on). Sensible defaults, not calibrated
+// thresholds — a 0.3 NBR drop is near-total canopy removal in forest, but
+// means something different in grassland.
+const CHANGE_GRADES = [
+  { name: 'slight',   lo: CHANGE_MIN_ABS, hi: 0.15 },
+  { name: 'moderate', lo: 0.15,           hi: 0.3 },
+  { name: 'severe',   lo: 0.3,            hi: null }
+];
+// Class values in the map image → palette index (value - 1).
+const CHANGE_CLASS = { loss: [1, 2, 3], gain: [4, 5, 6], noData: 7, lowConf: 8 };
+const CHANGE_PALETTE = ['fcae91', 'fb6a4a', 'cb181d', 'c7e9c0', '74c476', '238b45', '7f7f7f', 'd9d9d9'];
 const S2_SR_START = '2017-03-28';
 let changeLayers = [];
 let changeVisible = false;
@@ -1097,18 +1118,31 @@ function showChangeLayers() {
         }
 
         // Step 2: classify with the numbers from step 1, then map it and
-        // total up the flagged area.
+        // total up the flagged area. The slider decides which pixels are
+        // flagged; the shade only says how big the flagged change was.
         const centre = relative ? s.med : 0;
         const sigma = Math.max(1.4826 * s.mad, 1e-6);
         const resid = diff.subtract(centre);
         const z = resid.divide(sigma);
         const loss = z.lte(-k).and(resid.lte(-CHANGE_MIN_ABS));
         const gain = z.gte(k).and(resid.gte(CHANGE_MIN_ABS));
-        let cls = ee.Image(0).where(loss, 1);
-        if (showGains) cls = cls.where(gain, 2);
+        const mag = resid.abs();
+        const grade = (flag, lo, hi) => flag.and(mag.gte(lo)).and(hi == null ? mag.gte(lo) : mag.lt(hi));
+        const lossBands = CHANGE_GRADES.map(g => grade(loss, g.lo, g.hi));
+        const gainBands = CHANGE_GRADES.map(g => grade(gain, g.lo, g.hi));
+        // No clear view: cloud/shadow in every image of either window, so
+        // the pixel has no value to compare. Low confidence: only one clear
+        // image behind either date.
+        const noData = diff.mask().eq(0);
+        const clearCount = (col) => col.count().unmask(0);
+        const lowConf = clearCount(beforeCol).lte(1).or(clearCount(afterCol).lte(1)).and(noData.not());
+
+        let cls = ee.Image(0).where(lowConf, CHANGE_CLASS.lowConf).where(noData, CHANGE_CLASS.noData);
+        lossBands.forEach((b, g) => { cls = cls.where(b, CHANGE_CLASS.loss[g]); });
+        if (showGains) gainBands.forEach((b, g) => { cls = cls.where(b, CHANGE_CLASS.gain[g]); });
         cls = cls.updateMask(cls.gt(0)).clip(region);
 
-        cls.getMapId({ min: 1, max: 2, palette: ['d7191c', '1a9641'] }, (mapId, mapErr) => {
+        cls.getMapId({ min: 1, max: CHANGE_PALETTE.length, palette: CHANGE_PALETTE }, (mapId, mapErr) => {
           if (runId !== changeRunId) return;
           if (mapErr) {
             summaries[i].html = 'map failed: ' + mapErr;
@@ -1122,21 +1156,36 @@ function showChangeLayers() {
         });
 
         const ha = ee.Image.pixelArea().divide(10000);
-        ee.Image.cat(
-          ha.updateMask(loss).rename('loss'),
-          ha.updateMask(gain).rename('gain'),
-          ha.updateMask(diff.mask()).rename('valid')
+        ee.Image.cat.apply(null,
+          lossBands.map((b, g) => ha.updateMask(b).rename('loss' + g))
+            .concat(gainBands.map((b, g) => ha.updateMask(b).rename('gain' + g)))
+            .concat([
+              ha.updateMask(diff.mask()).rename('valid'),
+              ha.updateMask(noData).rename('noData'),
+              ha.updateMask(loss.and(lowConf)).rename('lossLowConf'),
+              ha.rename('total')
+            ])
         ).reduceRegion({ reducer: ee.Reducer.sum(), geometry: region, scale: 10, maxPixels: 1e9 })
           .evaluate((sums, sumErr) => {
             if (runId !== changeRunId) return;
             if (sumErr || !sums) {
               summaries[i].html = counts + '; area totals failed: ' + sumErr;
             } else {
-              const pct = (v) => sums.valid ? ' (' + (100 * v / sums.valid).toFixed(1) + '%)' : '';
+              const v = (key) => sums[key] || 0;
+              const pctOf = (x, of) => of ? ' (' + (100 * x / of).toFixed(1) + '%)' : '';
+              // Severe first — that's what an investigator wants to see first.
+              const graded = (prefix) => {
+                const parts = CHANGE_GRADES.map((g, j) => ({ name: g.name, ha: v(prefix + j) })).reverse();
+                const total = parts.reduce((acc, p) => acc + p.ha, 0);
+                return fmtHa(total) + ' ha' + pctOf(total, v('valid')) +
+                  (total ? ' — ' + parts.map(p => fmtHa(p.ha) + ' ' + p.name).join(', ') : '');
+              };
               summaries[i].html =
-                fmtHa(sums.loss || 0) + ' ha flagged as loss' + pct(sums.loss || 0) +
-                (showGains ? ', ' + fmtHa(sums.gain || 0) + ' ha gain' + pct(sums.gain || 0) : '') +
-                '. ' + counts + '.' +
+                '<br>Loss: ' + graded('loss') + '.' +
+                (showGains ? '<br>Gain: ' + graded('gain') + '.' : '') +
+                (v('noData') ? '<br>No clear view: ' + fmtHa(v('noData')) + ' ha' + pctOf(v('noData'), v('total')) + ' couldn\'t be assessed.' : '') +
+                (v('lossLowConf') ? '<br>' + fmtHa(v('lossLowConf')) + ' ha of the loss rests on a single clear image — treat it with caution.' : '') +
+                '<br>' + counts + '.' +
                 (relative ? ' Area-wide change ' + (s.med >= 0 ? '+' : '') + s.med.toFixed(3) + ' ' + indexName + ', typical spread ±' + sigma.toFixed(3) + '.' : ' Typical spread ±' + sigma.toFixed(3) + ' ' + indexName + '.');
             }
             renderSummaries(); done();

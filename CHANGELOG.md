@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.11.1 — 2026-10-16
+
+- **Change map shows how big each change was.** Flagged pixels are shaded
+  slight / moderate / severe (0.05–0.15, 0.15–0.3, over 0.3 index units
+  from the area-wide change), with hectares per shade in the summary. The
+  sensitivity slider still decides which pixels are flagged at all; the
+  breaks are rough defaults, not calibrated thresholds.
+- **Grey for pixels with no clear view** — cloud or shadow on every pass in
+  one of the windows — so they no longer look like "no change", plus the
+  hectares that couldn't be assessed.
+- **Light grey for low confidence** — pixels backed by only one clear image
+  on either date — and a note of how much of the flagged loss rests on a
+  single image. Widening the window usually fixes it.
+
 ## v0.11.0 — 2026-10-16
 
 - **Added "Change between two dates"** (sidebar section 4, shown once an

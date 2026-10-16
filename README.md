@@ -75,8 +75,13 @@ flagged when it differs from that by more than *k* × the area's robust spread
 inflate); *k* is the sensitivity slider. Changes under 0.05 are never
 flagged. Each area gets its own baseline, so draw it wider than the
 suspected clearance — if most of the area changed, that change becomes the
-"typical" one. The sidebar reports the flagged hectares and the number of
-clear images behind each date.
+"typical" one. Flagged pixels are shaded slight / moderate / severe by
+the size of the change (0.05–0.15, 0.15–0.3, over 0.3 index units — rough
+defaults, not calibrated thresholds). Grey marks pixels with no clear view
+(cloud or shadow on every pass in a window) and light grey marks pixels
+backed by only one clear image. The sidebar reports hectares per shade, the
+unassessable area, how much flagged loss rests on a single image, and the
+number of clear images behind each date.
 
 ### Data volume and timing
 
