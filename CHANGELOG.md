@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.22.0 — 2026-10-16
+
+- **Canopy decline at any point in the period.** Instead of comparing the
+  first years with the last two, each pixel's yearly canopy moisture
+  (against the rest of the area) is split at every year in turn, up to
+  four years before against the two after, and the biggest drop dates the
+  decline. So it is not tied to one event: an older decline, or a future
+  one, is found with its own start year. C spots report "from <year>",
+  how much has been regained since, and are low confidence when only one
+  year of data follows the drop. Whole-year values mean seasonal leaf
+  fall of deciduous trees cancels out.
+
 ## v0.21.0 — 2026-10-16
 
 - **Canopy decline spots (C).** A fifth spot type for canopy that is
