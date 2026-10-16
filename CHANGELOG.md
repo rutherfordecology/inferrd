@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.22.2 — 2026-10-16
+
+- **Sharper, quieter condition chart.** Drawn at the size it is shown and
+  at the screen's pixel density instead of stretched from 900 pixels, with
+  smaller type, a lighter grid, wider margins and the key above the plot.
+  The report export draws its own copy at a fixed, higher resolution.
+
 ## v0.22.1 — 2026-10-16
 
 - **Explanations start closed.** Each "Explanation" in the sidebar is

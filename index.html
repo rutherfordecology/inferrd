@@ -645,7 +645,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="chart-card">
           <div class="card-title">Whole area — <span id="condTitle"></span></div>
           <div class="field-hint" style="margin:-4px 0 8px;" id="condTrendText"></div>
-          <canvas id="condTrendCanvas" width="900" height="300" style="width:100%;height:auto;"></canvas>
+          <canvas id="condTrendCanvas" style="display:block;width:100%;"></canvas>
         </div>
         <div class="table-card">
           <div class="table-card-head">
@@ -754,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.22.1';
+const APP_VERSION = 'v0.22.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1898,14 +1898,25 @@ function showConditionResults(area, s, trendRows, res, series) {
   setStatus('success', 'Condition check done: ' + features.length + ' spot' + (features.length === 1 ? '' : 's') + '.');
 }
 
-// The whole-area chart, drawn on a canvas so the same picture goes into
-// the report export: each clear image as a faint dot (adjusted for the
+// The whole-area chart: each clear image as a faint dot (adjusted for the
 // time of year), a 12-month moving median, and each year's average with
 // its 95% confidence interval. No fitted trend line: the reader judges the
 // pattern against the bars; the trend test is in the text and appendix.
-function drawConditionChart(canvas, trend, s) {
+// Drawn at the size it is shown and at the screen's pixel density, so it
+// stays sharp; the report export draws its own copy at a fixed, higher
+// resolution (conditionChartBlob).
+function drawConditionChart(canvas, trend, s, opts) {
+  opts = opts || {};
+  const W = opts.width || Math.max(320, Math.round(canvas.clientWidth || canvas.parentNode.clientWidth || 900));
+  const H = opts.height || Math.max(240, Math.min(340, Math.round(W * 0.3)));
+  const scale = opts.scale || window.devicePixelRatio || 1;
+  canvas.width = Math.round(W * scale); canvas.height = Math.round(H * scale);
+  if (!opts.width) canvas.style.height = H + 'px';
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height, L0 = 70, R0 = 20, T0 = 20, B0 = 45;
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  const font = (size, weight) => (weight || '400') + ' ' + size + 'px ' + (getComputedStyle(document.body).fontFamily || 'sans-serif');
+  const INK = '#2b2b2b', MUTED = '#6b6b6b', GRID = '#ececec', DOT = 'rgba(44, 95, 138, 0.2)', LINE = '#d17a22', YEAR = '#173f63';
+  const L0 = 62, R0 = 24, T0 = 40, B0 = 36;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
   const yrs = trend.valid;
   if (!yrs.length) return;
@@ -1913,50 +1924,70 @@ function drawConditionChart(canvas, trend, s) {
   const q = (f) => dots.length ? dots[Math.min(dots.length - 1, Math.max(0, Math.round(f * (dots.length - 1))))] : null;
   let lo = Math.min(...yrs.map(r => r.mean - (r.ci || 0)), q(0.02) ?? Infinity);
   let hi = Math.max(...yrs.map(r => r.mean + (r.ci || 0)), q(0.98) ?? -Infinity);
-  const pad = Math.max((hi - lo) * 0.08, 0.01); lo -= pad; hi += pad;
+  const pad = Math.max((hi - lo) * 0.06, 0.01); lo -= pad; hi += pad;
   const tStart = Date.UTC(s.years[0], 0, 1), tEnd = Date.UTC(s.years[s.years.length - 1] + 1, 0, 1);
   const X = (t) => L0 + (t - tStart) / (tEnd - tStart) * (W - L0 - R0);
   const Y = (v) => T0 + (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo) * (H - T0 - B0);
-  ctx.strokeStyle = '#ddd'; ctx.fillStyle = '#555'; ctx.font = '14px sans-serif'; ctx.lineWidth = 1;
+
+  // Grid and axes
+  ctx.lineWidth = 1; ctx.strokeStyle = GRID; ctx.fillStyle = MUTED; ctx.font = font(11);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let i = 0; i <= 4; i++) {
-    const v = lo + (hi - lo) * i / 4, y = Y(v);
+    const v = lo + (hi - lo) * i / 4, y = Math.round(Y(v)) + 0.5;
     ctx.beginPath(); ctx.moveTo(L0, y); ctx.lineTo(W - R0, y); ctx.stroke();
-    ctx.textAlign = 'right'; ctx.fillText(v.toFixed(2), L0 - 8, y + 5);
+    ctx.fillText(v.toFixed(2), L0 - 10, y);
   }
-  ctx.textAlign = 'center';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
   s.years.forEach(y => {
-    const xa = X(Date.UTC(y, 0, 1));
-    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(xa, T0); ctx.lineTo(xa, H - B0); ctx.stroke();
-    ctx.fillText(String(y), X(Date.UTC(y, 6, 1)), H - B0 + 22);
+    const xa = Math.round(X(Date.UTC(y, 0, 1))) + 0.5;
+    ctx.beginPath(); ctx.moveTo(xa, T0); ctx.lineTo(xa, H - B0); ctx.stroke();
+    ctx.fillText(String(y), X(Date.UTC(y, 6, 1)), H - B0 + 10);
   });
-  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ', adjusted for time of year', 0, 0); ctx.restore();
-  ctx.fillStyle = 'rgba(44, 95, 138, 0.22)';
-  trend.points.forEach(p => { ctx.beginPath(); ctx.arc(X(p.t), Y(p.adj), 2.6, 0, 2 * Math.PI); ctx.fill(); });
+  ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle';
+  ctx.fillText(s.trendIndex + ', adjusted for time of year', 0, 0); ctx.restore();
+
+  // Data
+  ctx.fillStyle = DOT;
+  trend.points.forEach(p => { ctx.beginPath(); ctx.arc(X(p.t), Y(p.adj), 2, 0, 2 * Math.PI); ctx.fill(); });
   if (trend.moving.length > 1) {
-    ctx.strokeStyle = '#d17a22'; ctx.lineWidth = 2.5; ctx.beginPath();
+    ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
     trend.moving.forEach((m, i) => { if (i) ctx.lineTo(X(m.t), Y(m.v)); else ctx.moveTo(X(m.t), Y(m.v)); });
     ctx.stroke();
   }
-  ctx.strokeStyle = '#173f63'; ctx.fillStyle = '#173f63'; ctx.lineWidth = 2;
+  ctx.strokeStyle = YEAR; ctx.fillStyle = YEAR; ctx.lineWidth = 1.5;
   yrs.forEach(r => {
     const x = X(Date.UTC(r.year, 6, 1));
     if (r.ci != null) {
       const ya = Y(r.mean - r.ci), yb = Y(r.mean + r.ci);
-      ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.moveTo(x - 8, ya); ctx.lineTo(x + 8, ya); ctx.moveTo(x - 8, yb); ctx.lineTo(x + 8, yb); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.moveTo(x - 5, ya); ctx.lineTo(x + 5, ya); ctx.moveTo(x - 5, yb); ctx.lineTo(x + 5, yb); ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(X(Date.UTC(r.year, 6, 1)), Y(r.mean), 5.5, 0, 2 * Math.PI); ctx.fill();
+    ctx.beginPath(); ctx.arc(x, Y(r.mean), 4, 0, 2 * Math.PI); ctx.fill();
   });
-  // Key
-  ctx.font = '13px sans-serif'; ctx.textAlign = 'left';
-  const kx = L0 + 10, ky = T0 + 12;
-  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(kx - 6, ky - 12, 470, 22);
-  ctx.fillStyle = 'rgba(44, 95, 138, 0.5)'; ctx.beginPath(); ctx.arc(kx + 4, ky, 3, 0, 2 * Math.PI); ctx.fill();
-  ctx.fillStyle = '#333'; ctx.fillText('single clear image', kx + 12, ky + 4);
-  ctx.strokeStyle = '#d17a22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(kx + 140, ky); ctx.lineTo(kx + 165, ky); ctx.stroke();
-  ctx.fillText('12-month moving median', kx + 171, ky + 4);
-  ctx.fillStyle = '#173f63'; ctx.beginPath(); ctx.arc(kx + 335, ky, 5, 0, 2 * Math.PI); ctx.fill();
-  ctx.fillStyle = '#333'; ctx.fillText('year, 95% interval', kx + 345, ky + 4);
+
+  // Key, above the plot
+  ctx.font = font(11); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  let kx = L0; const ky = T0 / 2 - 2;
+  const item = (draw, label) => { draw(kx); kx += 20; ctx.fillStyle = INK; ctx.fillText(label, kx, ky); kx += ctx.measureText(label).width + 22; };
+  item(x => { ctx.fillStyle = 'rgba(44, 95, 138, 0.45)'; ctx.beginPath(); ctx.arc(x + 7, ky, 2.5, 0, 2 * Math.PI); ctx.fill(); }, 'single clear image');
+  item(x => { ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, ky); ctx.lineTo(x + 14, ky); ctx.stroke(); }, '12-month moving median');
+  item(x => {
+    ctx.strokeStyle = YEAR; ctx.fillStyle = YEAR; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x + 7, ky - 6); ctx.lineTo(x + 7, ky + 6); ctx.stroke();
+    ctx.beginPath(); ctx.arc(x + 7, ky, 3.5, 0, 2 * Math.PI); ctx.fill();
+  }, 'yearly average, 95% interval');
 }
+
+// The report's copy of the chart: a fixed layout at twice the pixels.
+function conditionChartBlob(c) {
+  const cv = document.createElement('canvas');
+  drawConditionChart(cv, c.trend, c.s, { width: 1000, height: 330, scale: 2.5 });
+  return new Promise(r => cv.toBlob(r, 'image/png'));
+}
+window.addEventListener('resize', () => {
+  if (!lastCondition || document.getElementById('conditionContent').style.display !== 'block') return;
+  clearTimeout(window._condChartTimer);
+  window._condChartTimer = setTimeout(() => drawConditionChart(document.getElementById('condTrendCanvas'), lastCondition.trend, lastCondition.s), 150);
+});
 
 /* ── Export for report ──────────────────────────────────────────────── */
 let jszipPromise = null;
@@ -2484,7 +2515,7 @@ async function exportCondition() {
     let mapBlob = null;
     try { mapBlob = await conditionMapPng(c); } catch (e) { missing.push('map.png (' + e.message + ')'); }
     if (mapBlob) dir.file('map.png', mapBlob);
-    const trendBlob = await new Promise(r => document.getElementById('condTrendCanvas').toBlob(r, 'image/png'));
+    const trendBlob = await conditionChartBlob(c);
     if (trendBlob) dir.file('trend.png', trendBlob); else missing.push('trend.png');
     let panels = [];
     try { panels = await conditionChips(c, (i, n) => { btn.textContent = 'Images ' + i + '/' + n + '…'; }); } catch (e) { missing.push('spot images (' + e.message + ')'); }
