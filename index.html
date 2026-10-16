@@ -769,7 +769,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.25.1';
+const APP_VERSION = 'v0.26.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1474,7 +1474,16 @@ const COND_PAST_STEP_SHARE = 0.6; // a decline counts as a past sudden drop when
 const COND_MAX_SPOTS = 300;
 const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', canopy_decline: '#8a5a12', slow_decline: '#e08214', gain: '#238b45' };
 const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', canopy_decline: 'C', slow_decline: 'D', gain: 'G' };
-const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', canopy_decline: 'Canopy decline', slow_decline: 'Slow decline', gain: 'Gain' };
+const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', canopy_decline: 'Canopy decline', slow_decline: 'Slow decline', gain: 'Sustained growth' };
+// Canopy trend, per pixel: Mann-Kendall on each dense-canopy pixel's yearly
+// trend index (EVI by default), the same test as the whole-area chart.
+// Improving steadily: z of 1.96 or more (p < 0.05), a rise of at least
+// COND_GROW_FLOOR over the period, and canopy moisture (NDMI) not falling
+// significantly at the same time. Declining steadily: the mirror image.
+// Measured from zero, not against the rest of the area, so a whole forest
+// improving shows as improving.
+const COND_GROW_FLOOR = 0.03, COND_MK_Z = 1.96;
+const TREND_COLORS = { improving: '#1a9850', stable: '#d9d2a6', declining: '#f46d43' };
 const COND_RECOVER_SHARE = 0.5; // a drop counts as recovered once this share of it has grown back by the last year
 // Canopy decline: a drop in canopy moisture (NDMI) at any point in the
 // period, not tied to one event. Each pixel's yearly NDMI, measured
@@ -1518,11 +1527,11 @@ let lastCondition = null;
 const COND_KINDS = ['sudden_drop', 'dropped_recovered', 'canopy_decline', 'slow_decline', 'gain'];
 const COND_KIND_DESC = {
   sudden_drop: 'possible clearance or damage', dropped_recovered: 'possible storm or slip damage, regrown',
-  canopy_decline: 'canopy losing leaf water; possible dieback', slow_decline: 'possible poor forest health', gain: 'regrowth or recovery'
+  canopy_decline: 'canopy losing leaf water; possible dieback', slow_decline: 'possible poor forest health', gain: 'canopy improving steadily year on year'
 };
 let condShown = {};
 try { condShown = JSON.parse(localStorage.getItem('inferrd.condShown') || '{}') || {}; } catch (e) {}
-const condIsShown = (kind) => condShown[kind] !== false;
+const condIsShown = (kind) => kind === 'trend_map' ? condShown[kind] === true : condShown[kind] !== false;
 let condKindLayers = {};
 let condPanelBody = null;
 function setCondKindShown(kind, on) {
@@ -1540,7 +1549,15 @@ function renderCondToggles() {
       '<input type="checkbox" data-kind="' + k + '" id="' + prefix + k + '"' + (condIsShown(k) ? ' checked' : '') + ' style="margin-top:2px;accent-color:' + COND_COLORS[k] + ';">' +
       '<span style="width:10px;height:10px;border-radius:2px;margin-top:2px;flex-shrink:0;background:' + COND_COLORS[k] + '88;border:1.5px solid ' + COND_COLORS[k] + ';"></span>' +
       '<span style="line-height:1.35;">' + COND_PREFIX[k] + ' · ' + COND_KIND_NAME[k].toLowerCase() + ' (' + COND_KIND_DESC[k] + ')' + tally + '</span></label>';
-  }).join('');
+  }).join('') + (() => {
+    // The canopy trend map: a background layer, off until ticked.
+    const ct = lastCondition && lastCondition.canopyTrend;
+    const pct = ct ? ' <span style="color:var(--text3);">' + ct.improvingPct + '% ↑ · ' + ct.stablePct + '% → · ' + ct.decliningPct + '% ↓</span>' : '';
+    return '<label style="display:flex;align-items:flex-start;gap:6px;margin:5px 0 3px;cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:400;font-size:11px;color:var(--text2);">' +
+      '<input type="checkbox" data-kind="trend_map" id="' + prefix + 'trend_map"' + (condIsShown('trend_map') ? ' checked' : '') + ' style="margin-top:2px;accent-color:' + TREND_COLORS.improving + ';">' +
+      '<span style="display:inline-flex;margin-top:2px;flex-shrink:0;">' + ['improving', 'stable', 'declining'].map(k => '<span style="width:6px;height:10px;background:' + TREND_COLORS[k] + ';"></span>').join('') + '</span>' +
+      '<span style="line-height:1.35;">Canopy trend map (improving, stable, declining steadily)' + pct + '</span></label>';
+  })();
   const wire = (el) => el.querySelectorAll('input[data-kind]').forEach(cb => cb.addEventListener('change', () => setCondKindShown(cb.dataset.kind, cb.checked)));
   const leg = document.getElementById('conditionLegend');
   if (leg) {
@@ -1829,6 +1846,23 @@ function conditionImages(region, proj, s) {
   const cGrown = cCore.rename('core').addBands(cLabels).reduceConnectedComponents(ee.Reducer.max(), 'labels', 1024).eq(1).unmask(0).reproject(grid);
   const canopy = cCore.or(cGrown); // cores of patches too big to label still count
 
+  // ── Canopy trend per pixel (see COND_MK_Z) ──
+  const mkZ = (imgs, band) => {
+    let S = ee.Image(0);
+    for (let i = 0; i < imgs.length - 1; i++) for (let j = i + 1; j < imgs.length; j++) {
+      S = S.add(imgs[j].select(band).subtract(imgs[i].select(band)).signum().unmask(0));
+    }
+    const n = ee.ImageCollection(imgs.map(im => im.select(band).mask().rename('m').toFloat())).sum();
+    const varS = n.multiply(n.subtract(1)).multiply(n.multiply(2).add(5)).divide(18).max(1e-6);
+    return S.subtract(S.signum()).divide(varS.sqrt());
+  };
+  const zTrend = mkZ(yearImgs, 'v'), zWater = mkZ(cYear, COND_CANOPY_INDEX);
+  const improving = zTrend.gte(COND_MK_Z).and(total.gte(COND_GROW_FLOOR)).and(zWater.gt(-COND_MK_Z)).and(dense);
+  const declining = zTrend.lte(-COND_MK_Z).and(total.lte(-COND_GROW_FLOOR)).and(dense);
+  const trendClass = ee.Image(2).where(improving, 1).where(declining, 3).updateMask(dense.and(total.mask())).clip(region).toInt().rename('tc');
+  const trendShares = ee.Image.pixelArea().divide(1e4).addBands(trendClass).reduceRegion({
+    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj, scale: 10, maxPixels: 1e9, tileScale: 4 });
+
   // ── Recent sudden drops ──
   const today = ee.Date(s.today);
   const scanStart = today.advance(-s.lookback, 'day');
@@ -1861,7 +1895,7 @@ function conditionImages(region, proj, s) {
   // ── Classes: 1 recent sudden, 2 older sudden, 6 canopy decline,
   // 5 dropped and recovered, 3 slow decline, 4 gain (later wins) ──
   let cls = ee.Image(0)
-    .where(slow.gain.unmask(0), 4)
+    .where(improving.unmask(0), 4)
     .where(slow.loss.unmask(0), 3)
     .where(dropRec.unmask(0), 5)
     .where(canopy.unmask(0), 6)
@@ -1869,7 +1903,7 @@ function conditionImages(region, proj, s) {
     .where(rFlag, 1);
   cls = cls.updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
   const mag = ee.Image(0)
-    .where(cls.eq(4), slow.resid)
+    .where(cls.eq(4), total)
     .where(cls.eq(3), slow.resid.multiply(-1))
     .where(cls.eq(5), bigRel.select('q'))
     .where(cls.eq(6), bestC.select('drop'))
@@ -1878,7 +1912,7 @@ function conditionImages(region, proj, s) {
     .rename('mag');
   const yr = biggest.select('yr').where(cls.eq(5), bigRel.select('yr')).rename('yr');
   const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), yr, nYears, recov, bestC.select(['cyr', 'crec', 'cna'])]);
-  return { cls, stats, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
+  return { cls, stats, trendClass, trendShares, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
 }
 
 function runCondition() {
@@ -1924,7 +1958,7 @@ function runCondition() {
     conditionRunning = false;
     updateRunEnabled();
     statusEl.textContent = '';
-    showConditionResults(area, s, trendRows, spotsRes, series);
+    showConditionResults(area, s, trendRows, spotsRes, series, c);
   };
 
   // Earth Engine refuses ("too many concurrent aggregations") when too many
@@ -1962,7 +1996,7 @@ function runCondition() {
       } },
     { label: 'Area-wide change', build: () => {
         c = conditionImages(region, proj, s);
-        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd') });
+        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares });
       },
       done: (res) => { spotsRes = res; } },
     // Fetched on its own: a collection nested in a Dictionary comes back as
@@ -2076,7 +2110,7 @@ function conditionTrend(rows, series) {
   return out;
 }
 
-function showConditionResults(area, s, trendRows, res, series) {
+function showConditionResults(area, s, trendRows, res, series, images) {
   const trend = conditionTrend(trendRows, series);
   const counters = { S: 0, R: 0, C: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
@@ -2110,7 +2144,19 @@ function showConditionResults(area, s, trendRows, res, series) {
     .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
   features.sort((a, b) => 'SRCDG'.indexOf(a.prefix) - 'SRCDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
 
-  lastCondition = { area, s, trendRows, series, trend, spots: features, res, runAt: new Date().toISOString() };
+  const tg = {}; ((res.trendShares && res.trendShares.groups) || []).forEach(g => { tg[g.tc] = g.sum; });
+  const denseHa = (tg[1] || 0) + (tg[2] || 0) + (tg[3] || 0);
+  const pctOf = (v) => denseHa ? Math.round(100 * (v || 0) / denseHa) : 0;
+  const canopyTrend = { denseHa: +denseHa.toFixed(1), improvingHa: +(tg[1] || 0).toFixed(1), stableHa: +(tg[2] || 0).toFixed(1), decliningHa: +(tg[3] || 0).toFixed(1),
+    improvingPct: pctOf(tg[1]), stablePct: pctOf(tg[2]), decliningPct: pctOf(tg[3]) };
+  lastCondition = { area, s, trendRows, series, trend, spots: features, res, canopyTrend, runAt: new Date().toISOString() };
+  if (images && images.trendClass) {
+    images.trendClass.getMapId({ min: 1, max: 3, palette: [TREND_COLORS.improving, TREND_COLORS.stable, TREND_COLORS.declining].map(x => x.slice(1)) }, (m, err) => {
+      if (err || !m || lastCondition.area !== area) return;
+      condKindLayers.trend_map = L.tileLayer(m.urlFormat, { opacity: 0.6, maxZoom: 20 });
+      if (condIsShown('trend_map')) { condKindLayers.trend_map.addTo(map); drawnItems.bringToFront(); }
+    });
+  }
 
   // Map
   condKindLayers = {};
@@ -2142,7 +2188,8 @@ function showConditionResults(area, s, trendRows, res, series) {
     metric('Recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
     metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
     metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
-    metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
+    metric('Canopy trend', canopyTrend.improvingPct + '% ↑ · ' + canopyTrend.stablePct + '% → · ' + canopyTrend.decliningPct + '% ↓') +
+    metric('Growth', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
     : 'Adjusted for time of year, from ' + trend.points.length + ' clear images. Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
@@ -2554,7 +2601,7 @@ const SPOT_MAY_BE = {
   dropped_recovered: 'storm damage, a slip or windthrow that has since regrown',
   canopy_decline: 'dieback after waterlogging, drought or disease',
   slow_decline: 'dieback, browsing, drought stress or weed invasion',
-  gain: 'regrowth or recovery'
+  gain: 'canopy thickening: regeneration, recovery or maturing plantings'
 };
 
 async function conditionPdf(c, mapBlob, trendBlob, panels) {
@@ -2669,10 +2716,12 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
   }
   para(trendSentence);
+  const ctr = c.canopyTrend;
+  if (ctr && ctr.denseHa) para('Across the ' + ha(ctr.denseHa) + ' ha of dense canopy, ' + ctr.improvingPct + '% improved steadily between ' + y0 + ' and ' + y1 + ', ' + ctr.stablePct + '% stayed about the same and ' + ctr.decliningPct + '% declined steadily.');
   const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), cd = ofKind('canopy_decline'), dc = ofKind('slow_decline'), gn = ofKind('gain');
   const visit = sd.length + cd.length + dc.length;
   const left = c.hiddenKinds || [];
-  const KIND_WORDS = { sudden_drop: ['sudden drop', 'sudden drops'], dropped_recovered: ['dropped and recovered', 'dropped and recovered'], canopy_decline: ['canopy decline', 'canopy decline'], slow_decline: ['slow decline', 'slow decline'], gain: ['gain', 'gains'] };
+  const KIND_WORDS = { sudden_drop: ['sudden drop', 'sudden drops'], dropped_recovered: ['dropped and recovered', 'dropped and recovered'], canopy_decline: ['canopy decline', 'canopy decline'], slow_decline: ['slow decline', 'slow decline'], gain: ['sustained growth patch', 'sustained growth patches'] };
   const parts = COND_KINDS.filter(k => !left.includes(k)).map(k => { const l = ofKind(k); return l.length + ' ' + KIND_WORDS[k][l.length === 1 ? 0 : 1] + ' (' + ha(haSum(l)) + ' ha)'; });
   para(spots.length
     ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
@@ -2683,7 +2732,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     ? 'Recommended: visit the ' + visit + ' sudden-drop, canopy-decline and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
     : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
     (rc.length ? ' At the next visit, check what has grown back on the ' + rc.length + ' dropped-and-recovered spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
-    (gn.length ? ' Gains need no visit.' : ''), { after: 6 });
+    (gn.length ? ' Sustained growth patches need no visit.' : ''), { after: 6 });
 
   // ── 1 The area ──
   heading('1  The area', 13);
@@ -2712,7 +2761,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     ['3.2  Dropped and recovered: possible storm or slip damage that has grown back', 'dropped_recovered', 'No spots dropped and then grew back.'],
     ['3.3  Canopy decline: canopy losing leaf water, possible dieback', 'canopy_decline', 'No canopy decline was found.'],
     ['3.4  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
-    ['3.5  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
+    ['3.5  Sustained growth: canopy improving steadily', 'gain', 'No patches of sustained growth were found.']];
   sections.filter(([, kind]) => !(c.hiddenKinds || []).includes(kind)).forEach(([title, kind, none], si) => {
     heading('3.' + (si + 1) + '  ' + title.replace(/^3\.\d\s+/, ''), 11);
     const list = ofKind(kind);
@@ -2746,6 +2795,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
   para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against the area\'s median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
   para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against the area\'s median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
+  para('Canopy trend and sustained growth (' + c.s.trendIndex + ', with ' + COND_CANOPY_INDEX + ' as a check): for each dense-canopy pixel, a Mann-Kendall test on its yearly values ' + y0 + '–' + y1 + ', measured from zero (not against the rest of the area). Improving steadily: z of at least ' + COND_MK_Z + ' (p < 0.05), a rise of at least ' + COND_GROW_FLOOR + ' over the period (Sen\'s slope), and canopy moisture not falling significantly; declining steadily is the mirror image; the rest is stable. Sustained growth spots are touching improving pixels of at least ' + c.s.minHa + ' ha. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
   table([['Year', 0.1], ['Adjusted average', 0.17], ['95% interval', 0.15], ['Images used', 0.14], ['Composite average', 0.16], ['Between-pixel SD', 0.15], ['Clear images', 0.13]],
@@ -2814,6 +2864,7 @@ async function exportCondition() {
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
         drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
         past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE,
+        canopy_trend: Object.assign({ index: c.s.trendIndex, check_index: COND_CANOPY_INDEX, test: 'Mann-Kendall per pixel', z_needed: COND_MK_Z, min_rise: COND_GROW_FLOOR, relative_to_area: false }, c.canopyTrend || {}),
         canopy: { index: COND_CANOPY_INDEX, method: 'yearly median vs area, best split year; cores grown into touching pixels', grow_spread_multiplier: COND_CANOPY_GROW_K, grow_floor: COND_CANOPY_GROW_FLOOR, years_before: COND_CANOPY_BEFORE, years_after: COND_CANOPY_AFTER, dense_ndvi: COND_DENSE_NDVI, spread_multiplier: c.s.canopyK, floor: c.s.canopyFloor }, area_wide_change_allowed_for: c.s.relative,
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },

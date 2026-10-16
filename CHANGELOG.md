@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.26.0 — 2026-10-16
+
+- **Canopy trend: healthy forest growing well.** Every dense-canopy pixel
+  gets its own Mann-Kendall test on its yearly values (EVI by default,
+  with canopy moisture as a check), measured from zero rather than against
+  the rest of the area, so a whole forest improving shows as improving.
+  Pixels are improving steadily, stable, or declining steadily. A new
+  "Canopy trend map" layer (off until ticked) shows them, the summary
+  bar and the PDF give the shares ("62% improved steadily…"), and
+  `summary.json` records them under `canopy_trend`.
+- **G spots are now sustained growth:** touching steadily improving
+  pixels, instead of patches that only gained more than the rest of the
+  area.
+
 ## v0.25.1 — 2026-10-16
 
 - **Clear-image test fixed** for the spots-over-time chart and the
