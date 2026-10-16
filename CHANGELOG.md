@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.21.0 — 2026-10-16
+
+- **Canopy decline spots (C).** A fifth spot type for canopy that is
+  dying while still green: canopy moisture (NDMI, near-infrared against
+  the shortwave infrared that leaf water absorbs) in the last two years
+  of the period against the first years, in dense canopy only, measured
+  against the rest of the area. It has its own, gentler tolerance
+  (default 2x the typical spread and at least 0.08). Tuned on two
+  dieback patches at Riverside Road (WR63) after Cyclone Gabrielle, which
+  lost leaf water from early 2023 while greenness barely moved; it picks
+  both up. Treat the defaults as provisional until checked on more sites.
+- **Shortwave-infrared row in the spot images**, where well-watered
+  canopy is green and drying or dead canopy olive to brown.
+
 ## v0.20.0 — 2026-10-16
 
 - **Dropped-and-recovered spots (R).** The condition check now maps
