@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.18.0 — 2026-10-16
+
+- **Satellite images of each spot.** The condition export now includes
+  Sentinel-2 images of the whole area (first year, lowest year, last year)
+  and of each sudden-drop and slow-decline spot (before and after, plus
+  the latest year for older drops), in natural colour and false-colour
+  infrared, where healthy canopy shows bright red. They are saved in
+  `spot-images/` and shown in a new Appendix B of the summary PDF. Up to
+  12 spots; built from Earth Engine map tiles, so no extra permission.
+- **File names start with the date and time.** The zip, its folder and
+  the PDF are named `YYYY-MM-DD_HHMM_<block>`.
+- **PDF title on one line**, shrinking a little if needed, or on two
+  even lines when it is too long; PDF images are embedded as JPEG, so the
+  file is a fraction of the size.
+
 ## v0.17.4 — 2026-10-16
 
 - **Results summary PDF in the export.** "Export for report" adds

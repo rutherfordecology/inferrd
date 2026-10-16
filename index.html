@@ -728,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.17.4';
+const APP_VERSION = 'v0.18.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1944,20 +1944,22 @@ function chipPeriods(sp, c) {
 
 // One panel per spot: periods across, natural colour above infrared.
 function chipPanel(title, periods, rows) {
-  const cw = rows[0][0].width, ch = rows[0][0].height, gap = 8, head = 34, rowHead = 22;
+  const cw = rows[0][0].width, ch = rows[0][0].height;
+  const k = Math.max(1, cw / 240); // text grows with the chips so it stays readable in the PDF
+  const gap = Math.round(8 * k), head = Math.round(34 * k), rowHead = Math.round(22 * k);
   const W = periods.length * cw + (periods.length - 1) * gap, H = head + rows.length * (rowHead + ch) + 6;
   const cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
   g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
-  g.fillStyle = '#0a3f26'; g.font = 'bold 18px sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
-  g.fillText(title, 0, 15);
+  g.fillStyle = '#0a3f26'; g.font = 'bold ' + Math.round(18 * k) + 'px sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+  g.fillText(title, 0, Math.round(15 * k));
   rows.forEach((row, ri) => {
     const top = head + ri * (rowHead + ch);
     row.forEach((chip, pi) => {
       const x = pi * (cw + gap);
-      g.fillStyle = '#333'; g.font = '13px sans-serif';
-      g.fillText(CHIP_RENDERS[ri].name + ' · ' + periods[pi].label, x, top + 10, cw);
+      g.fillStyle = '#333'; g.font = Math.round(12 * k) + 'px sans-serif';
+      g.fillText((ri ? 'Infrared' : 'Natural colour') + ' · ' + periods[pi].label, x, top + Math.round(10 * k), cw);
       g.drawImage(chip, x, top + rowHead);
     });
   });
