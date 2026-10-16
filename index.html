@@ -439,6 +439,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <span class="range-val" id="condKVal" style="min-width:78px;">3× typical</span>
         </div>
       </div>
+      <div class="check-row">
+        <input type="checkbox" id="condRelativeChk" checked>
+        <label for="condRelativeChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Allow for area-wide change (season, drought)</label>
+      </div>
       <div class="field half">
         <div>
           <label for="condPersist">Must stay down for</label>
@@ -460,7 +464,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. Draw or pick an area that includes plenty of unchanged vegetation.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
         <div class="change-legend-row"><span class="sw" style="background:#cb181d;flex:0 0 14px;"></span>S · sudden drop (possible clearance or damage)</div>
@@ -1485,7 +1489,8 @@ function conditionImages(region, proj, s) {
     .multiply(span).rename('d').updateMask(nYears.gte(minYears)).clip(region);
   const medT = eeAreaMedian(total, region, proj);
   const sigmaT = eeAreaMedian(total.subtract(medT).abs(), region, proj).multiply(1.4826).max(1e-6);
-  const slow = classifyChange(total, medT, sigmaT, s.k);
+  // Unticked: measured from zero, so a decline across the whole area is flagged too.
+  const slow = classifyChange(total, s.relative ? medT : ee.Number(0), sigmaT, s.k);
   const steps = ee.ImageCollection(yearImgs.slice(1).map((img, i) => {
     const step = img.select('v').subtract(yearImgs[i].select('v'));
     return step.rename('step').addBands(step.multiply(-1).rename('q')).addBands(ee.Image.constant(s.years[i + 1]).float().rename('yr'));
@@ -1503,11 +1508,13 @@ function conditionImages(region, proj, s) {
   const recent = ee.Image(ee.Algorithms.If(base.size().gt(0).and(scan.size().gt(0)), (() => {
     const baseImg = base.median();
     const resid = scan.map(img => {
-      const d = img.select(s.dropIndex).subtract(baseImg).rename('r');
-      const r = d.subtract(eeAreaMedian(d, region, proj)).toFloat().rename('r'); // one pixel type for every image, or the collection won't reduce
-      return r.addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
+      const d = img.select(s.dropIndex).subtract(baseImg);
+      // toFloat: one pixel type for every image, or the collection won't reduce
+      const rr = d.subtract(eeAreaMedian(d, region, proj)).toFloat().rename('rr'); // against the area: sets the spread
+      const r = (s.relative ? rr : d.toFloat()).rename('r'); // what is flagged
+      return r.addBands(rr).addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
     });
-    const sigmaR = eeAreaMedian(resid.select('r').map(i => i.abs()).median(), region, proj).multiply(1.4826).max(1e-6);
+    const sigmaR = eeAreaMedian(resid.select('rr').map(i => i.abs()).median(), region, proj).multiply(1.4826).max(1e-6);
     const down = (i) => i.select('r').lte(-s.floor).and(i.select('r').lte(sigmaR.multiply(-s.k)));
     const tDown = resid.map(i => i.select('t').updateMask(down(i))).min().rename('tDown');
     const nDown = resid.map(i => down(i).rename('n')).sum().unmask(0).rename('nDown');
@@ -1560,7 +1567,8 @@ function runCondition() {
     persist: Number(document.getElementById('condPersist').value),
     minHa: Number(document.getElementById('condMinHa').value),
     cloudPct: Number(cloudThresh.value),
-    today: isoDate(new Date())
+    today: isoDate(new Date()),
+    relative: document.getElementById('condRelativeChk').checked
   };
   hideConditionLayers();
   const runId = conditionRunId;
@@ -1570,15 +1578,15 @@ function runCondition() {
 
   const region = ee.Geometry(area.geojson.geometry);
   const proj = s2Projection(region, s.today, 60);
-  let trendRows = null, spotsRes = null, failed = null;
+  let trendRows = null, spotsRes = null, series = null, failed = null;
   const finish = () => {
     if (runId !== conditionRunId) return;
     if (failed) { conditionRunning = false; updateRunEnabled(); statusEl.textContent = 'Condition check failed: ' + failed; return; }
-    if (!trendRows || !spotsRes) return;
+    if (!trendRows || !spotsRes || !series) return;
     conditionRunning = false;
     updateRunEnabled();
     statusEl.textContent = '';
-    showConditionResults(area, s, trendRows, spotsRes);
+    showConditionResults(area, s, trendRows, spotsRes, series);
   };
 
   try {
@@ -1590,6 +1598,24 @@ function runCondition() {
           .sort((a, b) => a.year - b.year);
         finish();
       });
+
+    // One area average per clear image, for the seasonally adjusted trend.
+    const imgCol = condCollection(region, years[0] + '-01-01', (years[years.length - 1] + 1) + '-01-01', s.cloudPct, s.trendIndex);
+    const nAll = ee.Image(1).clip(region).reduceRegion({ reducer: ee.Reducer.count(), geometry: region, scale: 20, maxPixels: 1e9 }).values().get(0);
+    imgCol.map(img => {
+      const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 20, maxPixels: 1e9, tileScale: 2 });
+      return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(s.trendIndex + '_mean'), share: ee.Number(st.get(s.trendIndex + '_count')).divide(nAll) });
+    }).filter(ee.Filter.notNull(['v'])).evaluate((res, err) => {
+      if (err) { failed = failed || err; return finish(); }
+      // Overlapping tiles give the same day twice: keep the clearer one.
+      const byDay = new Map();
+      res.features.map(f => f.properties).forEach(p => {
+        const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
+        if (!have || p.share > have.share) byDay.set(day, p);
+      });
+      series = [...byDay.values()].sort((a, b) => a.t - b.t);
+      finish();
+    });
 
     const c = conditionImages(region, proj, s);
     const minPx = Math.max(1, Math.round(s.minHa * 100)); // 10 m pixels = 0.01 ha each
@@ -1630,26 +1656,67 @@ function gradeOf(mag) {
 }
 function isoFromMs(ms) { return ms ? new Date(ms).toISOString().slice(0, 10) : null; }
 
-// Whole-area trend in the report's fixed wording (condition-writer.md).
-function conditionTrend(rows) {
-  const valid = rows.filter(r => r.mean != null && r.n_images > 0);
-  if (valid.length < 4) return { valid, verdict: 'not enough clear years', p: null, slope: null };
+// Whole-area trend, adjusted for the time of year (condition-writer.md).
+// Each clear image gives one area average (only images with at least half
+// the area clear). The normal value for each calendar month, from all
+// years, is taken off every image, so spring growth and winter dips, and
+// a year that happened to get mostly winter images, don't move the yearly
+// value. Each year = the average of its adjusted images, with a 95%
+// confidence interval from their scatter and number. The composite mean
+// and between-pixel SD from the yearly composites are kept alongside.
+const T_CRIT_95 = [null, 12.71, 4.30, 3.18, 2.78, 2.57, 2.45, 2.36, 2.31, 2.26, 2.23, 2.20, 2.18, 2.16, 2.14, 2.13, 2.12, 2.11, 2.10, 2.09, 2.09];
+const tCrit95 = (df) => df < 1 ? null : df < T_CRIT_95.length ? T_CRIT_95[df] : df < 30 ? 2.05 : 1.98;
+const COND_MIN_CLEAR_SHARE = 0.5;
+function conditionTrend(rows, series) {
+  const pts = (series || []).filter(p => p.share >= COND_MIN_CLEAR_SHARE && p.v != null);
+  const month = (p) => new Date(p.t).getUTCMonth();
+  const allMed = pts.length ? median(pts.map(p => p.v)) : 0;
+  const clim = [];
+  for (let m = 0; m < 12; m++) {
+    const vs = pts.filter(p => month(p) === m).map(p => p.v);
+    clim[m] = vs.length >= 3 ? median(vs) : null;
+  }
+  const known = clim.filter(v => v != null);
+  const base = known.length ? known.reduce((a, b) => a + b, 0) / known.length : allMed;
+  pts.forEach(p => { p.normal = clim[month(p)] != null ? clim[month(p)] : allMed; p.adj = base + (p.v - p.normal); });
+  const byYear = new Map(rows.map(r => [r.year, r]));
+  const yearly = [...new Set(rows.map(r => r.year))].sort((a, b) => a - b).map(y => {
+    const a = pts.filter(p => new Date(p.t).getUTCFullYear() === y).map(p => p.adj);
+    const n = a.length, m = n ? a.reduce((s, v) => s + v, 0) / n : null;
+    const sd = n > 1 ? Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (n - 1)) : null;
+    const r = byYear.get(y) || {};
+    return { year: y, mean: m, ci: sd != null ? tCrit95(n - 1) * sd / Math.sqrt(n) : null, n_used: n,
+      composite_mean: r.mean, std: r.std, n_images: r.n_images };
+  });
+  const valid = yearly.filter(r => r.mean != null && r.n_used >= 3);
+  // 12-month moving median of the adjusted images, one point a month.
+  const moving = [];
+  if (pts.length) {
+    const t0 = Math.min(...pts.map(p => p.t)), t1 = Math.max(...pts.map(p => p.t));
+    for (let t = t0; t <= t1; t += 30.44 * 864e5) {
+      const win = pts.filter(p => Math.abs(p.t - t) <= 182.6 * 864e5).map(p => p.adj);
+      if (win.length >= 5) moving.push({ t, v: median(win) });
+    }
+  }
+  const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null };
+  if (valid.length < 4) return out;
   const mk = mannKendall(valid.map(r => r.mean));
   const slopes = [];
   for (let i = 0; i < valid.length - 1; i++) for (let j = i + 1; j < valid.length; j++) {
     slopes.push((valid[j].mean - valid[i].mean) / (valid[j].year - valid[i].year));
   }
   const slope = median(slopes);
-  // Change over the period as a share of the typical within-area spread:
-  // above 1, the change is bigger than the error bars.
-  const typicalSd = median(valid.map(r => r.std || 0)) || null;
-  const changeVsSpread = typicalSd ? +(Math.abs(slope * (valid[valid.length - 1].year - valid[0].year)) / typicalSd).toFixed(2) : null;
-  const verdict = mk.p < 0.05 && changeVsSpread > 1 ? (slope < 0 ? 'declined' : 'improved') : 'no clear trend up or down';
-  return { valid, verdict, p: mk.p, slope, changeVsSpread };
+  // Change over the period against the typical 95% bar: above 1, the
+  // change is bigger than the uncertainty of a single year.
+  const typCi = median(valid.map(r => r.ci || 0)) || null;
+  const changeVsErrorBar = typCi ? +(Math.abs(slope * (valid[valid.length - 1].year - valid[0].year)) / typCi).toFixed(2) : null;
+  out.verdict = mk.p < 0.05 && changeVsErrorBar > 1 ? (slope < 0 ? 'declined' : 'improved') : 'no clear trend up or down';
+  Object.assign(out, { p: mk.p, slope, changeVsErrorBar });
+  return out;
 }
 
-function showConditionResults(area, s, trendRows, res) {
-  const trend = conditionTrend(trendRows);
+function showConditionResults(area, s, trendRows, res, series) {
+  const trend = conditionTrend(trendRows, series);
   const counters = { S: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
     const p = f.properties;
@@ -1678,7 +1745,7 @@ function showConditionResults(area, s, trendRows, res) {
     .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
   features.sort((a, b) => 'SDG'.indexOf(a.prefix) - 'SDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
 
-  lastCondition = { area, s, trendRows, trend, spots: features, res, runAt: new Date().toISOString() };
+  lastCondition = { area, s, trendRows, series, trend, spots: features, res, runAt: new Date().toISOString() };
 
   // Map
   conditionLayer = L.geoJSON({ type: 'FeatureCollection', features: features.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }, {
@@ -1703,7 +1770,7 @@ function showConditionResults(area, s, trendRows, res) {
     metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
-    : 'Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
+    : 'Adjusted for time of year, from ' + trend.points.length + ' clear images. Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
       'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').';
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
 
@@ -1723,42 +1790,64 @@ function showConditionResults(area, s, trendRows, res) {
   setStatus('success', 'Condition check done: ' + features.length + ' spot' + (features.length === 1 ? '' : 's') + '.');
 }
 
-// A plain chart of the yearly values with error bars (± 1 standard
-// deviation across the area's pixels, i.e. how much the block varied that
-// year), drawn on a canvas so the same picture goes into the report
-// export. No fitted trend line: the reader judges the pattern against the
-// bars, and the trend test stays in the text and the appendix.
+// The whole-area chart, drawn on a canvas so the same picture goes into
+// the report export: each clear image as a faint dot (adjusted for the
+// time of year), a 12-month moving median, and each year's average with
+// its 95% confidence interval. No fitted trend line: the reader judges the
+// pattern against the bars; the trend test is in the text and appendix.
 function drawConditionChart(canvas, trend, s) {
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height, L0 = 70, R0 = 20, T0 = 20, B0 = 45;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-  const pts = trend.valid;
-  if (!pts.length) return;
-  const sd = (p) => p.std || 0;
-  let lo = Math.min(...pts.map(p => p.mean - sd(p))), hi = Math.max(...pts.map(p => p.mean + sd(p)));
-  const pad = Math.max((hi - lo) * 0.1, 0.02); lo -= pad; hi += pad;
-  const x0 = s.years[0], x1 = s.years[s.years.length - 1];
-  const X = (y) => L0 + 20 + (y - x0) / Math.max(x1 - x0, 1) * (W - L0 - R0 - 40);
-  const Y = (v) => T0 + (hi - v) / (hi - lo) * (H - T0 - B0);
-  ctx.strokeStyle = '#ccc'; ctx.fillStyle = '#555'; ctx.font = '14px sans-serif'; ctx.lineWidth = 1;
+  const yrs = trend.valid;
+  if (!yrs.length) return;
+  const dots = trend.points.map(p => p.adj).sort((a, b) => a - b);
+  const q = (f) => dots.length ? dots[Math.min(dots.length - 1, Math.max(0, Math.round(f * (dots.length - 1))))] : null;
+  let lo = Math.min(...yrs.map(r => r.mean - (r.ci || 0)), q(0.02) ?? Infinity);
+  let hi = Math.max(...yrs.map(r => r.mean + (r.ci || 0)), q(0.98) ?? -Infinity);
+  const pad = Math.max((hi - lo) * 0.08, 0.01); lo -= pad; hi += pad;
+  const tStart = Date.UTC(s.years[0], 0, 1), tEnd = Date.UTC(s.years[s.years.length - 1] + 1, 0, 1);
+  const X = (t) => L0 + (t - tStart) / (tEnd - tStart) * (W - L0 - R0);
+  const Y = (v) => T0 + (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo) * (H - T0 - B0);
+  ctx.strokeStyle = '#ddd'; ctx.fillStyle = '#555'; ctx.font = '14px sans-serif'; ctx.lineWidth = 1;
   for (let i = 0; i <= 4; i++) {
     const v = lo + (hi - lo) * i / 4, y = Y(v);
     ctx.beginPath(); ctx.moveTo(L0, y); ctx.lineTo(W - R0, y); ctx.stroke();
     ctx.textAlign = 'right'; ctx.fillText(v.toFixed(2), L0 - 8, y + 5);
   }
   ctx.textAlign = 'center';
-  s.years.forEach(y => ctx.fillText(String(y), X(y), H - B0 + 22));
-  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ' (yearly mean ± 1 SD)', 0, 0); ctx.restore();
-  ctx.strokeStyle = '#2c5f8a'; ctx.lineWidth = 1.5;
-  pts.forEach(p => {
-    const x = X(p.year), ya = Y(p.mean - sd(p)), yb = Y(p.mean + sd(p));
-    ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.moveTo(x - 7, ya); ctx.lineTo(x + 7, ya); ctx.moveTo(x - 7, yb); ctx.lineTo(x + 7, yb); ctx.stroke();
+  s.years.forEach(y => {
+    const xa = X(Date.UTC(y, 0, 1));
+    ctx.strokeStyle = '#eee'; ctx.beginPath(); ctx.moveTo(xa, T0); ctx.lineTo(xa, H - B0); ctx.stroke();
+    ctx.fillText(String(y), X(Date.UTC(y, 6, 1)), H - B0 + 22);
   });
-  ctx.lineWidth = 2.5; ctx.beginPath();
-  pts.forEach((p, i) => { if (i) ctx.lineTo(X(p.year), Y(p.mean)); else ctx.moveTo(X(p.year), Y(p.mean)); });
-  ctx.stroke();
-  ctx.fillStyle = '#2c5f8a';
-  pts.forEach(p => { ctx.beginPath(); ctx.arc(X(p.year), Y(p.mean), 5, 0, 2 * Math.PI); ctx.fill(); });
+  ctx.save(); ctx.translate(18, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(s.trendIndex + ', adjusted for time of year', 0, 0); ctx.restore();
+  ctx.fillStyle = 'rgba(44, 95, 138, 0.22)';
+  trend.points.forEach(p => { ctx.beginPath(); ctx.arc(X(p.t), Y(p.adj), 2.6, 0, 2 * Math.PI); ctx.fill(); });
+  if (trend.moving.length > 1) {
+    ctx.strokeStyle = '#d17a22'; ctx.lineWidth = 2.5; ctx.beginPath();
+    trend.moving.forEach((m, i) => { if (i) ctx.lineTo(X(m.t), Y(m.v)); else ctx.moveTo(X(m.t), Y(m.v)); });
+    ctx.stroke();
+  }
+  ctx.strokeStyle = '#173f63'; ctx.fillStyle = '#173f63'; ctx.lineWidth = 2;
+  yrs.forEach(r => {
+    const x = X(Date.UTC(r.year, 6, 1));
+    if (r.ci != null) {
+      const ya = Y(r.mean - r.ci), yb = Y(r.mean + r.ci);
+      ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.moveTo(x - 8, ya); ctx.lineTo(x + 8, ya); ctx.moveTo(x - 8, yb); ctx.lineTo(x + 8, yb); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(X(Date.UTC(r.year, 6, 1)), Y(r.mean), 5.5, 0, 2 * Math.PI); ctx.fill();
+  });
+  // Key
+  ctx.font = '13px sans-serif'; ctx.textAlign = 'left';
+  const kx = L0 + 10, ky = T0 + 12;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillRect(kx - 6, ky - 12, 470, 22);
+  ctx.fillStyle = 'rgba(44, 95, 138, 0.5)'; ctx.beginPath(); ctx.arc(kx + 4, ky, 3, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = '#333'; ctx.fillText('single clear image', kx + 12, ky + 4);
+  ctx.strokeStyle = '#d17a22'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(kx + 140, ky); ctx.lineTo(kx + 165, ky); ctx.stroke();
+  ctx.fillText('12-month moving median', kx + 171, ky + 4);
+  ctx.fillStyle = '#173f63'; ctx.beginPath(); ctx.arc(kx + 335, ky, 5, 0, 2 * Math.PI); ctx.fill();
+  ctx.fillStyle = '#333'; ctx.fillText('year, 95% interval', kx + 345, ky + 4);
 }
 
 /* ── Export for report ──────────────────────────────────────────────── */
@@ -2175,13 +2264,14 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
 
   // ── 2 The area as a whole ──
   heading('2  The area as a whole', 13);
-  await image(trendBlob, 70, 'Figure 2. The vegetation signal for the whole area, year by year. Dots are each year\'s average; bars show how much it varied from place to place within the area that year (plus or minus one standard deviation), not measurement error.');
+  await image(trendBlob, 70, 'Figure 2. The vegetation signal for the whole area, adjusted for the time of year so that normal spring growth and winter dips are taken out. Small dots are single clear satellite images; the orange line is a 12-month moving median; large dots are each year\'s average, with bars showing the range it very likely lies in (95% confidence interval). Where two years\' bars do not overlap, the difference between them is unlikely to be chance.');
   if (valid.length > 1) {
-    const range = Math.max(...valid.map(r => r.mean)) - Math.min(...valid.map(r => r.mean));
-    const typSd = median(valid.map(r => r.std || 0));
-    para(trendSentence + ' ' + (range < typSd
-      ? 'The gap between the highest and lowest year is smaller than the typical error bar, so the differences between years are small compared with how much the vegetation varies from place to place within the area.'
-      : 'The gap between the highest and lowest year is bigger than the typical error bar, so those years differ by more than the vegetation varies from place to place within the area.'));
+    const lowY = valid.reduce((a, r) => r.mean < a.mean ? r : a);
+    const others = valid.filter(r => r !== lowY && r.ci != null);
+    const overlap = lowY.ci == null ? null : others.filter(r => r.mean - r.ci <= lowY.mean + lowY.ci).length;
+    para(trendSentence + ' ' + (overlap == null ? ''
+      : overlap === 0 ? 'The lowest year, ' + lowY.year + ', sits clearly below every other year: its bar does not overlap theirs, so the dip is unlikely to be chance.'
+      : 'The bar for the lowest year, ' + lowY.year + ', overlaps those of ' + overlap + ' other year' + (overlap === 1 ? '' : 's') + ', so it is not clearly different from ' + (overlap === 1 ? 'that year' : 'them') + '.'));
   } else para(trendSentence);
 
   // ── 3 Spots ──
@@ -2218,13 +2308,14 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   newPage();
   heading('Appendix A  Methods and settings', 14);
   para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud were left out, and cloud, shadow and snow pixels were masked with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
-  para('Whole-area trend: the yearly average of ' + c.s.trendIndex + ' over the area for each full year from ' + y0 + ' to ' + y1 + '. Mann-Kendall test p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsSpread == null ? 'n/a' : t.changeVsSpread + ' times') + ' the typical within-area standard deviation. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
-  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images), less the area\'s median change on that image. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
-  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with the area\'s median (' + (c.res.medT || 0).toFixed(3) + ') and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
+  para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its adjusted images, with a 95% confidence interval (t distribution). Mann-Kendall test on the yearly values p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
+  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less the area\'s median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
+  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
-  table([['Year', 0.2], [c.s.trendIndex + ' average', 0.27], ['Standard deviation', 0.27], ['Clear images', 0.26]],
-    c.trendRows.map(r => [r.year, r.mean == null ? 'no clear image' : r.mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images]));
+  table([['Year', 0.1], ['Adjusted average', 0.17], ['95% interval', 0.15], ['Images used', 0.14], ['Composite average', 0.16], ['Between-pixel SD', 0.15], ['Clear images', 0.13]],
+    t.yearly.map(r => [r.year, r.mean == null ? 'none' : r.mean.toFixed(3), r.ci == null ? '' : '± ' + r.ci.toFixed(3), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images]));
+  para('Adjusted average and 95% interval: from single images, as above. Composite average and between-pixel SD: from each year\'s median composite; the SD shows how varied the area is from place to place, not uncertainty. Clear images: all images in the year, including partly cloudy ones.', { size: 8.5, italic: true });
   if (spots.length) {
     heading('All spots', 11);
     table([['Spot', 0.08], ['Kind', 0.15], ['Size (ha)', 0.1], ['When', 0.22], ['Change', 0.13], ['Images or years', 0.14], ['Confidence', 0.18]],
@@ -2285,11 +2376,12 @@ async function exportCondition() {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
         drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
-        past_drop_share: COND_PAST_STEP_SHARE, area_wide_change_allowed_for: true,
+        past_drop_share: COND_PAST_STEP_SHARE, area_wide_change_allowed_for: c.s.relative,
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
       trend: {
-        verdict: c.trend.verdict, change_vs_spread: c.trend.changeVsSpread, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
+        method: 'yearly mean of per-image area averages, each less the normal for its calendar month; 95% t interval', min_clear_share: COND_MIN_CLEAR_SHARE, images_used: c.trend.points.length,
+        verdict: c.trend.verdict, change_vs_error_bar: c.trend.changeVsErrorBar, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
         years_used: c.trend.valid.length, years_requested: c.s.years.length
       },
       recent_scan: { clear_images: c.res.nScan, baseline_images: c.res.nBase, typical_spread: c.res.sigmaR },
@@ -2303,8 +2395,11 @@ async function exportCondition() {
       files_missing: missing
     };
     dir.file('summary.json', JSON.stringify(summary, null, 2));
-    dir.file('trend.csv', 'year,' + c.s.trendIndex.toLowerCase() + '_mean,' + c.s.trendIndex.toLowerCase() + '_sd,clear_images\n' +
-      c.trendRows.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.std == null ? '' : r.std.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
+    const ixn = c.s.trendIndex.toLowerCase();
+    dir.file('trend.csv', 'year,' + ixn + '_adjusted_mean,ci95,images_used,' + ixn + '_composite_mean,' + ixn + '_between_pixel_sd,clear_images\n' +
+      c.trend.yearly.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.ci == null ? '' : r.ci.toFixed(4), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(4), r.std == null ? '' : r.std.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
+    dir.file('images.csv', 'date,' + ixn + ',month_normal,adjusted,clear_share\n' +
+      c.trend.points.map(pt => [new Date(pt.t).toISOString().slice(0, 10), pt.v.toFixed(4), pt.normal.toFixed(4), pt.adj.toFixed(4), pt.share.toFixed(2)].join(',')).join('\n') + '\n');
     dir.file('spots.csv', SPOT_FIELDS.join(',') + '\n' + spots.map(sp => SPOT_FIELDS.map(f => csvCell(sp[f])).join(',')).join('\n') + '\n');
     dir.file('spots.geojson', JSON.stringify({ type: 'FeatureCollection', features: c.spots.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }));
     dir.file('area.geojson', JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: c.area.geojson.geometry, properties: { name: c.area.name } }] }));
