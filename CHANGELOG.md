@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.17.4 — 2026-10-16
+
+- **Results summary PDF in the export.** "Export for report" adds
+  `condition-summary.pdf`: At a glance, the map, the year-by-year chart,
+  spot tables with GPS points and what to check, limitations, and a
+  methods and settings appendix, in the condition report's structure and
+  wording. It is marked as an automatic, unreviewed draft, not the issued
+  report.
+
 ## v0.17.3 — 2026-10-16
 
 - **Condition check chart: error bars, no trend line.** The whole-area

@@ -728,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.17.3';
+const APP_VERSION = 'v0.17.4';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1872,6 +1872,190 @@ function conditionMapPng(c) {
   });
 }
 
+/* ── Results summary PDF ──────────────────────────────────────────────
+   An automatic, unreviewed summary in the shape of the condition report
+   (OneDrive\Workflow\skills\condition-writer.md): plain-language main
+   pages, then a technical appendix. It is not the issued report, which
+   is written and checked through the report workflow. */
+let jspdfPromise = null;
+function loadJsPDF() {
+  if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+  if (!jspdfPromise) jspdfPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    sc.onload = () => resolve(window.jspdf.jsPDF);
+    sc.onerror = () => { jspdfPromise = null; reject(new Error('could not load the PDF library')); };
+    document.head.appendChild(sc);
+  });
+  return jspdfPromise;
+}
+const blobToDataUrl = (b) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(b); });
+const imgSize = (url) => new Promise(resolve => { const i = new Image(); i.onload = () => resolve([i.naturalWidth, i.naturalHeight]); i.onerror = () => resolve(null); i.src = url; });
+const fmtLongDate = (iso) => { const d = new Date(iso + 'T00:00:00Z'); return d.getUTCDate() + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
+const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', severe: 'strong' }; // "severe" reads as a judgement of harm
+const SPOT_MAY_BE = {
+  sudden_drop: 'clearance, a slip, windthrow or fire',
+  slow_decline: 'dieback, browsing, drought stress or weed invasion',
+  gain: 'regrowth or recovery'
+};
+
+async function conditionPdf(c, mapBlob, trendBlob) {
+  const JsPDF = await loadJsPDF();
+  const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+  const PW = 210, PH = 297, M = 18, TW = PW - 2 * M;
+  const GREEN = [10, 63, 38], GREY = [90, 90, 90];
+  const y0 = c.s.years[0], y1 = c.s.years[c.s.years.length - 1];
+  const spots = c.spots.map(x => x.spot);
+  const ofKind = (k) => spots.filter(sp => sp.kind === k);
+  const haSum = (list) => list.reduce((a, sp) => a + sp.area_ha, 0);
+  const ha = (v) => v < 1 ? v.toFixed(2) : v.toFixed(1);
+  let y = M;
+  let page = 1;
+
+  const footer = () => {
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...GREY);
+    doc.text('Automatic summary from inferrd. ' + APP_VERSION + ', ' + fmtLongDate(c.s.today) + '. Draft, not reviewed: every spot is a place to check on the ground, not proof of what happened.', M, PH - 10, { maxWidth: TW - 12 });
+    doc.text(String(page), PW - M, PH - 10, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  };
+  const newPage = () => { footer(); doc.addPage(); page++; y = M; };
+  const need = (h) => { if (y + h > PH - 20) newPage(); };
+  const heading = (text, size) => {
+    need(size * 0.9 + 6);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(size); doc.setTextColor(...GREEN);
+    doc.text(text, M, y + size * 0.35); y += size * 0.5 + 4;
+    doc.setTextColor(0, 0, 0);
+  };
+  const para = (text, opts) => {
+    const size = (opts && opts.size) || 10.5;
+    doc.setFont('helvetica', (opts && opts.bold) ? 'bold' : (opts && opts.italic) ? 'italic' : 'normal'); doc.setFontSize(size);
+    const lines = doc.splitTextToSize(text, TW);
+    const lh = size * 0.45;
+    lines.forEach(line => { need(lh); doc.text(line, M, y + lh * 0.8); y += lh; });
+    y += (opts && opts.after != null) ? opts.after : 3;
+  };
+  const image = async (blob, maxH, caption) => {
+    if (!blob) { para('(' + caption.split('.')[0] + ' could not be made.)', { italic: true }); return; }
+    const url = await blobToDataUrl(blob);
+    const sz = await imgSize(url);
+    if (!sz) return;
+    let w = TW, h = TW * sz[1] / sz[0];
+    if (h > maxH) { h = maxH; w = h * sz[0] / sz[1]; }
+    need(h + 12);
+    doc.addImage(url, 'PNG', M + (TW - w) / 2, y, w, h);
+    y += h + 2;
+    para(caption, { size: 8.5, italic: true, after: 5 });
+  };
+  const table = (cols, rows) => {
+    const widths = cols.map(cl => cl[1] * TW);
+    const pad = 1.5, size = 8.5, lh = size * 0.42;
+    const drawRow = (cells, header) => {
+      doc.setFont('helvetica', header ? 'bold' : 'normal'); doc.setFontSize(size);
+      const wrapped = cells.map((cell, i) => doc.splitTextToSize(String(cell), widths[i] - 2 * pad));
+      const h = Math.max(...wrapped.map(w => w.length)) * lh + 2 * pad;
+      need(h);
+      let x = M;
+      if (header) { doc.setFillColor(...GREEN); doc.rect(M, y, TW, h, 'F'); doc.setTextColor(255, 255, 255); }
+      wrapped.forEach((w, i) => { doc.text(w, x + pad, y + pad + lh * 0.8); x += widths[i]; });
+      doc.setTextColor(0, 0, 0);
+      doc.setDrawColor(200, 200, 200); doc.line(M, y + h, M + TW, y + h);
+      y += h;
+    };
+    drawRow(cols.map(cl => cl[0]), true);
+    rows.forEach(r => drawRow(r, false));
+    y += 5;
+  };
+
+  // ── Title ──
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...GREEN);
+  doc.text(doc.splitTextToSize('Vegetation condition check: ' + c.area.name, TW), M, y + 7);
+  y += 7 + doc.splitTextToSize('Vegetation condition check: ' + c.area.name, TW).length * 8;
+  doc.setTextColor(0, 0, 0);
+  const areaHa = (() => { try { return turf.area(c.area.geojson) / 10000; } catch (e) { return null; } })();
+  para((c.area.source && c.area.source !== 'drawn' ? c.area.source + '. ' : '') + (areaHa ? ha(areaHa) + ' ha. ' : '') +
+    'Sentinel-2 satellite imagery, ' + y0 + ' to ' + y1 + ', with recent change looked for from ' + fmtLongDate(c.res.scanStart) + ' to ' + fmtLongDate(c.s.today) + '.', { size: 9.5, after: 6 });
+
+  // ── At a glance ──
+  heading('At a glance', 14);
+  const t = c.trend;
+  const valid = t.valid;
+  let trendSentence;
+  if (t.verdict === 'declined' || t.verdict === 'improved') trendSentence = 'The vegetation in the area ' + t.verdict + ' between ' + y0 + ' and ' + y1 + '.';
+  else trendSentence = 'There was no clear trend up or down in the area\'s vegetation between ' + y0 + ' and ' + y1 + '.';
+  if (valid.length) {
+    const lowY = valid.reduce((a, r) => r.mean < a.mean ? r : a), highY = valid.reduce((a, r) => r.mean > a.mean ? r : a);
+    trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
+  }
+  para(trendSentence);
+  const sd = ofKind('sudden_drop'), dc = ofKind('slow_decline'), gn = ofKind('gain');
+  const visit = sd.length + dc.length;
+  para(spots.length
+    ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
+      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
+    : 'No spots of change were found inside the area with the settings used (Appendix A).');
+  para(visit
+    ? 'Recommended: visit the ' + visit + ' sudden-drop and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change. Gains need no visit.'
+    : 'Recommended: no site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.', { after: 6 });
+
+  // ── 1 The area ──
+  heading('1  The area', 13);
+  await image(mapBlob, 120, 'Figure 1. ' + c.area.name + ' (white outline) and the spots found inside it. Spot outlines come from the Sentinel-2 analysis; the aerial photograph is background only and may be older or newer than the change. Imagery: Esri, Maxar, Earthstar Geographics.');
+
+  // ── 2 The area as a whole ──
+  heading('2  The area as a whole', 13);
+  await image(trendBlob, 70, 'Figure 2. The vegetation signal for the whole area, year by year. Dots are each year\'s average; bars show how much it varied from place to place within the area that year (plus or minus one standard deviation), not measurement error.');
+  para(trendSentence);
+
+  // ── 3 Spots ──
+  heading('3  What is happening inside the area', 13);
+  para('Each spot is a group of 10 m pixels that changed more than the area around them. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.');
+  const when = (sp) => sp.kind !== 'sudden_drop' ? y0 + ' to ' + y1
+    : sp.recent ? 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after) : 'between ' + sp.date_before + ' and ' + sp.date_after;
+  const sections = [['3.1  Sudden drops: possible clearance or damage', 'sudden_drop', 'No sudden drops were found.'],
+    ['3.2  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
+    ['3.3  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
+  sections.forEach(([title, kind, none], si) => {
+    heading(title, 11);
+    const list = ofKind(kind);
+    if (!list.length) { para(none); return; }
+    if (si === 0) para('Table 1 lists the spots to visit (sudden drops and slow decline).', { size: 9, italic: true });
+    table([['Spot', 0.08], ['Size (ha)', 0.1], ['When', 0.26], ['Strength', 0.12], ['GPS (lat, long)', 0.2], ['What to check', 0.24]],
+      list.map(sp => [sp.spot_id, ha(sp.area_ha), when(sp), REPORT_STRENGTH[sp.severity] + (sp.low_confidence ? ' (few clear images)' : ''),
+        sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed' : 'May be ' + SPOT_MAY_BE[kind]]));
+  });
+
+  // ── 4 What this can't tell you ──
+  heading('4  What this analysis can and can\'t tell you', 13);
+  const thinYears = valid.filter(r => r.n_images < 10).map(r => r.year);
+  [
+    'The satellite sees a change in the vegetation signal, not its cause. Clearance, slips, windthrow, fire, dieback and browsing can look alike from space.',
+    'Spots smaller than ' + c.s.minHa + ' ha were not reported, so small clearings or single trees can be missed.',
+    'Recent drops were looked for over ' + c.s.lookback + ' days, using ' + c.res.nScan + ' clear-enough satellite images.' + (c.res.nScan < 4 ? ' That is few; a recent change may have been missed under cloud.' : ''),
+    thinYears.length ? 'Some years had fewer than ten clear images (' + thinYears.join(', ') + '), so their values are less certain.' : null,
+    'Spots at the edge of the area can include change just outside it.'
+  ].filter(Boolean).forEach((s, i) => para((i + 1) + '.  ' + s));
+
+  // ── Appendix A ──
+  newPage();
+  heading('Appendix A  Methods and settings', 14);
+  para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud were left out, and cloud, shadow and snow pixels were masked with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
+  para('Whole-area trend: the yearly average of ' + c.s.trendIndex + ' over the area for each full year from ' + y0 + ' to ' + y1 + '. Mann-Kendall test p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsSpread == null ? 'n/a' : t.changeVsSpread + ' times') + ' the typical within-area standard deviation. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
+  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images), less the area\'s median change on that image. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
+  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with the area\'s median (' + (c.res.medT || 0).toFixed(3) + ') and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
+  para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
+  heading('Yearly values', 11);
+  table([['Year', 0.2], [c.s.trendIndex + ' average', 0.27], ['Standard deviation', 0.27], ['Clear images', 0.26]],
+    c.trendRows.map(r => [r.year, r.mean == null ? 'no clear image' : r.mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images]));
+  if (spots.length) {
+    heading('All spots', 11);
+    table([['Spot', 0.08], ['Kind', 0.15], ['Size (ha)', 0.1], ['When', 0.22], ['Change', 0.13], ['Images or years', 0.14], ['Confidence', 0.18]],
+      spots.map(sp => [sp.spot_id, COND_KIND_NAME[sp.kind], ha(sp.area_ha), when(sp), (sp.change > 0 ? '+' : '') + sp.change.toFixed(3) + ' ' + sp.index,
+        sp.clear_images != null ? sp.clear_images + ' images' : sp.years_with_data + ' years', sp.low_confidence ? 'low' : 'normal']));
+  }
+  footer();
+  return doc.output('blob');
+}
+
 async function exportCondition() {
   const c = lastCondition;
   if (!c) return;
@@ -1892,6 +2076,7 @@ async function exportCondition() {
     if (mapBlob) dir.file('map.png', mapBlob);
     const trendBlob = await new Promise(r => document.getElementById('condTrendCanvas').toBlob(r, 'image/png'));
     if (trendBlob) dir.file('trend.png', trendBlob); else missing.push('trend.png');
+    try { dir.file('condition-summary.pdf', await conditionPdf(c, mapBlob, trendBlob)); } catch (e) { missing.push('condition-summary.pdf (' + e.message + ')'); }
 
     const spots = c.spots.map(x => x.spot);
     const count = (kind) => spots.filter(sp => sp.kind === kind);
