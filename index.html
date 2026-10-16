@@ -754,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.24.1';
+const APP_VERSION = 'v0.24.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -3178,7 +3178,8 @@ function addArea(layer, name, meta) {
   // already in use by a surviving area (draw 2, remove the 1st, draw a
   // 3rd: length is back to 1, so the old "2nd colour" logic repeats it).
   const color = AREA_COLORS[nextAreaNum % AREA_COLORS.length];
-  if (layer.setStyle) layer.setStyle({ color: color, weight: 2, fillColor: color, fillOpacity: 0.15 });
+  // A wide, see-through outline: visible against canopy without hiding the edge beneath it.
+  if (layer.setStyle) layer.setStyle({ color: color, weight: 4, opacity: 0.45, fillColor: color, fillOpacity: 0.1 });
   drawnItems.addLayer(layer);
   areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, geojson: layer.toGeoJSON(),
     source: meta && meta.source, properties: meta && meta.properties });

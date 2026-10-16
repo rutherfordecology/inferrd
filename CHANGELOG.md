@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.24.2 — 2026-10-16
+
+- **Area outlines wider and more see-through** (4 px at 45% opacity,
+  lighter fill), so the canopy at the edge of an area stays visible.
+
 ## v0.24.1 — 2026-10-16
 
 - **Condition summary on one line.** The whole-area and spot-count boxes
