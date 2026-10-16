@@ -2009,8 +2009,8 @@ async function conditionPdf(c, mapBlob, trendBlob) {
     const range = Math.max(...valid.map(r => r.mean)) - Math.min(...valid.map(r => r.mean));
     const typSd = median(valid.map(r => r.std || 0));
     para(trendSentence + ' ' + (range < typSd
-      ? 'The differences between years are small compared with how much the vegetation varies from place to place within the area: every year sits well inside the error bars of the others.'
-      : 'Some years differ by more than the variation within the area, so the change between those years is likely to be real rather than chance.'));
+      ? 'The gap between the highest and lowest year is smaller than the typical error bar, so the differences between years are small compared with how much the vegetation varies from place to place within the area.'
+      : 'The gap between the highest and lowest year is bigger than the typical error bar, so those years differ by more than the vegetation varies from place to place within the area.'));
   } else para(trendSentence);
 
   // ── 3 Spots ──
