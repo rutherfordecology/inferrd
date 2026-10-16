@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.15.0 — 2026-10-16
+
+- **Measure tools.** Two buttons under the drawing tools measure a distance
+  (draw a line; its length shows in m or km) or an area (draw a polygon;
+  its area shows in ha or m², with the perimeter). Measurements stay on the
+  map until clicked and never become analysis areas. The tool is occurd.'s
+  `measure.js`, loaded live from occurd.'s site like the layers, so the two
+  apps stay the same.
+
+## v0.14.1 — 2026-10-16
+
+- **Change map and "When did this change?" on Sentinel-2's own pixels.**
+  The area's median change and spread, the hectare totals, the traced
+  patch outline and the patch and surroundings values in the time series
+  are now worked out on the Sentinel-2 tile's own 10 m grid (its UTM zone)
+  instead of Earth Engine's default lat/long grid, which sat up to half a
+  pixel off the real pixels. A traced outline now follows the coloured
+  pixels exactly. The flagging rule itself is unchanged.
+- **Patch re-traced from either side of the change.** Once the time series
+  dates a change, the clicked patch is traced again from the clear images
+  just before and just after it (same rule, same median and spread),
+  because a change inside a wide "after" window is diluted and its patch
+  comes out too small (in one case 12 pixels of an event covering 17). If
+  that gives different pixels, the time series is redone for them and the
+  description says which images it was traced from.
+
 ## v0.14.0 — 2026-10-16
 
 - **Reference layers from occurd.** Projects ▾ → Layers (password, or your

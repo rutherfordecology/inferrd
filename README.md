@@ -119,6 +119,13 @@ occurd. beta or a local occurd. checkout, open inferrd. with
 `?occurd=http://localhost:<port>/` (only those addresses are accepted; a
 local server must send CORS headers).
 
+### Measuring distances and areas
+
+The two buttons under the drawing tools measure a distance or an area on
+the map without adding an analysis area. Click a measurement to remove it.
+The tool (`measure.js`) is shared with occurd. and loaded from its site,
+like the reference layers.
+
 ### Data volume and timing
 
 Every request is a summary-statistics query — mean/std/image-count per year,

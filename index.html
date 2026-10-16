@@ -614,7 +614,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.14.0';
+const APP_VERSION = 'v0.15.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1095,6 +1095,21 @@ function windowCollection(region, dateStr, days, maxCloudPct, indexName) {
     .select(indexName);
 }
 
+// Sentinel-2's own 10 m pixel grid (the UTM zone of the tile) around a
+// date. Medians have no native projection, so without this reduceRegion
+// and reduceToVectors would run on a 10 m EPSG:4326 grid up to half a
+// pixel off the real pixels, and a traced patch would miss them a little.
+// Prefers a tile covering the area's centre, so an area near a zone edge
+// gets the zone most of it is imaged in.
+function s2Projection(region, dateStr, days) {
+  const d = ee.Date(dateStr);
+  const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterDate(d.advance(-days, 'day'), d.advance(days + 1, 'day'));
+  const atCentre = col.filterBounds(region.centroid(1));
+  return ee.Image(ee.Algorithms.If(atCentre.size().gt(0), atCentre.first(), col.filterBounds(region).first()))
+    .select('B4').projection();
+}
+
 // The flagging rule, shared by the change map and the click-to-inspect
 // time series so both always agree on what counts as a flagged pixel.
 function classifyChange(diff, centre, sigma, k) {
@@ -1165,13 +1180,14 @@ function showChangeLayers() {
     const afterCol = windowCollection(region, afterDate, days, cloudPct, indexName);
     const nBefore = beforeCol.size(), nAfter = afterCol.size();
     const diff = afterCol.median().subtract(beforeCol.median()).rename('d').clip(region);
+    const proj = s2Projection(region, beforeDate, days);
 
     // Step 1: image counts, plus the area's median change and robust spread
     // (only computed when both windows actually have images — a band-less
     // median would otherwise error).
     const spreadStats = () => {
-      const med = ee.Number(diff.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, scale: 10, maxPixels: 1e9 }).get('d'));
-      const mad = ee.Number(diff.subtract(med).abs().reduceRegion({ reducer: ee.Reducer.median(), geometry: region, scale: 10, maxPixels: 1e9 }).get('d'));
+      const med = ee.Number(diff.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 10, maxPixels: 1e9 }).get('d'));
+      const mad = ee.Number(diff.subtract(med).abs().reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 10, maxPixels: 1e9 }).get('d'));
       return ee.Dictionary({ med: med, mad: mad });
     };
     ee.Dictionary({ nBefore: nBefore, nAfter: nAfter })
@@ -1196,7 +1212,7 @@ function showChangeLayers() {
         const { resid, loss, gain } = classifyChange(diff, centre, sigma, k);
         // Kept so a click on the map can rebuild the same flags (see
         // inspectChange) without recomputing the area's median and spread.
-        changeCtx.set(area.id, { region, diff, centre, sigma, k, showGains, indexName, beforeDate, afterDate, days });
+        changeCtx.set(area.id, { region, proj, diff, centre, sigma, k, showGains, indexName, beforeDate, afterDate, days });
         const mag = resid.abs();
         const grade = (flag, lo, hi) => flag.and(mag.gte(lo)).and(hi == null ? mag.gte(lo) : mag.lt(hi));
         const lossBands = CHANGE_GRADES.map(g => grade(loss, g.lo, g.hi));
@@ -1212,6 +1228,10 @@ function showChangeLayers() {
         lossBands.forEach((b, g) => { cls = cls.where(b, CHANGE_CLASS.loss[g]); });
         if (showGains) gainBands.forEach((b, g) => { cls = cls.where(b, CHANGE_CLASS.gain[g]); });
         cls = cls.updateMask(cls.gt(0)).clip(region);
+        // No reproject for the tiles: each tile pixel samples the nearest
+        // pixel of every image on its own Sentinel-2 grid, so the map
+        // already shows the real pixels (and reprojecting to 10 m would
+        // force full resolution at every zoom).
 
         cls.getMapId({ min: 1, max: CHANGE_PALETTE.length, palette: CHANGE_PALETTE }, (mapId, mapErr) => {
           if (runId !== changeRunId) return;
@@ -1236,7 +1256,7 @@ function showChangeLayers() {
               ha.updateMask(loss.and(lowConf)).rename('lossLowConf'),
               ha.rename('total')
             ])
-        ).reduceRegion({ reducer: ee.Reducer.sum(), geometry: region, scale: 10, maxPixels: 1e9 })
+        ).reduceRegion({ reducer: ee.Reducer.sum(), geometry: region, crs: proj, scale: 10, maxPixels: 1e9 })
           .evaluate((sums, sumErr) => {
             if (runId !== changeRunId) return;
             if (sumErr || !sums) {
@@ -1312,6 +1332,7 @@ const CONTROL_GAP_M = 30;      // …leaving this gap so the patch's own edge do
 const MIN_CONTROL_PX = 20;     // fewer clear surrounding pixels than this and the image has no control value
 const WHEN_MIN_BASELINE = 3;   // clear images needed before a step to know what "normal" was
 const WHEN_PERSIST = 2;        // consecutive clear images beyond the threshold to call it a change
+const WHEN_RETRACE_BEFORE = 3; // clear images before a found step that the patch is re-traced from (after it: WHEN_PERSIST)
 let whenRunId = 0;
 let whenOverlays = [];
 let lastWhen = null;
@@ -1370,22 +1391,34 @@ function inspectChange(area, ctx, latlng) {
   whenOverlays.push(L.circleMarker(latlng, { radius: 4, color: '#111', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(map));
   setStatus('info', 'Tracing the patch under the click and pulling every clear Sentinel-2 image of it — this can take a minute…');
 
-  const idxName = ctx.indexName;
   const point = ee.Geometry.Point([latlng.lng, latlng.lat]);
   const { loss, gain } = classifyChange(ctx.diff, ctx.centre, ctx.sigma, ctx.k);
   let label = ee.Image(0).where(loss, 1); // 1 = loss, 2 = gain
   if (ctx.showGains) label = label.where(gain, 2);
-  label = label.updateMask(label.gt(0)).toInt().rename('kind');
-  const hits = label.reduceToVectors({
+  const hits = tracePatches(label, point, ctx);
+  const patchFeat = ee.Feature(ee.Algorithms.If(hits.size().gt(0), hits.first(), ee.Feature(point.buffer(PATCH_FALLBACK_M, 1), { kind: 0 })));
+  runWhenSeries(area, ctx, latlng, runId, patchFeat.geometry(), patchFeat.get('kind'), null);
+}
+
+// Flagged patches (8-connected) as polygons along the Sentinel-2 pixel
+// edges, keeping only the one under the point.
+function tracePatches(label, point, ctx) {
+  return label.updateMask(label.gt(0)).toInt().rename('kind').reduceToVectors({
     geometry: point.buffer(PATCH_SEARCH_M, 1).intersection(ctx.region, 1),
+    crs: ctx.proj,
     scale: 10,
     geometryType: 'polygon',
     eightConnected: true,
     labelProperty: 'kind',
     maxPixels: 1e8
   }).filterBounds(point);
-  const patchFeat = ee.Feature(ee.Algorithms.If(hits.size().gt(0), hits.first(), ee.Feature(point.buffer(PATCH_FALLBACK_M, 1), { kind: 0 })));
-  const patch = patchFeat.geometry();
+}
+
+// The patch's time series against its surroundings. retraced: null for
+// the patch as the change map flags it, otherwise the dates of the images
+// either side of the step it was re-traced from ({ before: [t], after: [t] }).
+function runWhenSeries(area, ctx, latlng, runId, patch, kind, retraced) {
+  const idxName = ctx.indexName;
   const ring = patch.buffer(CONTROL_RING_M, 1).difference(patch.buffer(CONTROL_GAP_M, 1), 1).intersection(ctx.region, 1);
 
   // Roughly the last two years — reaching further back when the change
@@ -1395,18 +1428,21 @@ function inspectChange(area, ctx, latlng) {
   const start = isoDate(beforeStart < startD ? beforeStart : startD);
   const endD = new Date(); endD.setDate(endD.getDate() + 1);
 
+  // On the Sentinel-2 grid "the patch" is exactly its pixels (centres
+  // inside the traced outline) and nothing either side.
+  const px = { crs: ctx.proj, scale: 10 };
   const all = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(patch).filterDate(start, isoDate(endD));
   // "Fully clear": every patch pixel is vegetation/soil/water/unclassified
   // in the Scene Classification Layer. Off-swath pixels count as not clear.
   const clear = all.map(img => {
     const ok = img.select('SCL').remap([4, 5, 6, 7], [1, 1, 1, 1], 0).unmask(0).rename('ok');
-    return img.set('patchClear', ok.reduceRegion({ reducer: ee.Reducer.min(), geometry: patch, scale: 10, maxPixels: 1e6 }).get('ok'));
+    return img.set('patchClear', ok.reduceRegion(Object.assign({ reducer: ee.Reducer.min(), geometry: patch, maxPixels: 1e6 }, px)).get('ok'));
   }).filter(ee.Filter.eq('patchClear', 1));
   const series = ee.FeatureCollection(clear.map(img => {
     // maskS2Clouds ends in copyProperties, which hands back a plain Element.
     const idx = addIndices(ee.Image(maskS2Clouds(img))).select(idxName);
-    const p = idx.reduceRegion({ reducer: ee.Reducer.mean(), geometry: patch, scale: 10, maxPixels: 1e6 });
-    const c = idx.reduceRegion({ reducer: ee.Reducer.median().combine(ee.Reducer.count(), '', true), geometry: ring, scale: 10, maxPixels: 1e8 });
+    const p = idx.reduceRegion(Object.assign({ reducer: ee.Reducer.mean(), geometry: patch, maxPixels: 1e6 }, px));
+    const c = idx.reduceRegion(Object.assign({ reducer: ee.Reducer.median().combine(ee.Reducer.count(), '', true), geometry: ring, maxPixels: 1e8 }, px));
     return ee.Feature(null, {
       t: img.get('system:time_start'),
       id: img.get('system:index'),
@@ -1416,20 +1452,69 @@ function inspectChange(area, ctx, latlng) {
     });
   }));
 
+  // Traced outlines are in the tile's UTM zone; Leaflet wants lat/lng.
+  const wgs84 = ee.Projection('EPSG:4326');
   ee.Dictionary({
-    kind: patchFeat.get('kind'),
-    patch: patch,
+    kind: kind,
+    patch: patch.transform(wgs84, 0.01),
     patchM2: patch.area(1),
-    ring: ring,
+    ring: ring.transform(wgs84, 0.01),
     nAll: all.size(),
     series: series.toList(5000)
   }).evaluate((res, err) => {
     if (runId !== whenRunId) return;
     if (err || !res) { setStatus('error', 'Time series failed: ' + err); return; }
+    res.retraced = retraced;
+    clearWhenOverlays();
     const kindColor = res.kind === 1 ? '#cb181d' : res.kind === 2 ? '#238b45' : '#111';
+    whenOverlays.push(L.circleMarker(latlng, { radius: 4, color: '#111', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(map));
     whenOverlays.push(L.geoJSON(res.ring, { interactive: false, style: { color: '#fff', weight: 1.5, dashArray: '4,4', fill: false } }).addTo(map));
     whenOverlays.push(L.geoJSON(res.patch, { interactive: false, style: { color: kindColor, weight: 2.5, fillOpacity: 0 } }).addTo(map));
     handleWhenResults(area, ctx, latlng, res);
+    if (!retraced && lastWhen.step) retraceFromStep(runId);
+  });
+}
+
+// The change map compares two windows of images, so a change that
+// happened inside the "after" window is diluted and its patch traced too
+// small (in one case 12 pixels of an event covering 17). Once the series
+// has dated the step, trace the patch again from the clear images either
+// side of it — same rule, same median and spread — and if that gives
+// different pixels under the click, redo the series for them. Done once.
+function retraceFromStep(runId) {
+  const { area, ctx, latlng, res, pts, step } = lastWhen;
+  const before = pts.slice(Math.max(0, step.j - WHEN_RETRACE_BEFORE), step.j);
+  const after = pts.slice(step.j, step.j + WHEN_PERSIST);
+  const composite = rows => ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filter(ee.Filter.inList('system:index', rows.flatMap(r => r.ids.split(' '))))
+    .map(maskS2Clouds)
+    .map(addIndices)
+    .select(ctx.indexName)
+    .median();
+  const diff = composite(after).subtract(composite(before)).rename('d').clip(ctx.region);
+  const { loss, gain } = classifyChange(diff, ctx.centre, ctx.sigma, ctx.k);
+  const kind = step.dir < 0 ? 1 : 2;
+  const point = ee.Geometry.Point([latlng.lng, latlng.lat]);
+  const hits = tracePatches(ee.Image(0).where(step.dir < 0 ? loss : gain, kind), point, ctx);
+  const patch = ee.Feature(hits.first()).geometry();
+  const changed = 'Changed between ' + fmtDate(pts[step.j - 1].t) + ' and ' + fmtDate(pts[step.j].t) + '.';
+  setStatus('info', changed + ' Re-tracing the patch from the images either side of the change…');
+
+  ee.Dictionary({ n: hits.size() }).combine(ee.Dictionary(ee.Algorithms.If(hits.size().gt(0), ee.Dictionary({
+    // Area that differs from the first trace — none means nothing to redo.
+    changedM2: patch.symmetricDifference(ee.Geometry(res.patch), 1).area(1)
+  }), ee.Dictionary({})))).evaluate((r, err) => {
+    if (runId !== whenRunId) return;
+    if (err || !r || !r.n || r.changedM2 < 50) {
+      lastWhen.retraceNote = err ? 'Re-tracing the patch from the images either side of the change failed (' + err + '), so it is as the change map flags it.'
+        : !r || !r.n ? 'The images either side of the change don\'t flag the clicked pixel on their own, so the patch is as the change map flags it.'
+        : 'Re-traced from the images either side of the change: the same pixels as the change map flags.';
+      setStatus('success', changed);
+      renderWhenInterpretation();
+      return;
+    }
+    setStatus('info', changed + ' The images either side of it flag a different patch — pulling its time series again…');
+    runWhenSeries(area, ctx, latlng, runId, patch, kind, { before: before.map(p => p.t), after: after.map(p => p.t) });
   });
 }
 
@@ -1520,7 +1605,8 @@ function handleWhenResults(area, ctx, latlng, res) {
 
   const nPx = Math.round(res.patchM2 / 100);
   const patchDesc = kindName
-    ? 'flagged ' + kindName + ' patch of ~' + nPx + ' pixel' + (nPx === 1 ? '' : 's') + ' (' + fmtHa(res.patchM2 / 10000) + ' ha)'
+    ? (res.retraced ? '' : 'flagged ') + kindName + ' patch of ~' + nPx + ' pixel' + (nPx === 1 ? '' : 's') + ' (' + fmtHa(res.patchM2 / 10000) + ' ha)' +
+      (res.retraced ? ', traced from the clear images either side of the change (' + res.retraced.before.map(fmtDate).join(', ') + ' vs ' + res.retraced.after.map(fmtDate).join(', ') + ')' : '')
     : PATCH_FALLBACK_M + ' m around the clicked point (no flagged patch under the click)';
   document.getElementById('whenTitle').textContent = area.name + ', ' + idxName;
   document.getElementById('whenSubtitle').textContent =
@@ -1654,6 +1740,8 @@ function renderWhenInterpretation() {
   if (latestDip) {
     lines.push({ warn: true, text: 'The latest clear image (' + fmtDate(latestDip.t) + ') is low, but there\'s nothing after it yet to tell a real change from a missed shadow. Check again after the next clear pass.' });
   }
+  if (lastWhen.res.retraced) lines.push({ text: 'The change map compares two windows of images, which dilutes a change that happened inside one of them, so the patch was traced again from the clear images either side of the step, with the same rule. The series above is for that patch.' });
+  if (lastWhen.retraceNote) lines.push({ text: lastWhen.retraceNote });
   if (!kindName) lines.push({ text: 'No flagged patch was under the click, so this is the ' + PATCH_FALLBACK_M + ' m around the point. Click inside a coloured patch to inspect a flagged change.' });
   lines.push({ text: 'Only images in which every pixel of the patch was clear (Scene Classification classes 4–7) are used; same-day images from overlapping tiles are averaged. The step dates when the patch stopped looking like its surroundings — a reason to go and look, not proof of what happened.' });
   document.getElementById('whenInterpretBody').innerHTML = lines.map(l => '<' + (l.warn ? 'div class="caveat"' : 'p') + '>' + l.text + '</' + (l.warn ? 'div' : 'p') + '>').join('');
@@ -1684,6 +1772,7 @@ document.getElementById('exportWhenCsvBtn').addEventListener('click', () => {
 });
 
 map.on(L.Draw.Event.CREATED, (e) => {
+  if (window.LMeasure && LMeasure.isMeasuring()) return; // a measurement from occurd.'s measure.js, not an area
   // Colour keyed off the permanent, ever-incrementing id — not
   // areas.length, which shrinks on removal and can hand out a colour
   // already in use by a surviving area (draw 2, remove the 1st, draw a
@@ -3144,6 +3233,10 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   lyrScript.onload = () => { layersLoaded = true; };
   lyrScript.onerror = () => { layersFailed = true; console.warn('[inferrd] could not load layers.js from ' + OCCURD_BASE); };
   document.body.appendChild(lyrScript);
+  // Distance and area measuring tools, also shared with occurd.
+  const msrScript = document.createElement('script');
+  msrScript.src = OCCURD_BASE + 'measure.js';
+  document.body.appendChild(msrScript);
 
   const lyrItem = document.createElement('div');
   lyrItem.style.cssText = item.style.cssText + 'border-top:0.5px solid var(--border);';
