@@ -769,7 +769,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.25.0';
+const APP_VERSION = 'v0.25.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1580,8 +1580,12 @@ function perImageMeans(geom, index, s, minShare) {
   }).filter(ee.Filter.notNull(['v']));
   return new Promise((resolve, reject) => fc.evaluate((r, e) => {
     if (e) return reject(new Error(e));
+    // "Clear" is measured against the clearest image of this geometry, not
+    // a pixel count on another grid (which never reaches 100%).
+    const rows = r.features.map(f => f.properties);
+    const top = Math.max(...rows.map(p => p.share), 1e-9);
     const byDay = new Map();
-    r.features.map(f => f.properties).filter(p => p.share >= minShare).forEach(p => {
+    rows.map(p => Object.assign(p, { share: p.share / top })).filter(p => p.share >= minShare).forEach(p => {
       const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
       if (!have || p.share > have.share) byDay.set(day, p);
     });
@@ -1945,8 +1949,12 @@ function runCondition() {
       },
       done: (res) => {
         // Overlapping tiles give the same day twice: keep the clearer one.
+        // Clear share is relative to the clearest image (see perImageMeans).
+        const rows = res.features.map(f => f.properties);
+        const top = Math.max(...rows.map(p => p.share || 0), 1e-9);
+        rows.forEach(p => { p.share = p.share / top; });
         const byDay = new Map();
-        res.features.map(f => f.properties).forEach(p => {
+        rows.forEach(p => {
           const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
           if (!have || p.share > have.share) byDay.set(day, p);
         });

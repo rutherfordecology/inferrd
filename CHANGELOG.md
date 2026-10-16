@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.25.1 — 2026-10-16
+
+- **Clear-image test fixed** for the spots-over-time chart and the
+  whole-area trend: an image's clear share is now measured against the
+  clearest image of that spot or area. Counting pixels on a different grid
+  meant some spots never looked fully clear, so they charted no images.
+
 ## v0.25.0 — 2026-10-16
 
 - **Spots over time.** Click condition-check spots on the map, or tick
