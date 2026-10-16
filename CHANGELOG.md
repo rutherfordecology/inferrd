@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.23.0 — 2026-10-16
+
+- **Canopy decline spots cover the whole dieback patch.** A spot still has
+  to start from pixels that pass the canopy decline test (default 2x the
+  spread and 0.08), but now grows into touching pixels that pass a
+  looser one (1.5x and 0.06). At Rangikohua Station Bush (WR39) this
+  takes the flagged dieback from 1.1 ha to 3.1 ha, following the grey,
+  leafless tawa crowns rather than only their strongest core, without
+  flagging scattered weak pixels elsewhere. The check takes a little
+  longer.
+
 ## v0.22.2 — 2026-10-16
 
 - **Sharper, quieter condition chart.** Drawn at the size it is shown and
