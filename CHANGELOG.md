@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.25.0 — 2026-10-16
+
+- **Spots over time.** Click condition-check spots on the map, or tick
+  Chart in the spot table, to follow them together on one chart: each
+  spot's average minus the whole area's on every clear image (so season,
+  weather and haze cancel), with a 6-month moving median. Lines keep their
+  spot type's colour; spots of one type differ by dash pattern and are
+  labelled at the line end. Choose EVI, NDVI, NBR or NDMI; remove a spot
+  from its chip, or Clear.
+
 ## v0.24.2 — 2026-10-16
 
 - **Area outlines wider and more see-through** (4 px at 45% opacity,
