@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.20.0 — 2026-10-16
+
+- **Dropped-and-recovered spots (R).** The condition check now maps
+  places whose vegetation fell sharply in one year and has since grown
+  back by at least half, such as storm or slip damage regrowing after
+  Cyclone Gabrielle. Before, only drops that were still down were
+  flagged, so damage that recovered went unmapped. R spots are purple on
+  the map, have their own table and images in the summary PDF, and carry
+  the share regained (`recovered_share`) in `spots.csv`.
+
 ## v0.19.0 — 2026-10-16
 
 - **Condition check trend adjusted for the time of year.** The whole-area
