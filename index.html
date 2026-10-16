@@ -1825,6 +1825,7 @@ function conditionMapPng(c) {
     c.spots.forEach(x => {
       trace(x.geometry);
       g.fillStyle = COND_COLORS[x.spot.kind] + '66'; g.fill('evenodd');
+      g.strokeStyle = '#000'; g.lineWidth = 4.5; g.stroke(); // dark edge so green reads against forest
       g.strokeStyle = COND_COLORS[x.spot.kind]; g.lineWidth = 2.5; g.stroke();
     });
     trace(c.area.geojson.geometry);
