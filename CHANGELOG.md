@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.16.0 — 2026-10-16
+
+- **Analyse a covenant or plan area.** QEII covenant popups and reference
+  layer popups (such as Gisborne's Protection Management Areas) have an
+  "Analyse this area" button that adds the boundary as an area, named after
+  the feature, ready for a trend or a change map. Reference-layer boundaries
+  are fetched again at full detail, since the map shows a simplified
+  outline. A covenant in several blocks becomes one area; the layer check
+  lists each block separately.
+
 ## v0.15.0 — 2026-10-16
 
 - **Measure tools.** Two buttons under the drawing tools measure a distance

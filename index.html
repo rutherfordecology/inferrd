@@ -560,7 +560,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). 2017 itself is a partial year (missing January–March), so the first full calendar year available is 2018.</p>
 
     <h3>Reference layers</h3>
-    <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. These are published GIS layers, not legal plan maps.</p>
+    <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
 
     <h3>Your data, your account</h3>
     <p>inferrd. runs in your browser and talks to Google Earth Engine through a shared Rutherford Ecology service account. An access key is swapped, via a small Cloudflare Worker, for a short-lived read-only token — there is no Google sign-in. The boundaries you draw and your results stay in your browser and are never stored on a server.</p>
@@ -614,7 +614,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.15.0';
+const APP_VERSION = 'v0.16.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1771,19 +1771,47 @@ document.getElementById('exportWhenCsvBtn').addEventListener('click', () => {
   URL.revokeObjectURL(a.href);
 });
 
-map.on(L.Draw.Event.CREATED, (e) => {
-  if (window.LMeasure && LMeasure.isMeasuring()) return; // a measurement from occurd.'s measure.js, not an area
+function addArea(layer, name) {
   // Colour keyed off the permanent, ever-incrementing id — not
   // areas.length, which shrinks on removal and can hand out a colour
   // already in use by a surviving area (draw 2, remove the 1st, draw a
   // 3rd: length is back to 1, so the old "2nd colour" logic repeats it).
   const color = AREA_COLORS[nextAreaNum % AREA_COLORS.length];
-  if (e.layer.setStyle) e.layer.setStyle({ color: color, weight: 2, fillColor: color, fillOpacity: 0.15 });
-  drawnItems.addLayer(e.layer);
-  areas.push({ id: nextAreaNum, name: 'Area ' + nextAreaNum, color: color, layer: e.layer, geojson: e.layer.toGeoJSON() });
+  if (layer.setStyle) layer.setStyle({ color: color, weight: 2, fillColor: color, fillOpacity: 0.15 });
+  drawnItems.addLayer(layer);
+  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, geojson: layer.toGeoJSON() });
   nextAreaNum++;
   renderAreaList();
+}
+
+map.on(L.Draw.Event.CREATED, (e) => {
+  if (window.LMeasure && LMeasure.isMeasuring()) return; // a measurement from occurd.'s measure.js, not an area
+  addArea(e.layer);
 });
+
+// "Analyse this area" on a QEII covenant or reference-layer popup: the
+// feature's own boundary becomes an area, exactly as if it had been drawn.
+// Polygon or MultiPolygon (a covenant in several blocks stays one area).
+function addAreaFromGeometry(geometry, name) {
+  if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) {
+    setStatus('warning', 'Only polygon features can be analysed.');
+    return;
+  }
+  const latlngs = L.GeoJSON.coordsToLatLngs(geometry.coordinates, geometry.type === 'Polygon' ? 1 : 2);
+  const layer = L.polygon(latlngs);
+  addArea(layer, name);
+  map.closePopup();
+  map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 17 });
+}
+function analyseAreaButton(onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Analyse this area';
+  btn.title = 'Add this boundary to your areas for trend or change analysis';
+  btn.style.cssText = 'margin-top:6px;font-size:11px;font-family:var(--font-sans);padding:4px 9px;border-radius:4px;border:none;background:var(--orange-dark);color:#fff;cursor:pointer;';
+  btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
+  return btn;
+}
 // The edit tool (reshape) is still enabled — keep the stored geometry in
 // sync when a shape is dragged/reshaped, not just when first drawn.
 map.on(L.Draw.Event.EDITED, (e) => {
@@ -3114,7 +3142,8 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
           const esc = (v) => String(v).replace(/</g, '&lt;');
           const ha = p.AreaSurvHa ? parseFloat(p.AreaSurvHa).toFixed(1) + ' ha' : '—';
           const date = p.DateRegd ? new Date(p.DateRegd).toLocaleDateString('en-NZ', { year: 'numeric', month: 'short' }) : '—';
-          layer.bindPopup(
+          const popup = document.createElement('div');
+          popup.innerHTML =
             '<div style="font-size:12px;line-height:1.7;min-width:160px;">' +
             '<strong style="font-size:13px;">' + esc(p.CovNumber || 'QEII Covenant') + '</strong><br>' +
             (p.Type ? '<span style="color:#555;">' + esc(p.Type) + '</span><br>' : '') +
@@ -3122,7 +3151,10 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
             '<span style="color:#555;">Registered: ' + date + '</span><br>' +
             (p.TA_Name ? '<span style="color:#555;">TA: ' + esc(p.TA_Name) + '</span><br>' : '') +
             (p.QEIIRegion ? '<span style="color:#555;">Region: ' + esc(p.QEIIRegion) + '</span>' : '') +
-            '</div>', { maxWidth: 240 });
+            '</div>';
+          popup.appendChild(analyseAreaButton(() =>
+            addAreaFromGeometry(feature.geometry, p.CovNumber ? 'Covenant ' + p.CovNumber : 'QEII covenant')));
+          layer.bindPopup(popup, { maxWidth: 240 });
           layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.38, weight: 2.5 }));
           layer.on('mouseout',  () => layer.setStyle({ fillOpacity: 0.22, weight: 1.5 }));
         }
@@ -3220,12 +3252,22 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     name: 'inferrd.',
     url: 'https://rutherfordecology.github.io/inferrd/',
     // Drawn areas as [{ label, latlngs: [[lat, lng], …], holes }] for the layer check.
-    polygons: () => areas.map(a => {
+    // An area made from a multi-block covenant is a MultiPolygon: one entry per block.
+    polygons: () => areas.flatMap(a => {
       const g = a.geojson.geometry;
-      const rings = g.type === 'Polygon' ? g.coordinates : [];
+      const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
       const ll = r => r.slice(0, -1).map(([x, y]) => [y, x]);
-      return rings.length ? { label: a.name, latlngs: ll(rings[0]), holes: rings.slice(1).map(ll) } : null;
-    }).filter(Boolean)
+      return polys.map((rings, j) => ({
+        label: polys.length > 1 ? a.name + ' (part ' + (j + 1) + ')' : a.name,
+        latlngs: ll(rings[0]), holes: rings.slice(1).map(ll)
+      }));
+    }),
+    // A button under each reference-layer popup. layers.js hands over the
+    // feature with its full-detail boundary (the map shows a simplified one).
+    featureAction: {
+      button: analyseAreaButton,
+      run: (feature, label) => addAreaFromGeometry(feature.geometry, label)
+    }
   };
   let layersLoaded = false, layersFailed = false;
   const lyrScript = document.createElement('script');
