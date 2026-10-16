@@ -1847,12 +1847,16 @@ function conditionImages(region, proj, s) {
   const canopy = cCore.or(cGrown); // cores of patches too big to label still count
 
   // ── Canopy trend per pixel (see COND_MK_Z) ──
+  // Kendall's tau in one pass (pairwise differences for every pixel ran
+  // out of memory on large areas); S and its z follow from tau and n.
   const mkZ = (imgs, band) => {
-    let S = ee.Image(0);
-    for (let i = 0; i < imgs.length - 1; i++) for (let j = i + 1; j < imgs.length; j++) {
-      S = S.add(imgs[j].select(band).subtract(imgs[i].select(band)).signum().unmask(0));
-    }
-    const n = ee.ImageCollection(imgs.map(im => im.select(band).mask().rename('m').toFloat())).sum();
+    const col = ee.ImageCollection(imgs.map((im, i) => {
+      const v = im.select(band).rename('v').toFloat();
+      return ee.Image.constant(s.years[i]).toFloat().rename('t').updateMask(v.mask()).addBands(v);
+    }));
+    const tau = col.reduce(ee.Reducer.kendallsCorrelation(2)).select('tau');
+    const n = col.select('v').count().toFloat();
+    const S = tau.multiply(n.multiply(n.subtract(1)).divide(2));
     const varS = n.multiply(n.subtract(1)).multiply(n.multiply(2).add(5)).divide(18).max(1e-6);
     return S.subtract(S.signum()).divide(varS.sqrt());
   };
@@ -1861,7 +1865,7 @@ function conditionImages(region, proj, s) {
   const declining = zTrend.lte(-COND_MK_Z).and(total.lte(-COND_GROW_FLOOR)).and(dense);
   const trendClass = ee.Image(2).where(improving, 1).where(declining, 3).updateMask(dense.and(total.mask())).clip(region).toInt().rename('tc');
   const trendShares = ee.Image.pixelArea().divide(1e4).addBands(trendClass).reduceRegion({
-    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj, scale: 10, maxPixels: 1e9, tileScale: 4 });
+    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 16 }); // shares need not be 10 m
 
   // ── Recent sudden drops ──
   const today = ee.Date(s.today);
