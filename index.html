@@ -135,6 +135,12 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .metric { background: var(--surface2); border-radius: var(--radius); padding: 10px 8px; text-align: center; }
 .metric-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); }
 .metric-value { font-size: 19px; font-weight: 500; margin-top: 2px; color: var(--orange-dark); }
+/* Condition check summary: one row however narrow, text shrinks instead of wrapping */
+#condMetrics { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 6px; }
+#condMetrics .metric { padding: 7px 6px; min-width: 0; }
+#condMetrics .metric-label, #condMetrics .metric-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#condMetrics .metric-label { font-size: 9.5px; }
+#condMetrics .metric-value { font-size: clamp(12px, 1.25vw, 16px); }
 
 .chart-card, .interp-card, .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1rem 1.1rem; margin-bottom: 1rem; }
 .card-title { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text3); margin-bottom: 0.7rem; }
@@ -748,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.24.0';
+const APP_VERSION = 'v0.24.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1954,13 +1960,13 @@ function showConditionResults(area, s, trendRows, res, series) {
   document.getElementById('condTitle').textContent = area.name + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
   const sum = (kind) => features.filter(x => x.spot.kind === kind);
   const ha = (list) => list.reduce((a, x) => a + x.spot.area_ha, 0);
-  const metric = (label, value) => '<div class="metric"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
+  const metric = (label, value) => '<div class="metric" title="' + label + ': ' + value + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   document.getElementById('condMetrics').innerHTML =
     metric('Whole area', trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
     metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
-    metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
-    metric('Dropped & recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
+    metric('Recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
     metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
+    metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
     metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'

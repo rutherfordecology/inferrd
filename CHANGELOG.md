@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.24.1 — 2026-10-16
+
+- **Condition summary on one line.** The whole-area and spot-count boxes
+  above the chart stay in a single row at any width, in the legend's
+  order, with the full text on hover.
+
 ## v0.24.0 — 2026-10-16
 
 - **Spot types on and off.** Each condition check spot type (sudden drop,
