@@ -1872,6 +1872,156 @@ function conditionMapPng(c) {
   });
 }
 
+/* ── Spot images: natural colour and false-colour infrared ────────────
+   For the report: each sudden-drop and slow-decline spot, and the whole
+   area, shown before and after in natural colour (red, green, blue) and
+   false-colour infrared (near-infrared, red, green: healthy canopy shows
+   bright red, damaged canopy, bare ground and slips dull red to grey-green).
+   Each period is a cloud-masked median of Sentinel-2 images, served as
+   Earth Engine map tiles (allowed for the service account, unlike
+   thumbnails) and stitched onto a canvas with the spot outlined. */
+const CHIP_MAX_SPOTS = 12;
+const CHIP_RENDERS = [
+  { key: 'tc', name: 'Natural colour', bands: ['B4', 'B3', 'B2'], vis: { min: 0, max: 2500, gamma: 1.3 } },
+  { key: 'ir', name: 'Infrared (healthy vegetation red)', bands: ['B8', 'B4', 'B3'], vis: { min: 0, max: [4500, 2500, 2500], gamma: 1.2 } }
+];
+
+// Stitches XYZ tiles for a lon/lat box onto a canvas, at the largest zoom
+// (up to maxZoom) that keeps the longer side within maxSide pixels.
+function tileCanvas(urlFormat, bb, maxSide, maxZoom) {
+  const wx = (lon, z) => (lon + 180) / 360 * 256 * Math.pow(2, z);
+  const wy = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * 256 * Math.pow(2, z); };
+  let z = maxZoom;
+  while (z > 8 && Math.max(wx(bb[2], z) - wx(bb[0], z), wy(bb[1], z) - wy(bb[3], z)) > maxSide) z--;
+  const x0 = wx(bb[0], z), y0 = wy(bb[3], z);
+  const W = Math.round(wx(bb[2], z) - x0), H = Math.round(wy(bb[1], z) - y0);
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#bdbdbd'; g.fillRect(0, 0, W, H); // grey where every image was cloudy
+  const jobs = [];
+  for (let tx = Math.floor(x0 / 256); tx <= Math.floor((x0 + W) / 256); tx++) {
+    for (let ty = Math.floor(y0 / 256); ty <= Math.floor((y0 + H) / 256); ty++) {
+      jobs.push(new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => { g.drawImage(img, tx * 256 - x0, ty * 256 - y0); resolve(true); };
+        img.onerror = () => resolve(false);
+        img.src = urlFormat.replace('{z}', z).replace('{x}', tx).replace('{y}', ty);
+      }));
+    }
+  }
+  const P = ([lon, lat]) => [wx(lon, z) - x0, wy(lat, z) - y0];
+  return Promise.all(jobs).then(ok => ({ canvas: cv, P, z, ok: ok.some(Boolean) }));
+}
+
+function outlineOn(canvas, P, geom, color) {
+  const g = canvas.getContext('2d');
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  g.beginPath();
+  polys.forEach(rings => rings.forEach(ring => ring.forEach((pt, i) => { const [x, y] = P(pt); if (i) g.lineTo(x, y); else g.moveTo(x, y); })));
+  g.lineJoin = 'round';
+  g.strokeStyle = '#000'; g.lineWidth = 4; g.stroke();
+  g.strokeStyle = color; g.lineWidth = 2; g.stroke();
+}
+
+// The periods a spot is shown for: before and after its change, and now
+// for an older sudden drop (to show whether it has grown back).
+function chipPeriods(sp, c) {
+  const y0 = c.s.years[0], y1 = c.s.years[c.s.years.length - 1];
+  const year = (y) => ({ label: String(y), start: y + '-01-01', end: (y + 1) + '-01-01' });
+  if (sp.kind === 'sudden_drop' && sp.recent) {
+    const sStart = new Date(c.res.scanStart + 'T00:00:00Z'), bStart = new Date(sStart.getTime() - COND_BASELINE_DAYS * 864e5);
+    return [{ label: 'Before (' + isoDate(bStart) + ' to ' + c.res.scanStart + ')', start: isoDate(bStart), end: c.res.scanStart },
+      { label: 'After (' + c.res.scanStart + ' to ' + c.s.today + ')', start: c.res.scanStart, end: c.s.today }];
+  }
+  if (sp.kind === 'sudden_drop') {
+    const a = Number(sp.date_before), b = Number(sp.date_after);
+    return b < y1 ? [year(a), year(b), year(y1)] : [year(a), year(b)];
+  }
+  return [year(y0), year(y1)];
+}
+
+// One panel per spot: periods across, natural colour above infrared.
+function chipPanel(title, periods, rows) {
+  const cw = rows[0][0].width, ch = rows[0][0].height, gap = 8, head = 34, rowHead = 22;
+  const W = periods.length * cw + (periods.length - 1) * gap, H = head + rows.length * (rowHead + ch) + 6;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#0a3f26'; g.font = 'bold 18px sans-serif'; g.textBaseline = 'middle'; g.textAlign = 'left';
+  g.fillText(title, 0, 15);
+  rows.forEach((row, ri) => {
+    const top = head + ri * (rowHead + ch);
+    row.forEach((chip, pi) => {
+      const x = pi * (cw + gap);
+      g.fillStyle = '#333'; g.font = '13px sans-serif';
+      g.fillText(CHIP_RENDERS[ri].name + ' · ' + periods[pi].label, x, top + 10, cw);
+      g.drawImage(chip, x, top + rowHead);
+    });
+  });
+  return cv;
+}
+
+async function conditionChips(c, onProgress) {
+  const pad = (bb, minM, frac) => {
+    const lat = (bb[1] + bb[3]) / 2, mPerDegX = 111320 * Math.cos(lat * Math.PI / 180), mPerDegY = 110540;
+    const halfW = Math.max((bb[2] - bb[0]) * (1 + frac), minM / mPerDegX) / 2, halfH = Math.max((bb[3] - bb[1]) * (1 + frac), minM / mPerDegY) / 2;
+    const cx = (bb[0] + bb[2]) / 2, cy = (bb[1] + bb[3]) / 2;
+    return [cx - halfW, cy - halfH, cx + halfW, cy + halfH];
+  };
+  const areaBb = pad(bboxOf(c.area.geojson.geometry), 300, 0.15);
+  const wholeRegion = ee.Geometry.Rectangle(pad(areaBb, 0, 0.3), null, false);
+
+  // Which spots, and the whole area: first year, lowest year, last year.
+  const valid = c.trend.valid;
+  const y0 = c.s.years[0], y1 = c.s.years[c.s.years.length - 1];
+  const low = valid.length ? valid.reduce((a, r) => r.mean < a.mean ? r : a).year : null;
+  const yearP = (y) => ({ label: String(y) + (y === low ? ' (lowest)' : ''), start: y + '-01-01', end: (y + 1) + '-01-01' });
+  const wholePeriods = [y0, low, y1].filter((y, i, arr) => y != null && arr.indexOf(y) === i).sort((a, b) => a - b).map(yearP);
+  const jobs = [{ id: 'area', title: c.area.name + ' — whole area', geom: c.area.geojson.geometry, bb: areaBb, periods: wholePeriods, color: '#ffffff', side: 520 }];
+  c.spots.filter(x => x.spot.kind !== 'gain').slice(0, CHIP_MAX_SPOTS).forEach(x => {
+    jobs.push({ id: x.spot.spot_id, title: x.spot.spot_id + ' · ' + COND_KIND_NAME[x.spot.kind] + ' · ' + fmtHa(x.spot.area_ha) + ' ha', geom: x.geometry,
+      bb: pad(bboxOf(x.geometry), 250, 1.0), periods: chipPeriods(x.spot, c), color: '#ffeb3b', side: 300 });
+  });
+
+  // One Earth Engine map per period and rendering, shared by every spot.
+  const mapIds = new Map();
+  const mapFor = (p, r) => {
+    const key = p.start + '|' + p.end + '|' + r.key;
+    if (!mapIds.has(key)) {
+      mapIds.set(key, new Promise((resolve, reject) => {
+        ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(wholeRegion).filterDate(p.start, p.end)
+          .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', c.s.cloudPct)).map(maskS2Clouds)
+          .select(r.bands).median().clip(wholeRegion).visualize(r.vis)
+          .getMapId({}, (m, err) => err ? reject(new Error(err)) : resolve(m.urlFormat));
+      }));
+    }
+    return mapIds.get(key);
+  };
+
+  const panels = [];
+  for (let i = 0; i < jobs.length; i++) {
+    const j = jobs[i];
+    if (onProgress) onProgress(i + 1, jobs.length);
+    const rows = [];
+    for (const r of CHIP_RENDERS) {
+      const row = [];
+      for (const p of j.periods) {
+        const t = await tileCanvas(await mapFor(p, r), j.bb, j.side, 16);
+        outlineOn(t.canvas, t.P, j.geom, j.color);
+        row.push(t.canvas);
+      }
+      rows.push(row);
+    }
+    const panel = chipPanel(j.title, j.periods, rows);
+    const blob = await new Promise((resolve, reject) => panel.toBlob(b => b ? resolve(b) : reject(new Error('spot image could not be saved')), 'image/png'));
+    panels.push({ id: j.id, title: j.title, blob });
+  }
+  return panels;
+}
+
 /* ── Results summary PDF ──────────────────────────────────────────────
    An automatic, unreviewed summary in the shape of the condition report
    (OneDrive\Workflow\skills\condition-writer.md): plain-language main
@@ -1899,7 +2049,7 @@ const SPOT_MAY_BE = {
   gain: 'regrowth or recovery'
 };
 
-async function conditionPdf(c, mapBlob, trendBlob) {
+async function conditionPdf(c, mapBlob, trendBlob, panels) {
   const JsPDF = await loadJsPDF();
   const doc = new JsPDF({ unit: 'mm', format: 'a4' });
   const PW = 210, PH = 297, M = 18, TW = PW - 2 * M;
@@ -1968,9 +2118,28 @@ async function conditionPdf(c, mapBlob, trendBlob) {
   };
 
   // ── Title ──
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(20); doc.setTextColor(...GREEN);
-  doc.text(doc.splitTextToSize('Vegetation condition check: ' + c.area.name, TW), M, y + 7);
-  y += 7 + doc.splitTextToSize('Vegetation condition check: ' + c.area.name, TW).length * 8;
+  // One line if it fits (shrinking to 16 pt at most); otherwise two lines
+  // split where they come out most even, never a stub second line.
+  const title = 'Vegetation condition check: ' + c.area.name;
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...GREEN);
+  let tSize = 20, tLines = [title];
+  while (tSize > 16 && doc.setFontSize(tSize).getTextWidth(title) > TW) tSize--;
+  if (doc.setFontSize(tSize).getTextWidth(title) > TW) {
+    tSize = 20; doc.setFontSize(tSize);
+    const words = title.split(' ');
+    let best = null;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+      const worst = Math.max(doc.getTextWidth(a), doc.getTextWidth(b));
+      if (!best || worst < best.worst) best = { worst, lines: [a, b] };
+    }
+    tLines = best.lines;
+    const tooWide = () => { doc.setFontSize(tSize); return Math.max(doc.getTextWidth(tLines[0]), doc.getTextWidth(tLines[1])) > TW; };
+    while (tSize > 14 && tooWide()) tSize--;
+  }
+  doc.setFontSize(tSize);
+  tLines.forEach((line, i) => doc.text(line, M, y + 7 + i * tSize * 0.42));
+  y += 7 + tLines.length * tSize * 0.42 + 2;
   doc.setTextColor(0, 0, 0);
   const areaHa = (() => { try { return turf.area(c.area.geojson) / 10000; } catch (e) { return null; } })();
   para((c.area.source && c.area.source !== 'drawn' ? c.area.source + '. ' : '') + (areaHa ? ha(areaHa) + ' ha. ' : '') +
@@ -2015,7 +2184,8 @@ async function conditionPdf(c, mapBlob, trendBlob) {
 
   // ── 3 Spots ──
   heading('3  What is happening inside the area', 13);
-  para('Each spot is a group of 10 m pixels that changed more than the area around them. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.');
+  para('Each spot is a group of 10 m pixels that changed more than the area around them. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
+    (panels && panels.length > 1 ? ' Satellite images of each spot before and after, in natural colour and infrared, are in Appendix B.' : ''));
   const when = (sp) => sp.kind !== 'sudden_drop' ? y0 + ' to ' + y1
     : sp.recent ? 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after) : 'between ' + sp.date_before + ' and ' + sp.date_after;
   const sections = [['3.1  Sudden drops: possible clearance or damage', 'sudden_drop', 'No sudden drops were found.'],
@@ -2059,6 +2229,16 @@ async function conditionPdf(c, mapBlob, trendBlob) {
       spots.map(sp => [sp.spot_id, COND_KIND_NAME[sp.kind], ha(sp.area_ha), when(sp), (sp.change > 0 ? '+' : '') + sp.change.toFixed(3) + ' ' + sp.index,
         sp.clear_images != null ? sp.clear_images + ' images' : sp.years_with_data + ' years', sp.low_confidence ? 'low' : 'normal']));
   }
+  // ── Appendix B ──
+  if (panels && panels.length) {
+    newPage();
+    heading('Appendix B  Satellite images', 14);
+    para('Sentinel-2 images of the whole area and of each sudden-drop and slow-decline spot, before and after the change. Each image is the median of the clear images in that period, so passing cloud and shadow are removed; grey means every image in the period was cloudy there. In the infrared images (near-infrared shown as red), healthy leafy canopy is bright red; damaged or thinned canopy is duller, and bare ground, slips and slash show grey-green or brown. Pixels are 10 m, so single trees are not visible.', { size: 9.5, after: 5 });
+    for (const pn of panels) {
+      await image(pn.blob, pn.id === 'area' ? 150 : 110, 'Figure B' + (panels.indexOf(pn) + 1) + '. ' + pn.title + (pn.id === 'area' ? ' (white outline).' : ' (yellow outline).'));
+    }
+    if (c.spots.filter(x => x.spot.kind !== 'gain').length > CHIP_MAX_SPOTS) para('Only the ' + CHIP_MAX_SPOTS + ' largest spots are shown.', { size: 9, italic: true });
+  }
   footer();
   return doc.output('blob');
 }
@@ -2073,7 +2253,9 @@ async function exportCondition() {
   try {
     const JSZip = await loadJSZip();
     const slug = c.area.name.replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'area';
-    const folderName = 'inferrd_' + slug + '_' + c.s.today;
+    const now = new Date();
+    const stamp = isoDate(now) + '_' + pad2(now.getHours()) + pad2(now.getMinutes());
+    const folderName = stamp + '_' + slug;
     const zip = new JSZip();
     const dir = zip.folder(folderName);
     const missing = [];
@@ -2083,7 +2265,11 @@ async function exportCondition() {
     if (mapBlob) dir.file('map.png', mapBlob);
     const trendBlob = await new Promise(r => document.getElementById('condTrendCanvas').toBlob(r, 'image/png'));
     if (trendBlob) dir.file('trend.png', trendBlob); else missing.push('trend.png');
-    try { dir.file('condition-summary.pdf', await conditionPdf(c, mapBlob, trendBlob)); } catch (e) { missing.push('condition-summary.pdf (' + e.message + ')'); }
+    let panels = [];
+    try { panels = await conditionChips(c, (i, n) => { btn.textContent = 'Images ' + i + '/' + n + '…'; }); } catch (e) { missing.push('spot images (' + e.message + ')'); }
+    panels.forEach(pn => dir.file('spot-images/' + pn.id + '.png', pn.blob));
+    btn.textContent = 'Building PDF…';
+    try { dir.file(folderName + '.pdf', await conditionPdf(c, mapBlob, trendBlob, panels)); } catch (e) { missing.push('PDF (' + e.message + ')'); }
 
     const spots = c.spots.map(x => x.spot);
     const count = (kind) => spots.filter(sp => sp.kind === kind);
