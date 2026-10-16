@@ -464,10 +464,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Draw or pick an area that includes plenty of unchanged vegetation.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
         <div class="change-legend-row"><span class="sw" style="background:#cb181d;flex:0 0 14px;"></span>S · sudden drop (possible clearance or damage)</div>
+        <div class="change-legend-row"><span class="sw" style="background:#7b4fa0;flex:0 0 14px;"></span>R · dropped and recovered (possible storm or slip damage, regrown)</div>
         <div class="change-legend-row"><span class="sw" style="background:#e08214;flex:0 0 14px;"></span>D · slow decline (possible poor forest health)</div>
         <div class="change-legend-row"><span class="sw" style="background:#238b45;flex:0 0 14px;"></span>G · gain (regrowth or recovery)</div>
       </div>
@@ -1428,9 +1429,10 @@ function showChangeLayers() {
 const COND_BASELINE_DAYS = 180;
 const COND_PAST_STEP_SHARE = 0.6; // a decline counts as a past sudden drop when one year's step is this share of it
 const COND_MAX_SPOTS = 300;
-const COND_COLORS = { sudden_drop: '#cb181d', slow_decline: '#e08214', gain: '#238b45' };
-const COND_PREFIX = { sudden_drop: 'S', slow_decline: 'D', gain: 'G' };
-const COND_KIND_NAME = { sudden_drop: 'Sudden drop', slow_decline: 'Slow decline', gain: 'Gain' };
+const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', slow_decline: '#e08214', gain: '#238b45' };
+const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', slow_decline: 'D', gain: 'G' };
+const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', slow_decline: 'Slow decline', gain: 'Gain' };
+const COND_RECOVER_SHARE = 0.5; // a drop counts as recovered once this share of it has grown back by the last year
 let conditionLayer = null;
 let conditionRunning = false;
 let conditionRunId = 0;
@@ -1499,6 +1501,30 @@ function conditionImages(region, proj, s) {
   const maxDrop = biggest.select('q');
   const pastSudden = slow.loss.and(maxDrop.gte(s.floor)).and(maxDrop.gte(slow.resid.multiply(-COND_PAST_STEP_SHARE)));
 
+  // ── Dropped and recovered: storm or slip damage that has grown back ──
+  // A one-year drop, measured against that year's area-wide change when
+  // that's allowed for, past the floor and k × the typical spread of
+  // one-year changes, that has regained at least COND_RECOVER_SHARE of the
+  // drop by the last year. The step into the last year is left out: it
+  // has had no time to recover.
+  const relSteps = yearImgs.slice(1, -1).map((img, i) => {
+    const step = img.select('v').subtract(yearImgs[i].select('v'));
+    const vsArea = step.subtract(eeAreaMedian(step, region, proj));
+    return (s.relative ? vsArea : step).multiply(-1).rename('q')
+      .addBands(vsArea.abs().rename('ad'))
+      .addBands(yearImgs[i].select('v').rename('vb'))
+      .addBands(img.select('v').rename('va'))
+      .addBands(ee.Image.constant(s.years[i + 1]).rename('yr'))
+      .toFloat();
+  });
+  const relCol = ee.ImageCollection(relSteps);
+  const sigmaS = eeAreaMedian(relCol.select('ad').median(), region, proj).multiply(1.4826).max(1e-6);
+  const bigRel = relCol.qualityMosaic('q');
+  const dropAmt = bigRel.select('vb').subtract(bigRel.select('va'));
+  const recov = yearImgs[yearImgs.length - 1].select('v').subtract(bigRel.select('va')).divide(dropAmt.max(1e-6)).rename('recov');
+  const dropRec = bigRel.select('q').gte(s.floor).and(bigRel.select('q').gte(sigmaS.multiply(s.k)))
+    .and(dropAmt.gte(s.floor)).and(recov.gte(COND_RECOVER_SHARE));
+
   // ── Recent sudden drops ──
   const today = ee.Date(s.today);
   const scanStart = today.advance(-s.lookback, 'day');
@@ -1528,20 +1554,24 @@ function conditionImages(region, proj, s) {
   })(), ee.Image.constant([0, 0, 0, 0, 0, 0]).rename(recentNames).updateMask(ee.Image.constant(0)).set('sigmaR', 0)));
   const rFlag = recent.select('rFlag').unmask(0);
 
-  // ── Classes: 1 recent sudden, 2 older sudden, 3 slow decline, 4 gain ──
+  // ── Classes: 1 recent sudden, 2 older sudden, 5 dropped and recovered,
+  // 3 slow decline, 4 gain (later wins) ──
   let cls = ee.Image(0)
     .where(slow.gain.unmask(0), 4)
     .where(slow.loss.unmask(0), 3)
+    .where(dropRec.unmask(0), 5)
     .where(pastSudden.unmask(0), 2)
     .where(rFlag, 1);
   cls = cls.updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
   const mag = ee.Image(0)
     .where(cls.eq(4), slow.resid)
     .where(cls.eq(3), slow.resid.multiply(-1))
+    .where(cls.eq(5), bigRel.select('q'))
     .where(cls.eq(2), maxDrop)
     .where(cls.eq(1), recent.select('rMag'))
     .rename('mag');
-  const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), biggest.select('yr'), nYears]);
+  const yr = biggest.select('yr').where(cls.eq(5), bigRel.select('yr')).rename('yr');
+  const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), yr, nYears, recov]);
   return { cls, stats, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
 }
 
@@ -1720,7 +1750,8 @@ function showConditionResults(area, s, trendRows, res, series) {
   const counters = { S: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
     const p = f.properties;
-    const kind = p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
+    const kind = p.cls === 5 ? 'dropped_recovered' : p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
+    const dated = kind === 'sudden_drop' || kind === 'dropped_recovered';
     const prefix = COND_PREFIX[kind];
     const recent = p.cls === 1;
     const spot = {
@@ -1728,8 +1759,9 @@ function showConditionResults(area, s, trendRows, res, series) {
       severity: gradeOf(Math.abs(p.mag || 0)),
       area_ha: +(p.count / 100).toFixed(2),
       lat: +p.centroid[1].toFixed(6), lon: +p.centroid[0].toFixed(6),
-      date_before: kind !== 'sudden_drop' ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
-      date_after: kind !== 'sudden_drop' ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
+      date_before: !dated ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
+      date_after: !dated ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
+      recovered_share: kind === 'dropped_recovered' && p.recov != null ? +p.recov.toFixed(2) : null,
       change: +(kind === 'gain' ? 1 : -1) * Math.abs(p.mag || 0),
       index: kind === 'sudden_drop' && recent ? s.dropIndex : s.trendIndex,
       clear_images: recent ? p.nClear : null,
@@ -1740,10 +1772,10 @@ function showConditionResults(area, s, trendRows, res, series) {
     return { spot, geometry: f.geometry, prefix };
   });
   // Number within each kind, biggest first.
-  ['S', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
+  ['S', 'R', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
     .sort((a, b) => b.spot.area_ha - a.spot.area_ha)
     .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
-  features.sort((a, b) => 'SDG'.indexOf(a.prefix) - 'SDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
+  features.sort((a, b) => 'SRDG'.indexOf(a.prefix) - 'SRDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
 
   lastCondition = { area, s, trendRows, series, trend, spots: features, res, runAt: new Date().toISOString() };
 
@@ -1767,6 +1799,7 @@ function showConditionResults(area, s, trendRows, res, series) {
     metric('Whole area', trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
     metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
     metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
+    metric('Dropped & recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
     metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
@@ -1774,7 +1807,7 @@ function showConditionResults(area, s, trendRows, res, series) {
       'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').';
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
 
-  const when = (sp) => sp.kind !== 'sudden_drop' ? s.years[0] + '–' + s.years[s.years.length - 1]
+  const when = (sp) => sp.date_after == null ? s.years[0] + '–' + s.years[s.years.length - 1]
     : sp.recent ? 'between ' + fmtDate(Date.parse(sp.date_before)) + ' and ' + fmtDate(Date.parse(sp.date_after))
     : 'between ' + sp.date_before + ' and ' + sp.date_after;
   const table = document.getElementById('condTable');
@@ -1865,7 +1898,7 @@ function loadJSZip() {
 }
 
 const csvCell = (v) => { if (v == null) return ''; const t = String(v); return /[,"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'change', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
+const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'change', 'recovered_share', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
 
 function bboxOf(geojsonGeom) {
   let w = 180, s = 90, e = -180, n = -90;
@@ -2024,7 +2057,7 @@ function chipPeriods(sp, c) {
     return [{ label: 'Before (' + isoDate(bStart) + ' to ' + c.res.scanStart + ')', start: isoDate(bStart), end: c.res.scanStart },
       { label: 'After (' + c.res.scanStart + ' to ' + c.s.today + ')', start: c.res.scanStart, end: c.s.today }];
   }
-  if (sp.kind === 'sudden_drop') {
+  if (sp.kind === 'sudden_drop' || sp.kind === 'dropped_recovered') {
     const a = Number(sp.date_before), b = Number(sp.date_after);
     return b < y1 ? [year(a), year(b), year(y1)] : [year(a), year(b)];
   }
@@ -2132,6 +2165,7 @@ const fmtLongDate = (iso) => { const d = new Date(iso + 'T00:00:00Z'); return d.
 const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', severe: 'strong' }; // "severe" reads as a judgement of harm
 const SPOT_MAY_BE = {
   sudden_drop: 'clearance, a slip, windthrow or fire',
+  dropped_recovered: 'storm damage, a slip or windthrow that has since regrown',
   slow_decline: 'dieback, browsing, drought stress or weed invasion',
   gain: 'regrowth or recovery'
 };
@@ -2248,15 +2282,17 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
   }
   para(trendSentence);
-  const sd = ofKind('sudden_drop'), dc = ofKind('slow_decline'), gn = ofKind('gain');
+  const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), dc = ofKind('slow_decline'), gn = ofKind('gain');
   const visit = sd.length + dc.length;
   para(spots.length
     ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
-      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
+      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + rc.length + ' dropped and recovered (' + ha(haSum(rc)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
     : 'No spots of change were found inside the area with the settings used (Appendix A).');
-  para(visit
-    ? 'Recommended: visit the ' + visit + ' sudden-drop and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change. Gains need no visit.'
-    : 'Recommended: no site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.', { after: 6 });
+  para((visit
+    ? 'Recommended: visit the ' + visit + ' sudden-drop and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
+    : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
+    (rc.length ? ' At the next visit, check what has grown back on the ' + rc.length + ' dropped-and-recovered spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
+    (gn.length ? ' Gains need no visit.' : ''), { after: 6 });
 
   // ── 1 The area ──
   heading('1  The area', 13);
@@ -2278,11 +2314,12 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   heading('3  What is happening inside the area', 13);
   para('Each spot is a group of 10 m pixels that changed more than the area around them. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
     (panels && panels.length > 1 ? ' Satellite images of each spot before and after, in natural colour and infrared, are in Appendix B.' : ''));
-  const when = (sp) => sp.kind !== 'sudden_drop' ? y0 + ' to ' + y1
+  const when = (sp) => sp.date_after == null ? y0 + ' to ' + y1
     : sp.recent ? 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after) : 'between ' + sp.date_before + ' and ' + sp.date_after;
   const sections = [['3.1  Sudden drops: possible clearance or damage', 'sudden_drop', 'No sudden drops were found.'],
-    ['3.2  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
-    ['3.3  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
+    ['3.2  Dropped and recovered: possible storm or slip damage that has grown back', 'dropped_recovered', 'No spots dropped and then grew back.'],
+    ['3.3  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
+    ['3.4  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
   sections.forEach(([title, kind, none], si) => {
     heading(title, 11);
     const list = ofKind(kind);
@@ -2290,7 +2327,9 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     if (si === 0) para('Table 1 lists the spots to visit (sudden drops and slow decline).', { size: 9, italic: true });
     table([['Spot', 0.08], ['Size (ha)', 0.1], ['When', 0.26], ['Strength', 0.12], ['GPS (lat, long)', 0.2], ['What to check', 0.24]],
       list.map(sp => [sp.spot_id, ha(sp.area_ha), when(sp), REPORT_STRENGTH[sp.severity] + (sp.low_confidence ? ' (few clear images)' : ''),
-        sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed' : 'May be ' + SPOT_MAY_BE[kind]]));
+        sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed'
+          : kind === 'dropped_recovered' ? 'May be ' + SPOT_MAY_BE[kind] + ' (' + Math.round((sp.recovered_share || 0) * 100) + '% regained); check what grew back'
+          : 'May be ' + SPOT_MAY_BE[kind]]));
   });
 
   // ── 4 What this can't tell you ──
@@ -2311,6 +2350,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its adjusted images, with a 95% confidence interval (t distribution). Mann-Kendall test on the yearly values p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less the area\'s median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
   para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
+  para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against the area\'s median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
   table([['Year', 0.1], ['Adjusted average', 0.17], ['95% interval', 0.15], ['Images used', 0.14], ['Composite average', 0.16], ['Between-pixel SD', 0.15], ['Clear images', 0.13]],
@@ -2376,7 +2416,7 @@ async function exportCondition() {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
         drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
-        past_drop_share: COND_PAST_STEP_SHARE, area_wide_change_allowed_for: c.s.relative,
+        past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE, area_wide_change_allowed_for: c.s.relative,
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
       trend: {
@@ -2388,6 +2428,7 @@ async function exportCondition() {
       slow_change: { area_median_change: c.res.medT, typical_spread: c.res.sigmaT },
       spots: {
         sudden_drop: { count: count('sudden_drop').length, area_ha: haSum(count('sudden_drop')) },
+        dropped_recovered: { count: count('dropped_recovered').length, area_ha: haSum(count('dropped_recovered')) },
         slow_decline: { count: count('slow_decline').length, area_ha: haSum(count('slow_decline')) },
         gain: { count: count('gain').length, area_ha: haSum(count('gain')) },
         capped_at: spots.length >= COND_MAX_SPOTS ? COND_MAX_SPOTS : null
