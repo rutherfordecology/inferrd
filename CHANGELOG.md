@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.17.1 — 2026-10-16
+
+- **Condition check fixes from the first live runs.** Spots now come back
+  (they were lost when fetched inside a dictionary, so every run reported
+  none), and a long look-back no longer fails on images whose values
+  differ in range.
+
 ## v0.17.0 — 2026-10-16
 
 - **Condition check.** A third analysis type for one area, such as a

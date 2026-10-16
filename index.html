@@ -728,7 +728,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.17.0';
+const APP_VERSION = 'v0.17.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1504,7 +1504,7 @@ function conditionImages(region, proj, s) {
     const baseImg = base.median();
     const resid = scan.map(img => {
       const d = img.select(s.dropIndex).subtract(baseImg).rename('r');
-      const r = d.subtract(eeAreaMedian(d, region, proj)).rename('r');
+      const r = d.subtract(eeAreaMedian(d, region, proj)).toFloat().rename('r'); // one pixel type for every image, or the collection won't reduce
       return r.addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
     });
     const sigmaR = eeAreaMedian(resid.select('r').map(i => i.abs()).median(), region, proj).multiply(1.4826).max(1e-6);
@@ -1602,13 +1602,20 @@ function runCondition() {
         const g = f.geometry().transform('EPSG:4326', 1);
         return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
       });
+    // Fetched apart: a collection nested in a Dictionary comes back as
+    // { type, columns } only, without its features.
+    let spotFc = null, scalars = null;
+    const both = () => { if (spotFc && scalars) { spotsRes = Object.assign({ spots: spotFc }, scalars); finish(); } };
+    spots.evaluate((res, err) => {
+      if (err) { failed = failed || err; return finish(); }
+      spotFc = res; both();
+    });
     ee.Dictionary({
-      spots: spots, medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR,
+      medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR,
       nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd')
     }).evaluate((res, err) => {
       if (err) { failed = failed || err; return finish(); }
-      spotsRes = res;
-      finish();
+      scalars = res; both();
     });
   } catch (e) {
     failed = e && e.message ? e.message : String(e);
