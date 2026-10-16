@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.14.0 — 2026-10-16
+
+- **Reference layers from occurd.** Projects ▾ → Layers (password, or your
+  own LRIS API key) adds the same layers panel as occurd.: current land
+  cover (LCDB v6), potential vegetation, the Vegetative Cover Map,
+  threatened environments, PAN-NZ protected areas, QEII covenants and
+  Gisborne District Council plan layers, plus a check of every drawn area
+  against every layer with a CSV download.
+- **Shared, not copied.** The module and its layer list load live from
+  occurd.'s site, so a layer added to occurd. appears here too. Needs the
+  matching occurd. change to `layers.js` (portable helpers and a
+  `window.LAYERS_HOST` hook) to be deployed first.
+
 ## v0.13.0 — 2026-10-16
 
 - **Choose what you want to see first.** A new section 3 asks whether you

@@ -559,6 +559,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
     <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). 2017 itself is a partial year (missing January–March), so the first full calendar year available is 2018.</p>
 
+    <h3>Reference layers</h3>
+    <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. These are published GIS layers, not legal plan maps.</p>
+
     <h3>Your data, your account</h3>
     <p>inferrd. runs in your browser and talks to Google Earth Engine through a shared Rutherford Ecology service account. An access key is swapped, via a small Cloudflare Worker, for a short-lived read-only token — there is no Google sign-in. The boundaries you draw and your results stay in your browser and are never stored on a server.</p>
 
@@ -595,6 +598,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@google/earthengine@1.7.43/build/browser.min.js"></script>
+<script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
 'use strict';
 
@@ -610,7 +614,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.13.0';
+const APP_VERSION = 'v0.14.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -3111,7 +3115,90 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
   });
   document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target)) { menu.style.display = 'none'; form.style.display = 'none'; }
+    if (!wrap.contains(e.target)) { menu.style.display = 'none'; form.style.display = 'none'; lyrForm.style.display = 'none'; }
+  });
+
+  /* ── Layers — occurd.'s module, loaded live from occurd. ──────────────
+     layers.js and its layer list (layers-register.json) come straight
+     from occurd.'s site, so a layer added there appears here as well. The
+     Layers password unlocks a Manaaki Whenua (LRIS) key kept only in this
+     browser; the module draws its own panel on the map. ?occurd=<base>
+     points at occurd. beta or a local copy for testing (allowlisted). */
+  const OCCURD_DEFAULT = 'https://occurd.rutherfordecology.co.nz/';
+  const occurdParam = new URLSearchParams(location.search).get('occurd');
+  const OCCURD_BASE = occurdParam && /^(https:\/\/occurd\.rutherfordecology\.co\.nz|http:\/\/localhost:\d+)\/(beta\/)?$/.test(occurdParam) ? occurdParam : OCCURD_DEFAULT;
+  window.LAYERS_HOST = {
+    name: 'inferrd.',
+    url: 'https://rutherfordecology.github.io/inferrd/',
+    // Drawn areas as [{ label, latlngs: [[lat, lng], …], holes }] for the layer check.
+    polygons: () => areas.map(a => {
+      const g = a.geojson.geometry;
+      const rings = g.type === 'Polygon' ? g.coordinates : [];
+      const ll = r => r.slice(0, -1).map(([x, y]) => [y, x]);
+      return rings.length ? { label: a.name, latlngs: ll(rings[0]), holes: rings.slice(1).map(ll) } : null;
+    }).filter(Boolean)
+  };
+  let layersLoaded = false, layersFailed = false;
+  const lyrScript = document.createElement('script');
+  lyrScript.src = OCCURD_BASE + 'layers.js';
+  lyrScript.onload = () => { layersLoaded = true; };
+  lyrScript.onerror = () => { layersFailed = true; console.warn('[inferrd] could not load layers.js from ' + OCCURD_BASE); };
+  document.body.appendChild(lyrScript);
+
+  const lyrItem = document.createElement('div');
+  lyrItem.style.cssText = item.style.cssText + 'border-top:0.5px solid var(--border);';
+  lyrItem.innerHTML = '<span id="layersIcon" style="display:inline-flex;color:var(--orange-dark);">' + LOCK + '</span><span>Layers</span>';
+  lyrItem.title = 'Reference layers from occurd. — land cover (LCDB), potential vegetation, threatened environments, protected areas and Gisborne plan layers';
+  lyrItem.addEventListener('mouseover', () => { lyrItem.style.background = 'var(--surface2)'; });
+  lyrItem.addEventListener('mouseout', () => { lyrItem.style.background = ''; });
+  menu.appendChild(lyrItem);
+
+  const lyrForm = document.createElement('div');
+  lyrForm.style.cssText = form.style.cssText;
+  lyrForm.innerHTML =
+    '<div style="font-size:10px;color:var(--text2);margin-bottom:5px;line-height:1.4;">Enter the Layers password (or your own LRIS API key). This browser remembers it until you choose "Lock and forget" in the layers panel.</div>' +
+    '<div style="display:flex;gap:5px;">' +
+      '<input type="password" placeholder="password…" autocomplete="new-password" spellcheck="false" style="flex:1;min-width:0;font-size:12px;font-family:var(--font-sans);padding:4px 7px;border:1px solid var(--border2);border-radius:4px;outline:none;color:var(--text);background:#fff;">' +
+      '<button type="button" style="font-size:11px;font-family:var(--font-sans);padding:4px 9px;border-radius:4px;border:none;background:var(--orange-dark);color:#fff;cursor:pointer;">↵</button>' +
+    '</div>' +
+    '<div style="display:none;font-size:10px;color:var(--red);margin-top:4px;"></div>';
+  menu.appendChild(lyrForm);
+  const lyrInput = lyrForm.querySelector('input'), lyrSubmit = lyrForm.querySelector('button'), lyrErr = lyrForm.lastChild;
+
+  let layersOn = false;
+  function setLayersIcon(on) { document.getElementById('layersIcon').innerHTML = on ? UNLOCK : LOCK; }
+  function activateLayers() {
+    layersOn = true; setLayersIcon(true);
+    lyrForm.style.display = 'none'; menu.style.display = 'none';
+    window._layersActivate();
+  }
+  // layers.js calls this when its panel is closed or the key is forgotten.
+  window._projectsSetLocked = (id) => { if (id === 'layers') { layersOn = false; setLayersIcon(false); } };
+
+  function showLayersErr(msg) { lyrErr.textContent = msg; lyrErr.style.display = 'block'; }
+  function tryLayersKey() {
+    const k = lyrInput.value.trim();
+    if (!k) return;
+    if (!window._layersUnlock) { showLayersErr(layersFailed ? 'Couldn\'t reach occurd. to load the layers — try again later.' : 'Still loading the layers — try again in a moment.'); return; }
+    lyrSubmit.disabled = true;
+    window._layersUnlock(k).then(ok => {
+      lyrSubmit.disabled = false;
+      if (ok) { lyrInput.value = ''; activateLayers(); }
+      else { showLayersErr('Wrong password'); lyrInput.select(); }
+    });
+  }
+  lyrSubmit.addEventListener('click', tryLayersKey);
+  lyrInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLayersKey(); });
+
+  lyrItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (layersOn) { window._layersDeactivate(); window._projectsSetLocked('layers'); menu.style.display = 'none'; return; }
+    if (window._layersHasKey && window._layersHasKey()) { activateLayers(); return; }
+    const show = lyrForm.style.display === 'none';
+    lyrForm.style.display = show ? 'block' : 'none';
+    form.style.display = 'none';
+    lyrErr.style.display = 'none';
+    if (show) setTimeout(() => lyrInput.focus(), 0);
   });
 })();
 </script>

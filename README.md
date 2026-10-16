@@ -101,6 +101,24 @@ there for at least two images in a row, and the first one after. A dip
 that recovers on the very next image is called out as likely cloud shadow
 or haze rather than change. The per-image series exports as CSV.
 
+### Reference layers (shared with occurd.)
+
+**Projects ▾ → Layers** unlocks occurd.'s reference layers with the Layers
+password (or your own LRIS API key): LCDB v6 land cover, potential
+vegetation, the Vegetative Cover Map, the Threatened Environment
+Classification, PAN-NZ protected areas, QEII covenants and Gisborne District
+Council plan layers. Its panel can check every drawn area against every layer
+and download a CSV.
+
+inferrd. doesn't keep its own copy: it loads `layers.js` and
+`layers-register.json` from `https://occurd.rutherfordecology.co.nz/` at
+start-up, so adding a layer to occurd.'s register adds it here as well. It
+hands its drawn areas to the module through `window.LAYERS_HOST`. To try
+occurd. beta or a local occurd. checkout, open inferrd. with
+`?occurd=https://occurd.rutherfordecology.co.nz/beta/` or
+`?occurd=http://localhost:<port>/` (only those addresses are accepted; a
+local server must send CORS headers).
+
 ### Data volume and timing
 
 Every request is a summary-statistics query — mean/std/image-count per year,
