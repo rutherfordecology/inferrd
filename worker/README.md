@@ -10,7 +10,12 @@ only ever receives a ~1 hour, read-only Earth Engine token.
 
 **1. Service account** (Google Cloud console, project `inferrd-508920`)
 - *IAM & Admin → Service accounts → Create service account* (e.g. `inferrd-app`).
-- Give it the roles **Earth Engine Resource Viewer** and **Service Usage Consumer**.
+- Give it the roles **Earth Engine Resource Viewer** and **Service Usage Consumer**, plus
+  the permission `earthengine.maps.create`, which the map preview (Show) needs and Resource
+  Viewer doesn't include. Easiest: *IAM & Admin → Roles → Create role* (e.g. "inferrd map
+  preview") with just `earthengine.maps.create`, and grant that too. (Resource Writer also has
+  it, but adds asset writes the app doesn't need; the token's read-only scope blocks those
+  anyway.)
 - *Keys → Add key → Create new key → JSON*. Keep the downloaded file private.
 
 **2. Earth Engine registration**

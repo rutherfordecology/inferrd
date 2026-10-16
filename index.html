@@ -489,7 +489,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.10.1';
+const APP_VERSION = 'v0.10.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -836,7 +836,7 @@ function showIndexLayers() {
     document.getElementById('legendMax').textContent = 'high';
   }
 
-  let pending = areas.length, failed = 0;
+  let pending = areas.length, failed = 0, lastErr = null;
   try {
     const regions = areas.map(area => ee.Geometry(area.geojson.geometry));
     const composites = regions.map(region => buildYearComposite(region, year, cloudPct, indexName, seasonStart, seasonEnd));
@@ -846,6 +846,8 @@ function showIndexLayers() {
         pending--;
         if (err) {
           failed++;
+          lastErr = err;
+          console.warn('[inferrd map preview] getMapId failed:', err);
         } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
           const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxZoom: 20 });
           layer.addTo(map);
@@ -853,7 +855,7 @@ function showIndexLayers() {
           drawnItems.bringToFront();
         }
         if (pending === 0) {
-          document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load') : '';
+          document.getElementById('layerStatus').textContent = failed ? (failed + ' of ' + areas.length + ' layers failed to load: ' + lastErr) : '';
         }
       });
     };

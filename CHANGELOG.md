@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.10.2 — 2026-10-16
+
+- **Fixed the map preview (Show) failing since v0.10.0.** The service
+  account's Earth Engine Resource Viewer role doesn't include
+  `earthengine.maps.create`, which the preview tiles need (analyses only
+  need `computations.create`, so they kept working). `worker/README.md` now
+  says to grant that permission too.
+- A failed preview now shows Earth Engine's actual error under the layer
+  controls instead of only "1 of 1 layers failed to load".
+
 ## v0.10.1 — 2026-09-29
 
 - **Changed the licence** from CC BY-NC to PolyForm Strict 1.0.0 for the
