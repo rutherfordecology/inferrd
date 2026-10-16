@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.24.0 — 2026-10-16
+
+- **Spot types on and off.** Each condition check spot type (sudden drop,
+  dropped and recovered, canopy decline, slow decline, gain) is its own
+  map layer with a tick box, in the sidebar legend and in a new
+  "Condition check" group at the top of the Layers panel, with counts
+  and hectares. Unticked types are left out of Export for report: the
+  map, tables, images, CSVs and PDF (whose sections renumber, and which
+  says what was left out); `summary.json` lists them as
+  `kinds_left_out`.
+- **Layer groups fold.** The Gisborne District Council, QEII National
+  Trust and Manaaki Whenua groups in the Layers panel (from occurd.'s
+  layers.js) fold away with a chevron, remembered between visits.
+
 ## v0.23.2 — 2026-10-16
 
 - **Condition check on big areas.** The check's four Earth Engine

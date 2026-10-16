@@ -486,13 +486,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
       <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Canopy decline looks for a drop in canopy moisture (NDMI) starting in any year of the period (up to four years before against the two after), in dense canopy only, with its own, gentler tolerance: dying canopy loses leaf water well before it loses its green. Each flagged patch grows into touching pixels that pass a looser test (1.5× and 0.06), so it covers the whole dieback patch. Draw or pick an area that includes plenty of unchanged vegetation.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
-      <div id="conditionLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
-        <div class="change-legend-row"><span class="sw" style="background:#cb181d;flex:0 0 14px;"></span>S · sudden drop (possible clearance or damage)</div>
-        <div class="change-legend-row"><span class="sw" style="background:#7b4fa0;flex:0 0 14px;"></span>R · dropped and recovered (possible storm or slip damage, regrown)</div>
-        <div class="change-legend-row"><span class="sw" style="background:#8a5a12;flex:0 0 14px;"></span>C · canopy decline (canopy losing leaf water; possible dieback)</div>
-        <div class="change-legend-row"><span class="sw" style="background:#e08214;flex:0 0 14px;"></span>D · slow decline (possible poor forest health)</div>
-        <div class="change-legend-row"><span class="sw" style="background:#238b45;flex:0 0 14px;"></span>G · gain (regrowth or recovery)</div>
-      </div>
+      <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
       </div>
       <div class="status-bar" id="statusBar"></div>
@@ -754,7 +748,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.23.2';
+const APP_VERSION = 'v0.24.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1496,11 +1490,57 @@ let lastCondition = null;
   k.addEventListener('input', () => { document.getElementById('condKVal').textContent = k.value + '× typical'; });
 })();
 
+// ── Spot types on and off ─────────────────────────────────────────────
+// Each spot type is its own map layer, ticked on or off in the sidebar
+// legend and in a "Condition check" group in the Layers panel (when that
+// is unlocked). Unticked types are also left out of Export for report.
+const COND_KINDS = ['sudden_drop', 'dropped_recovered', 'canopy_decline', 'slow_decline', 'gain'];
+const COND_KIND_DESC = {
+  sudden_drop: 'possible clearance or damage', dropped_recovered: 'possible storm or slip damage, regrown',
+  canopy_decline: 'canopy losing leaf water; possible dieback', slow_decline: 'possible poor forest health', gain: 'regrowth or recovery'
+};
+let condShown = {};
+try { condShown = JSON.parse(localStorage.getItem('inferrd.condShown') || '{}') || {}; } catch (e) {}
+const condIsShown = (kind) => condShown[kind] !== false;
+let condKindLayers = {};
+let condPanelBody = null;
+function setCondKindShown(kind, on) {
+  condShown[kind] = on;
+  try { localStorage.setItem('inferrd.condShown', JSON.stringify(condShown)); } catch (e) {}
+  const lg = condKindLayers[kind];
+  if (lg) { if (on) lg.addTo(map); else map.removeLayer(lg); }
+  renderCondToggles();
+}
+function renderCondToggles() {
+  const rows = (prefix) => COND_KINDS.map(k => {
+    const list = lastCondition ? lastCondition.spots.filter(x => x.spot.kind === k) : null;
+    const tally = list ? ' <span style="color:var(--text3);">' + list.length + ' · ' + fmtHa(list.reduce((a, x) => a + x.spot.area_ha, 0)) + ' ha</span>' : '';
+    return '<label style="display:flex;align-items:flex-start;gap:6px;margin:3px 0;cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:400;font-size:11px;color:var(--text2);">' +
+      '<input type="checkbox" data-kind="' + k + '" id="' + prefix + k + '"' + (condIsShown(k) ? ' checked' : '') + ' style="margin-top:2px;accent-color:' + COND_COLORS[k] + ';">' +
+      '<span style="width:10px;height:10px;border-radius:2px;margin-top:2px;flex-shrink:0;background:' + COND_COLORS[k] + '88;border:1.5px solid ' + COND_COLORS[k] + ';"></span>' +
+      '<span style="line-height:1.35;">' + COND_PREFIX[k] + ' · ' + COND_KIND_NAME[k].toLowerCase() + ' (' + COND_KIND_DESC[k] + ')' + tally + '</span></label>';
+  }).join('');
+  const wire = (el) => el.querySelectorAll('input[data-kind]').forEach(cb => cb.addEventListener('change', () => setCondKindShown(cb.dataset.kind, cb.checked)));
+  const leg = document.getElementById('conditionLegend');
+  if (leg) {
+    leg.innerHTML = rows('condTog_') + '<div style="margin-top:2px;color:var(--text3);">Unticked types are hidden on the map and left out of Export for report.</div>';
+    wire(leg);
+  }
+  if (condPanelBody) {
+    condPanelBody.innerHTML = lastCondition
+      ? '<div style="font-size:10px;color:var(--text3);margin-bottom:2px;">' + lastCondition.area.name.replace(/</g, '&lt;') + '</div>' + rows('condLyr_')
+      : '<div style="font-size:11px;color:var(--text3);line-height:1.4;">Run a condition check to show its spots here.</div>';
+    wire(condPanelBody);
+  }
+}
+
 function hideConditionLayers() {
   conditionRunId++; // a check still running is dropped when it returns…
   conditionRunning = false; // …so the Run button must come back now, not then
   if (typeof updateRunEnabled === 'function') updateRunEnabled();
   if (conditionLayer) { map.removeLayer(conditionLayer); conditionLayer = null; }
+  Object.values(condKindLayers).forEach(l => map.removeLayer(l));
+  condKindLayers = {};
   const legend = document.getElementById('conditionLegend');
   if (legend) legend.style.display = 'none';
   const st = document.getElementById('conditionStatus');
@@ -1895,11 +1935,16 @@ function showConditionResults(area, s, trendRows, res, series) {
   lastCondition = { area, s, trendRows, series, trend, spots: features, res, runAt: new Date().toISOString() };
 
   // Map
-  conditionLayer = L.geoJSON({ type: 'FeatureCollection', features: features.map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }, {
-    style: f => ({ color: COND_COLORS[f.properties.kind], weight: 2, fillColor: COND_COLORS[f.properties.kind], fillOpacity: 0.35 }),
-    onEachFeature: (f, lyr) => lyr.bindTooltip(f.properties.spot_id, { permanent: true, direction: 'center', className: 'cond-label' })
-  }).addTo(map);
+  condKindLayers = {};
+  COND_KINDS.forEach(k => {
+    condKindLayers[k] = L.geoJSON({ type: 'FeatureCollection', features: features.filter(x => x.spot.kind === k).map(x => ({ type: 'Feature', geometry: x.geometry, properties: x.spot })) }, {
+      style: f => ({ color: COND_COLORS[f.properties.kind], weight: 2, fillColor: COND_COLORS[f.properties.kind], fillOpacity: 0.35 }),
+      onEachFeature: (f, lyr) => lyr.bindTooltip(f.properties.spot_id, { permanent: true, direction: 'center', className: 'cond-label' })
+    });
+    if (condIsShown(k)) condKindLayers[k].addTo(map);
+  });
   document.getElementById('conditionLegend').style.display = 'flex';
+  renderCondToggles();
 
   // Results pane
   ['resultsEmpty', 'resultsContent', 'comparisonContent', 'indexComparisonContent', 'whenContent'].forEach(id => { document.getElementById(id).style.display = 'none'; });
@@ -2441,10 +2486,14 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para(trendSentence);
   const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), cd = ofKind('canopy_decline'), dc = ofKind('slow_decline'), gn = ofKind('gain');
   const visit = sd.length + cd.length + dc.length;
+  const left = c.hiddenKinds || [];
+  const KIND_WORDS = { sudden_drop: ['sudden drop', 'sudden drops'], dropped_recovered: ['dropped and recovered', 'dropped and recovered'], canopy_decline: ['canopy decline', 'canopy decline'], slow_decline: ['slow decline', 'slow decline'], gain: ['gain', 'gains'] };
+  const parts = COND_KINDS.filter(k => !left.includes(k)).map(k => { const l = ofKind(k); return l.length + ' ' + KIND_WORDS[k][l.length === 1 ? 0 : 1] + ' (' + ha(haSum(l)) + ' ha)'; });
   para(spots.length
     ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
-      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + rc.length + ' dropped and recovered (' + ha(haSum(rc)) + ' ha), ' + cd.length + ' canopy decline (' + ha(haSum(cd)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
+      (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]) + '.'
     : 'No spots of change were found inside the area with the settings used (Appendix A).');
+  if (left.length) para('Not included in this report: ' + left.map(k => KIND_WORDS[k][1]).join(', ') + '.', { size: 9, italic: true });
   para((visit
     ? 'Recommended: visit the ' + visit + ' sudden-drop, canopy-decline and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
     : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
@@ -2479,8 +2528,8 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     ['3.3  Canopy decline: canopy losing leaf water, possible dieback', 'canopy_decline', 'No canopy decline was found.'],
     ['3.4  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
     ['3.5  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
-  sections.forEach(([title, kind, none], si) => {
-    heading(title, 11);
+  sections.filter(([, kind]) => !(c.hiddenKinds || []).includes(kind)).forEach(([title, kind, none], si) => {
+    heading('3.' + (si + 1) + '  ' + title.replace(/^3\.\d\s+/, ''), 11);
     const list = ofKind(kind);
     if (!list.length) { para(none); return; }
     if (si === 0) para('Table 1 lists the spots to visit (sudden drops and slow decline).', { size: 9, italic: true });
@@ -2538,8 +2587,10 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
 }
 
 async function exportCondition() {
-  const c = lastCondition;
-  if (!c) return;
+  if (!lastCondition) return;
+  // Only the spot types ticked on go into the report.
+  const hiddenKinds = COND_KINDS.filter(k => !condIsShown(k));
+  const c = Object.assign({}, lastCondition, { spots: lastCondition.spots.filter(x => condIsShown(x.spot.kind)), hiddenKinds });
   const btn = document.getElementById('condExportBtn');
   btn.disabled = true;
   const oldText = btn.textContent;
@@ -2596,6 +2647,7 @@ async function exportCondition() {
         gain: { count: count('gain').length, area_ha: haSum(count('gain')) },
         capped_at: spots.length >= COND_MAX_SPOTS ? COND_MAX_SPOTS : null
       },
+      kinds_left_out: hiddenKinds,
       files_missing: missing
     };
     dir.file('summary.json', JSON.stringify(summary, null, 2));
@@ -4598,6 +4650,12 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   const OCCURD_BASE = occurdParam && /^(https:\/\/occurd\.rutherfordecology\.co\.nz|http:\/\/localhost:\d+)\/(beta\/)?$/.test(occurdParam) ? occurdParam : OCCURD_DEFAULT;
   window.LAYERS_HOST = {
     name: 'inferrd.',
+    // A "Condition check" group at the top of the Layers panel: the spot types on and off.
+    panelSection: (el, group) => {
+      condPanelBody = document.createElement('div');
+      el.appendChild(group('Condition check', condPanelBody));
+      renderCondToggles();
+    },
     url: 'https://rutherfordecology.github.io/inferrd/',
     // Drawn areas as [{ label, latlngs: [[lat, lng], …], holes }] for the layer check.
     // An area made from a multi-block covenant is a MultiPolygon: one entry per block.
