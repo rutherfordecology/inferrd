@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.23.2 — 2026-10-16
+
+- **Condition check on big areas.** The check's four Earth Engine
+  requests now run one after another instead of all at once, show which
+  step they are on, and retry with a growing pause if Earth Engine says
+  it is busy ("too many concurrent aggregations"). Area-wide medians are
+  worked out at 20 m, coarser on very large areas.
+
 ## v0.23.1 — 2026-10-16
 
 - **Deleting a block clears its condition check.** Removing the area

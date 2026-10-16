@@ -754,7 +754,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.23.1';
+const APP_VERSION = 'v0.23.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1510,7 +1510,9 @@ function hideConditionLayers() {
 // Robust median of an image over the area; 0 when there's nothing to
 // reduce (If treats a null result as false).
 function eeAreaMedian(img, region, proj) {
-  const v = img.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 10, maxPixels: 1e9, tileScale: 4 }).values().get(0);
+  // 20 m and bestEffort: a median for the whole area doesn't need every
+  // 10 m pixel, and this runs many times per check.
+  const v = img.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 4, bestEffort: true }).values().get(0);
   return ee.Number(ee.Algorithms.If(v, v, 0));
 }
 
@@ -1704,71 +1706,90 @@ function runCondition() {
   const finish = () => {
     if (runId !== conditionRunId) return;
     if (failed) { conditionRunning = false; updateRunEnabled(); statusEl.textContent = 'Condition check failed: ' + failed; return; }
-    if (!trendRows || !spotsRes || !series) return;
+    if (!trendRows || !spotsRes || !spotsRes.spots || !series) return;
     conditionRunning = false;
     updateRunEnabled();
     statusEl.textContent = '';
     showConditionResults(area, s, trendRows, spotsRes, series);
   };
 
-  try {
-    ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, s.cloudPct, s.trendIndex, 1, 12, area.id)))
-      .evaluate((res, err) => {
-        if (err) { failed = failed || err; return finish(); }
+  // Earth Engine refuses ("too many concurrent aggregations") when too many
+  // of our calculations run at once, so the requests go one after another,
+  // and a busy refusal is retried after a growing pause.
+  let c = null;
+  const steps = [
+    { label: 'Yearly values', build: () => ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, s.cloudPct, s.trendIndex, 1, 12, area.id))),
+      done: (res) => {
         trendRows = res.features.map(f => f.properties)
           .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images }))
           .sort((a, b) => a.year - b.year);
-        finish();
-      });
-
+      } },
     // One area average per clear image, for the seasonally adjusted trend.
-    const imgCol = condCollection(region, years[0] + '-01-01', (years[years.length - 1] + 1) + '-01-01', s.cloudPct, s.trendIndex);
-    const nAll = ee.Image(1).clip(region).reduceRegion({ reducer: ee.Reducer.count(), geometry: region, scale: 20, maxPixels: 1e9 }).values().get(0);
-    imgCol.map(img => {
-      const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 20, maxPixels: 1e9, tileScale: 2 });
-      return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(s.trendIndex + '_mean'), share: ee.Number(st.get(s.trendIndex + '_count')).divide(nAll) });
-    }).filter(ee.Filter.notNull(['v'])).evaluate((res, err) => {
-      if (err) { failed = failed || err; return finish(); }
-      // Overlapping tiles give the same day twice: keep the clearer one.
-      const byDay = new Map();
-      res.features.map(f => f.properties).forEach(p => {
-        const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
-        if (!have || p.share > have.share) byDay.set(day, p);
-      });
-      series = [...byDay.values()].sort((a, b) => a.t - b.t);
-      finish();
-    });
-
-    const c = conditionImages(region, proj, s);
-    const minPx = Math.max(1, Math.round(s.minHa * 100)); // 10 m pixels = 0.01 ha each
-    const vectors = c.cls.reduceToVectors({
-      geometry: region, crs: proj, scale: 10, geometryType: 'polygon', eightConnected: true,
-      labelProperty: 'cls', reducer: ee.Reducer.countEvery(), maxPixels: 1e9, tileScale: 4
-    }).filter(ee.Filter.gte('count', minPx)).sort('count', false).limit(COND_MAX_SPOTS);
-    const spots = c.stats.reduceRegions({ collection: vectors, reducer: ee.Reducer.median(), crs: proj, scale: 10, tileScale: 4 })
-      .map(f => {
-        const g = f.geometry().transform('EPSG:4326', 1);
-        return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
-      });
-    // Fetched apart: a collection nested in a Dictionary comes back as
+    { label: 'Single images', build: () => {
+        const imgCol = condCollection(region, years[0] + '-01-01', (years[years.length - 1] + 1) + '-01-01', s.cloudPct, s.trendIndex);
+        const nAll = ee.Image(1).clip(region).reduceRegion({ reducer: ee.Reducer.count(), geometry: region, scale: 20, maxPixels: 1e9, bestEffort: true }).values().get(0);
+        return imgCol.map(img => {
+          const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 20, maxPixels: 1e9, tileScale: 2, bestEffort: true });
+          return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(s.trendIndex + '_mean'), share: ee.Number(st.get(s.trendIndex + '_count')).divide(nAll) });
+        }).filter(ee.Filter.notNull(['v']));
+      },
+      done: (res) => {
+        // Overlapping tiles give the same day twice: keep the clearer one.
+        const byDay = new Map();
+        res.features.map(f => f.properties).forEach(p => {
+          const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
+          if (!have || p.share > have.share) byDay.set(day, p);
+        });
+        series = [...byDay.values()].sort((a, b) => a.t - b.t);
+      } },
+    { label: 'Area-wide change', build: () => {
+        c = conditionImages(region, proj, s);
+        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd') });
+      },
+      done: (res) => { spotsRes = res; } },
+    // Fetched on its own: a collection nested in a Dictionary comes back as
     // { type, columns } only, without its features.
-    let spotFc = null, scalars = null;
-    const both = () => { if (spotFc && scalars) { spotsRes = Object.assign({ spots: spotFc }, scalars); finish(); } };
-    spots.evaluate((res, err) => {
-      if (err) { failed = failed || err; return finish(); }
-      spotFc = res; both();
-    });
-    ee.Dictionary({
-      medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR,
-      nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd')
-    }).evaluate((res, err) => {
-      if (err) { failed = failed || err; return finish(); }
-      scalars = res; both();
-    });
-  } catch (e) {
-    failed = e && e.message ? e.message : String(e);
-    finish();
-  }
+    { label: 'Tracing spots', build: () => {
+        const minPx = Math.max(1, Math.round(s.minHa * 100)); // 10 m pixels = 0.01 ha each
+        const vectors = c.cls.reduceToVectors({
+          geometry: region, crs: proj, scale: 10, geometryType: 'polygon', eightConnected: true,
+          labelProperty: 'cls', reducer: ee.Reducer.countEvery(), maxPixels: 1e9, tileScale: 4
+        }).filter(ee.Filter.gte('count', minPx)).sort('count', false).limit(COND_MAX_SPOTS);
+        return c.stats.reduceRegions({ collection: vectors, reducer: ee.Reducer.median(), crs: proj, scale: 10, tileScale: 4 })
+          .map(f => {
+            const g = f.geometry().transform('EPSG:4326', 1);
+            return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
+          });
+      },
+      done: (res) => { spotsRes = Object.assign({ spots: res }, spotsRes); } }
+  ];
+  const busy = (err) => /concurrent|too many|rate limit|quota|try again/i.test(String(err));
+  const runStep = (i) => {
+    if (runId !== conditionRunId) return;
+    if (i >= steps.length) return finish();
+    const step = steps[i];
+    let tries = 0;
+    const attempt = () => {
+      if (runId !== conditionRunId) return;
+      statusEl.textContent = step.label + ' (' + (i + 1) + ' of ' + steps.length + ') for ' + area.name + '…';
+      let obj;
+      try { obj = step.build(); } catch (e) { failed = e && e.message ? e.message : String(e); return finish(); }
+      obj.evaluate((res, err) => {
+        if (runId !== conditionRunId) return;
+        if (err && busy(err) && tries < 4) {
+          const wait = 5000 * Math.pow(2, tries++);
+          statusEl.textContent = 'Earth Engine is busy — trying ' + step.label.toLowerCase() + ' again in ' + Math.round(wait / 1000) + ' s…';
+          setTimeout(attempt, wait);
+          return;
+        }
+        if (err) { failed = err; return finish(); }
+        try { step.done(res); } catch (e) { failed = e && e.message ? e.message : String(e); return finish(); }
+        runStep(i + 1);
+      });
+    };
+    attempt();
+  };
+  runStep(0);
 }
 document.getElementById('conditionRunBtn').addEventListener('click', runCondition);
 
