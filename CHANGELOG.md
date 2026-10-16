@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.12.0 — 2026-10-16
+
+- **"When did this change?"** With the change map showing, click a flagged
+  patch to date the change. The patch is traced with the same rule as the
+  map, and every Sentinel-2 image of roughly the last two years in which the
+  whole patch is clear gives one point: the patch mean against the median of
+  its surroundings (a ring 30–150 m out, inside the area). The results pane
+  charts patch, surroundings and their difference, and names the two clear
+  images the change falls between — where the difference crosses the map's
+  flag threshold and stays there for two or more images. Single-image dips
+  that recover straight away are called out as likely cloud shadow or haze.
+  The per-image series exports as CSV. Clicking outside a flagged patch
+  inspects the 10 m around the point instead.
+
 ## v0.11.1 — 2026-10-16
 
 - **Change map shows how big each change was.** Flagged pixels are shaded

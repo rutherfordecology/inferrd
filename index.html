@@ -348,6 +348,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="change-legend-row"><span class="change-legend-label"></span><span class="sw-cap">slight</span><span class="sw-cap">moderate</span><span class="sw-cap">severe</span></div>
         <div class="change-legend-row"><span class="sw" style="background:#7f7f7f;flex:0 0 14px;"></span>No clear view (cloud or shadow on every pass)</div>
         <div class="change-legend-row"><span class="sw" style="background:#d9d9d9;flex:0 0 14px;"></span>Low confidence (only one clear image)</div>
+        <div style="margin-top:2px;color:var(--text);">Click a flagged patch on the map to see when it changed.</div>
       </div>
       <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, severe over 0.3 (measured from the area-wide change when that's on). The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a severe NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
       <div class="field-hint live-hint" id="changeStatus"></div>
@@ -470,6 +471,32 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <table class="stats-table" id="indexCompareSummaryTable"></table>
         </div>
       </div>
+
+      <div id="whenContent" style="display:none">
+        <div class="metrics" id="whenMetrics"></div>
+        <div class="chart-card">
+          <div class="card-title">When did this change? — <span id="whenTitle"></span></div>
+          <div class="field-hint" style="margin:-4px 0 8px;" id="whenSubtitle"></div>
+          <div id="whenSeriesChartWrap"></div>
+          <div id="whenSeriesLegend" style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;"></div>
+        </div>
+        <div class="chart-card">
+          <div class="card-title">Patch minus surroundings</div>
+          <div class="field-hint" style="margin:-4px 0 8px;" id="whenDiffNote"></div>
+          <div id="whenDiffChartWrap"></div>
+        </div>
+        <div class="interp-card">
+          <div class="card-title">Interpretation</div>
+          <div id="whenInterpretBody"></div>
+        </div>
+        <div class="table-card">
+          <div class="table-card-head">
+            <div class="card-title">Per-image data (clear images only)</div>
+            <button class="dl-btn" id="exportWhenCsvBtn">Export CSV</button>
+          </div>
+          <table class="stats-table" id="whenTable"></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -500,6 +527,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Change between two dates</h3>
     <p>Section 4 maps which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
+    <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
@@ -559,7 +587,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.11.1';
+const APP_VERSION = 'v0.12.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -790,6 +818,7 @@ function clearResults() {
   document.getElementById('resultsContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
+  document.getElementById('whenContent').style.display = 'none';
   document.getElementById('resultsEmpty').style.display = '';
   setStatus('', '');
 }
@@ -1008,6 +1037,7 @@ const S2_SR_START = '2017-03-28';
 let changeLayers = [];
 let changeVisible = false;
 let changeRunId = 0; // bumped on every run/hide so stale callbacks drop out
+const changeCtx = new Map(); // area id → what its current change layer was built from
 
 function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 (function initChangeDates() {
@@ -1039,8 +1069,23 @@ function windowCollection(region, dateStr, days, maxCloudPct, indexName) {
     .select(indexName);
 }
 
+// The flagging rule, shared by the change map and the click-to-inspect
+// time series so both always agree on what counts as a flagged pixel.
+function classifyChange(diff, centre, sigma, k) {
+  const resid = diff.subtract(centre);
+  const z = resid.divide(sigma);
+  return {
+    resid: resid,
+    loss: z.lte(-k).and(resid.lte(-CHANGE_MIN_ABS)),
+    gain: z.gte(k).and(resid.gte(CHANGE_MIN_ABS))
+  };
+}
+
 function hideChangeLayers() {
   changeRunId++;
+  changeCtx.clear();
+  whenRunId++;
+  clearWhenOverlays();
   changeLayers.forEach(l => map.removeLayer(l));
   changeLayers = [];
   changeVisible = false;
@@ -1122,10 +1167,10 @@ function showChangeLayers() {
         // flagged; the shade only says how big the flagged change was.
         const centre = relative ? s.med : 0;
         const sigma = Math.max(1.4826 * s.mad, 1e-6);
-        const resid = diff.subtract(centre);
-        const z = resid.divide(sigma);
-        const loss = z.lte(-k).and(resid.lte(-CHANGE_MIN_ABS));
-        const gain = z.gte(k).and(resid.gte(CHANGE_MIN_ABS));
+        const { resid, loss, gain } = classifyChange(diff, centre, sigma, k);
+        // Kept so a click on the map can rebuild the same flags (see
+        // inspectChange) without recomputing the area's median and spread.
+        changeCtx.set(area.id, { region, diff, centre, sigma, k, showGains, indexName, beforeDate, afterDate, days });
         const mag = resid.abs();
         const grade = (flag, lo, hi) => flag.and(mag.gte(lo)).and(hi == null ? mag.gte(lo) : mag.lt(hi));
         const lossBands = CHANGE_GRADES.map(g => grade(loss, g.lo, g.hi));
@@ -1200,6 +1245,394 @@ document.getElementById('changeToggleBtn').addEventListener('click', () => {
 // Any setting change makes the flagged pixels stale — rerun if showing.
 ['changeBeforeDate', 'changeAfterDate', 'changeWindowSel', 'changeIndexSel', 'changeRelativeChk', 'changeGainsChk', 'changeSensitivity', 'cloudThresh']
   .forEach(id => document.getElementById(id).addEventListener('change', () => { if (changeVisible) showChangeLayers(); }));
+
+/* ---------------------------------------------------------------------
+   "When did this change?" — click the map while the change layer is
+   showing. The flagged patch under the click is rebuilt with the same
+   rule as the map (classifyChange, same median/spread/slider), then every
+   Sentinel-2 image of roughly the last two years in which that patch is
+   completely clear gives one point: the patch mean against the median of
+   a ring of surroundings. Weather, season and haze move both together, so
+   the patch-minus-surroundings line stays flat until the patch itself
+   changes, and the step in it dates the change to between two passes.
+   --------------------------------------------------------------------- */
+const PATCH_SEARCH_M = 1500;   // how far from the click a flagged patch is traced
+const PATCH_FALLBACK_M = 10;   // no flagged patch under the click: use this buffer of the point
+const CONTROL_RING_M = 150;    // surroundings: this far out from the patch…
+const CONTROL_GAP_M = 30;      // …leaving this gap so the patch's own edge doesn't leak in
+const MIN_CONTROL_PX = 20;     // fewer clear surrounding pixels than this and the image has no control value
+const WHEN_MIN_BASELINE = 3;   // clear images needed before a step to know what "normal" was
+const WHEN_PERSIST = 2;        // consecutive clear images beyond the threshold to call it a change
+let whenRunId = 0;
+let whenOverlays = [];
+let lastWhen = null;
+
+function clearWhenOverlays() {
+  whenOverlays.forEach(l => map.removeLayer(l));
+  whenOverlays = [];
+}
+
+function pointInRing(pt, ring) {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i], [xj, yj] = ring[j];
+    if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+function pointInGeometry(pt, g) {
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+  return polys.some(p => pointInRing(pt, p[0]) && !p.slice(1).some(hole => pointInRing(pt, hole)));
+}
+
+function median(xs) {
+  const s = xs.slice().sort((a, b) => a - b);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function fmtDate(t) {
+  const d = new Date(t);
+  return d.getUTCDate() + ' ' + MONTH_NAMES[d.getUTCMonth()] + ' ' + d.getUTCFullYear();
+}
+
+// Leaflet.draw clicks land on the map too — ignore them while drawing/editing.
+let drawToolActive = false;
+map.on(L.Draw.Event.DRAWSTART + ' ' + L.Draw.Event.EDITSTART, () => { drawToolActive = true; });
+map.on(L.Draw.Event.DRAWSTOP + ' ' + L.Draw.Event.EDITSTOP, () => { drawToolActive = false; });
+
+map.on('click', (e) => {
+  if (!changeVisible || drawToolActive) return;
+  const pt = [e.latlng.lng, e.latlng.lat];
+  // Last drawn wins where areas overlap — it's the one on top.
+  const area = areas.slice().reverse().find(a => pointInGeometry(pt, a.geojson.geometry));
+  if (!area) return;
+  const ctx = changeCtx.get(area.id);
+  if (!ctx) {
+    setStatus('info', 'The change map for ' + area.name + ' is still loading (or had too little clear imagery) — click again once it shows.');
+    return;
+  }
+  inspectChange(area, ctx, e.latlng);
+});
+
+function inspectChange(area, ctx, latlng) {
+  const runId = ++whenRunId;
+  clearWhenOverlays();
+  whenOverlays.push(L.circleMarker(latlng, { radius: 4, color: '#111', weight: 1.5, fillColor: '#fff', fillOpacity: 1, interactive: false }).addTo(map));
+  setStatus('info', 'Tracing the patch under the click and pulling every clear Sentinel-2 image of it — this can take a minute…');
+
+  const idxName = ctx.indexName;
+  const point = ee.Geometry.Point([latlng.lng, latlng.lat]);
+  const { loss, gain } = classifyChange(ctx.diff, ctx.centre, ctx.sigma, ctx.k);
+  let label = ee.Image(0).where(loss, 1); // 1 = loss, 2 = gain
+  if (ctx.showGains) label = label.where(gain, 2);
+  label = label.updateMask(label.gt(0)).toInt().rename('kind');
+  const hits = label.reduceToVectors({
+    geometry: point.buffer(PATCH_SEARCH_M, 1).intersection(ctx.region, 1),
+    scale: 10,
+    geometryType: 'polygon',
+    eightConnected: true,
+    labelProperty: 'kind',
+    maxPixels: 1e8
+  }).filterBounds(point);
+  const patchFeat = ee.Feature(ee.Algorithms.If(hits.size().gt(0), hits.first(), ee.Feature(point.buffer(PATCH_FALLBACK_M, 1), { kind: 0 })));
+  const patch = patchFeat.geometry();
+  const ring = patch.buffer(CONTROL_RING_M, 1).difference(patch.buffer(CONTROL_GAP_M, 1), 1).intersection(ctx.region, 1);
+
+  // Roughly the last two years — reaching further back when the change
+  // map's "before" window is older, so the series always covers it.
+  const startD = new Date(); startD.setFullYear(startD.getFullYear() - 2);
+  const beforeStart = new Date(ctx.beforeDate + 'T00:00:00Z'); beforeStart.setUTCDate(beforeStart.getUTCDate() - ctx.days);
+  const start = isoDate(beforeStart < startD ? beforeStart : startD);
+  const endD = new Date(); endD.setDate(endD.getDate() + 1);
+
+  const all = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(patch).filterDate(start, isoDate(endD));
+  // "Fully clear": every patch pixel is vegetation/soil/water/unclassified
+  // in the Scene Classification Layer. Off-swath pixels count as not clear.
+  const clear = all.map(img => {
+    const ok = img.select('SCL').remap([4, 5, 6, 7], [1, 1, 1, 1], 0).unmask(0).rename('ok');
+    return img.set('patchClear', ok.reduceRegion({ reducer: ee.Reducer.min(), geometry: patch, scale: 10, maxPixels: 1e6 }).get('ok'));
+  }).filter(ee.Filter.eq('patchClear', 1));
+  const series = ee.FeatureCollection(clear.map(img => {
+    // maskS2Clouds ends in copyProperties, which hands back a plain Element.
+    const idx = addIndices(ee.Image(maskS2Clouds(img))).select(idxName);
+    const p = idx.reduceRegion({ reducer: ee.Reducer.mean(), geometry: patch, scale: 10, maxPixels: 1e6 });
+    const c = idx.reduceRegion({ reducer: ee.Reducer.median().combine(ee.Reducer.count(), '', true), geometry: ring, scale: 10, maxPixels: 1e8 });
+    return ee.Feature(null, {
+      t: img.get('system:time_start'),
+      id: img.get('system:index'),
+      patch: p.get(idxName),
+      control: c.get(idxName + '_median'),
+      nControl: c.get(idxName + '_count')
+    });
+  }));
+
+  ee.Dictionary({
+    kind: patchFeat.get('kind'),
+    patch: patch,
+    patchM2: patch.area(1),
+    ring: ring,
+    nAll: all.size(),
+    series: series.toList(5000)
+  }).evaluate((res, err) => {
+    if (runId !== whenRunId) return;
+    if (err || !res) { setStatus('error', 'Time series failed: ' + err); return; }
+    const kindColor = res.kind === 1 ? '#cb181d' : res.kind === 2 ? '#238b45' : '#111';
+    whenOverlays.push(L.geoJSON(res.ring, { interactive: false, style: { color: '#fff', weight: 1.5, dashArray: '4,4', fill: false } }).addTo(map));
+    whenOverlays.push(L.geoJSON(res.patch, { interactive: false, style: { color: kindColor, weight: 2.5, fillOpacity: 0 } }).addTo(map));
+    handleWhenResults(area, ctx, latlng, res);
+  });
+}
+
+// Collapses same-day images (overlapping tiles of one pass) into one point.
+function whenRowsFrom(features) {
+  const byDay = new Map();
+  features.forEach(f => {
+    const p = f.properties || {};
+    if (p.t == null || p.patch == null) return;
+    const day = new Date(p.t).toISOString().slice(0, 10);
+    const ctrlOk = p.control != null && (p.nControl || 0) >= MIN_CONTROL_PX;
+    const r = byDay.get(day) || { day: day, t: p.t, ids: [], patch: [], control: [], nControl: 0 };
+    r.ids.push(p.id);
+    r.patch.push(p.patch);
+    if (ctrlOk) { r.control.push(p.control); r.nControl += p.nControl; }
+    byDay.set(day, r);
+  });
+  const mean = xs => xs.reduce((a, b) => a + b, 0) / xs.length;
+  return [...byDay.values()].sort((a, b) => a.t - b.t).map(r => {
+    const patch = mean(r.patch);
+    const control = r.control.length ? mean(r.control) : null;
+    return { day: r.day, t: r.t, ids: r.ids.join(' '), patch: patch, control: control, nControl: r.nControl, diff: control == null ? null : patch - control, note: '' };
+  });
+}
+
+// The step: the first clear image after which patch−control sits beyond
+// the flag threshold from its earlier level for WHEN_PERSIST images in a
+// row. dirs: -1 looks for a drop, +1 for a rise.
+function findWhenStep(pts, thr, dirs) {
+  for (let j = WHEN_MIN_BASELINE; j + WHEN_PERSIST <= pts.length; j++) {
+    const base = median(pts.slice(0, j).map(p => p.diff));
+    for (const dir of dirs) {
+      let ok = true;
+      for (let q = j; q < j + WHEN_PERSIST; q++) if (dir * (pts[q].diff - base) < thr) { ok = false; break; }
+      if (ok) {
+        const after = pts.slice(j);
+        const level = median(after.map(p => p.diff));
+        const stayed = after.filter(p => dir * (p.diff - base) >= thr).length;
+        return { j: j, dir: dir, base: base, level: level, stayed: stayed, nAfter: after.length };
+      }
+    }
+  }
+  return null;
+}
+
+function handleWhenResults(area, ctx, latlng, res) {
+  const idxName = ctx.indexName;
+  const rows = whenRowsFrom(res.series || []);
+  const pts = rows.filter(r => r.diff != null);
+  const thr = Math.max(ctx.k * ctx.sigma, CHANGE_MIN_ABS);
+  const kindName = res.kind === 1 ? 'loss' : res.kind === 2 ? 'gain' : null;
+  const dirs = res.kind === 1 ? [-1] : res.kind === 2 ? [1] : [-1, 1];
+  const step = findWhenStep(pts, thr, dirs);
+
+  // Single-image dips: below the level on their side of the step by more
+  // than the threshold, with the images either side not — the classic
+  // signature of a missed cloud shadow or haze, not of a real change.
+  const overall = pts.length ? median(pts.map(p => p.diff)) : 0;
+  const levelAt = i => step ? (i < step.j ? step.base : step.level) : overall;
+  const low = i => pts[i].diff - levelAt(i) <= -thr;
+  const dips = [];
+  let latestDip = null;
+  if (pts.length >= 3) {
+    pts.forEach((p, i) => {
+      if (!low(i)) return;
+      if (i === pts.length - 1) { if (!low(i - 1)) latestDip = p; return; }
+      if (i > 0 && !low(i - 1) && !low(i + 1)) dips.push(p);
+    });
+  }
+  dips.forEach(p => { p.note = 'single-image dip'; });
+  if (latestDip) latestDip.note = 'latest image low, not yet confirmed';
+  if (step) {
+    pts[step.j - 1].note = 'last before change';
+    pts[step.j].note = 'first after change';
+  }
+
+  lastWhen = { area, ctx, latlng, res, rows, pts, thr, step, dips, latestDip, kindName };
+
+  setStatus('success', step
+    ? 'Changed between ' + fmtDate(pts[step.j - 1].t) + ' and ' + fmtDate(pts[step.j].t) + '.'
+    : 'Time series ready — no persistent step found.');
+  document.getElementById('resultsEmpty').style.display = 'none';
+  document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('comparisonContent').style.display = 'none';
+  document.getElementById('indexComparisonContent').style.display = 'none';
+  document.getElementById('whenContent').style.display = 'block';
+  expandResultsPane();
+
+  const nPx = Math.round(res.patchM2 / 100);
+  const patchDesc = kindName
+    ? 'flagged ' + kindName + ' patch of ~' + nPx + ' pixel' + (nPx === 1 ? '' : 's') + ' (' + fmtHa(res.patchM2 / 10000) + ' ha)'
+    : PATCH_FALLBACK_M + ' m around the clicked point (no flagged patch under the click)';
+  document.getElementById('whenTitle').textContent = area.name + ', ' + idxName;
+  document.getElementById('whenSubtitle').textContent =
+    'Patch: ' + patchDesc + ', at ' + latlng.lat.toFixed(5) + ', ' + latlng.lng.toFixed(5) + '. Surroundings: median of the ring ' + CONTROL_GAP_M + '–' + CONTROL_RING_M + ' m out from the patch (dashed on the map), within the area.';
+  document.getElementById('whenDiffNote').textContent =
+    'Dashed lines: the level before the change, and the change map\'s flag threshold (±' + thr.toFixed(3) + ' ' + idxName + ' — ' + ctx.k + '× the area\'s typical spread, never under ' + CHANGE_MIN_ABS + ') from it. Shaded: the gap the change happened in. Ringed: single-image dips.';
+
+  const metrics = [
+    ['Changed between', step ? fmtDate(pts[step.j - 1].t) + ' – ' + fmtDate(pts[step.j].t) : 'no clear step'],
+    ['Size of step', step ? (step.level - step.base >= 0 ? '+' : '') + (step.level - step.base).toFixed(3) : '—'],
+    ['Clear images used', pts.length + ' of ' + res.nAll],
+    ['Flag threshold', '±' + thr.toFixed(3)]
+  ];
+  document.getElementById('whenMetrics').innerHTML = metrics.map(([l, v]) =>
+    '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
+
+  renderWhenCharts();
+  renderWhenInterpretation();
+  renderWhenTable();
+}
+
+// Same house style as renderMonthlyChart: gridlines, a small tick per
+// month and a bold year label at each January.
+function renderTimeChart(wrapId, lines, opts) {
+  const w = 640, h = opts.h || 200, padL = 44, padR = 16, padT = 12, padB = 30;
+  const allPts = lines.flatMap(l => l.pts);
+  if (allPts.length < 2) {
+    document.getElementById(wrapId).innerHTML = '<div class="results-empty" style="padding:1rem 0;">Not enough clear images to chart.</div>';
+    return;
+  }
+  const ys = allPts.map(p => p.y).concat((opts.hLines || []).map(l => l.y));
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const pad = (yMax - yMin) * 0.1 || 0.05;
+  const y0 = yMin - pad, y1 = yMax + pad;
+  const x0 = opts.x0, x1 = opts.x1;
+  const xScale = (t) => x1 === x0 ? padL + (w - padL - padR) / 2 : padL + ((t - x0) / (x1 - x0)) * (w - padL - padR);
+  const yScale = (y) => padT + (1 - (y - y0) / (y1 - y0)) * (h - padT - padB);
+
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  if (opts.band) {
+    const bx0 = xScale(opts.band.t0), bx1 = xScale(opts.band.t1);
+    svg += '<rect x="' + bx0 + '" y="' + padT + '" width="' + Math.max(bx1 - bx0, 2) + '" height="' + (h - padT - padB) + '" fill="var(--amber-light)" stroke="var(--amber-mid)" stroke-width="1"/>';
+  }
+  for (let i = 0; i <= 3; i++) {
+    const v = y0 + (i / 3) * (y1 - y0);
+    const yy = yScale(v);
+    svg += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (w - padR) + '" y2="' + yy + '" stroke="var(--border)" stroke-width="1"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (yy + 3) + '" text-anchor="end" font-size="9" fill="var(--text3)">' + v.toFixed(2) + '</text>';
+  }
+  const axisY = h - padB;
+  svg += '<line x1="' + padL + '" y1="' + axisY + '" x2="' + (w - padR) + '" y2="' + axisY + '" stroke="var(--border2)" stroke-width="1"/>';
+  const d0 = new Date(x0);
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); ; m++) {
+    if (m === 12) { m = 0; y++; }
+    const t = Date.UTC(y, m, 1);
+    if (t > x1) break;
+    if (t < x0) continue;
+    const xx = xScale(t);
+    if (m === 0) {
+      svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 7) + '" stroke="var(--text3)" stroke-width="1.3"/>';
+      svg += '<text x="' + xx + '" y="' + (h - 4) + '" text-anchor="middle" font-size="10" font-weight="600" fill="var(--text2)">' + y + '</text>';
+    } else {
+      svg += '<line x1="' + xx + '" y1="' + axisY + '" x2="' + xx + '" y2="' + (axisY + 3) + '" stroke="var(--border2)" stroke-width="1"/>';
+    }
+  }
+  (opts.hLines || []).forEach(l => {
+    const xa = l.t0 == null ? padL : xScale(l.t0), xb = l.t1 == null ? w - padR : xScale(l.t1);
+    svg += '<line x1="' + xa + '" y1="' + yScale(l.y) + '" x2="' + xb + '" y2="' + yScale(l.y) + '" stroke="' + l.color + '" stroke-width="1.2" stroke-dasharray="5,4"/>';
+  });
+  lines.forEach(l => {
+    if (l.pts.length > 1) svg += '<polyline points="' + l.pts.map(p => xScale(p.t) + ',' + yScale(p.y)).join(' ') + '" fill="none" stroke="' + l.color + '" stroke-width="1.5" stroke-linejoin="round"/>';
+    l.pts.forEach(p => { svg += '<circle cx="' + xScale(p.t) + '" cy="' + yScale(p.y) + '" r="2.5" fill="' + l.color + '"><title>' + fmtDate(p.t) + ': ' + p.y.toFixed(3) + '</title></circle>'; });
+  });
+  (opts.marks || []).forEach(p => {
+    svg += '<circle cx="' + xScale(p.t) + '" cy="' + yScale(p.y) + '" r="6" fill="none" stroke="var(--amber)" stroke-width="1.5"/>';
+  });
+  svg += '</svg>';
+  document.getElementById(wrapId).innerHTML = svg;
+}
+
+function renderWhenCharts() {
+  const { rows, pts, thr, step, dips, latestDip, ctx, res } = lastWhen;
+  if (!rows.length) {
+    ['whenSeriesChartWrap', 'whenDiffChartWrap'].forEach(id => { document.getElementById(id).innerHTML = '<div class="results-empty" style="padding:1rem 0;">No clear images of this patch.</div>'; });
+    document.getElementById('whenSeriesLegend').innerHTML = '';
+    return;
+  }
+  const ts = rows.map(r => r.t);
+  const x0 = Math.min(...ts), x1 = Math.max(...ts);
+  const band = step ? { t0: pts[step.j - 1].t, t1: pts[step.j].t } : null;
+  renderTimeChart('whenSeriesChartWrap', [
+    { color: 'var(--blue)', pts: rows.filter(r => r.control != null).map(r => ({ t: r.t, y: r.control })) },
+    { color: 'var(--orange-dark)', pts: rows.map(r => ({ t: r.t, y: r.patch })) }
+  ], { x0, x1, band, h: 200 });
+  const swatch = (c, label) => '<span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);"><span style="width:10px;height:10px;border-radius:50%;background:' + c + ';display:inline-block;"></span>' + label + '</span>';
+  document.getElementById('whenSeriesLegend').innerHTML =
+    swatch('var(--orange-dark)', 'Patch (mean ' + ctx.indexName + ')') + swatch('var(--blue)', 'Surroundings (median)');
+
+  const hLines = [];
+  if (step) {
+    hLines.push({ y: step.base, color: 'var(--text3)', t1: pts[step.j - 1].t });
+    hLines.push({ y: step.base + step.dir * thr, color: step.dir < 0 ? '#cb181d' : '#238b45' });
+  } else if (pts.length) {
+    const lvl = median(pts.map(p => p.diff));
+    hLines.push({ y: lvl, color: 'var(--text3)' }, { y: lvl - thr, color: '#cb181d' });
+    if (res.kind !== 1) hLines.push({ y: lvl + thr, color: '#238b45' });
+  }
+  renderTimeChart('whenDiffChartWrap', [
+    { color: 'var(--orange-dark)', pts: pts.map(p => ({ t: p.t, y: p.diff })) }
+  ], { x0, x1, band, hLines, marks: dips.concat(latestDip ? [latestDip] : []).map(p => ({ t: p.t, y: p.diff })), h: 180 });
+}
+
+function renderWhenInterpretation() {
+  const { rows, pts, thr, step, dips, latestDip, ctx, kindName } = lastWhen;
+  const signed = v => (v >= 0 ? '+' : '') + v.toFixed(3);
+  const lines = [];
+  if (pts.length < WHEN_MIN_BASELINE + WHEN_PERSIST) {
+    lines.push({ warn: true, text: 'Only ' + pts.length + ' clear image' + (pts.length === 1 ? '' : 's') + ' with both the patch and its surroundings in view — too few to date a change. ' + (rows.length > pts.length ? 'Some images had a clear patch but too little clear surroundings to compare against. ' : '') + 'Try a spot further from the area\'s edge, or draw the area wider.' });
+  } else if (step) {
+    const a = pts[step.j - 1], b = pts[step.j];
+    const gapDays = Math.round((b.t - a.t) / 86400000);
+    lines.push({ text: '<strong>Changed between ' + fmtDate(a.t) + ' and ' + fmtDate(b.t) + '</strong> (' + gapDays + ' day' + (gapDays === 1 ? '' : 's') + ' between the two clear images). Before that, the patch tracked its surroundings at ' + signed(step.base) + ' ' + ctx.indexName + '; from ' + fmtDate(b.t) + ' it ' + (step.dir < 0 ? 'dropped' : 'rose') + ' to ' + signed(step.level) + ' — a step of ' + signed(step.level - step.base) + ', against a flag threshold of ' + thr.toFixed(3) + '.' });
+    lines.push({ text: step.stayed + ' of the ' + step.nAfter + ' clear images from ' + fmtDate(b.t) + ' on stay beyond the threshold' + (step.stayed < step.nAfter * 0.75 ? ' — the patch partly recovers or wavers afterwards, so treat the date with more caution.' : ', so the change has held.') });
+    if (gapDays > 30) lines.push({ warn: true, text: 'There\'s a ' + gapDays + '-day gap with no clear view of the patch, so the change can only be placed somewhere inside it.' });
+  } else {
+    lines.push({ text: 'No persistent step: the patch never moved more than ' + thr.toFixed(3) + ' ' + ctx.indexName + ' from its usual difference to its surroundings for ' + WHEN_PERSIST + '+ clear images in a row (after at least ' + WHEN_MIN_BASELINE + ' clear images to set that baseline).' + (kindName ? ' The change map flags it, so the change may predate the start of this series, or have built up gradually rather than in one step.' : '') });
+  }
+  if (dips.length) {
+    lines.push({ warn: true, text: dips.length + ' single-image dip' + (dips.length === 1 ? '' : 's') + ' (' + dips.map(p => fmtDate(p.t)).join(', ') + ') recovered on the next clear image — most likely cloud shadow or haze the Scene Classification Layer missed, not change.' });
+  }
+  if (latestDip) {
+    lines.push({ warn: true, text: 'The latest clear image (' + fmtDate(latestDip.t) + ') is low, but there\'s nothing after it yet to tell a real change from a missed shadow. Check again after the next clear pass.' });
+  }
+  if (!kindName) lines.push({ text: 'No flagged patch was under the click, so this is the ' + PATCH_FALLBACK_M + ' m around the point. Click inside a coloured patch to inspect a flagged change.' });
+  lines.push({ text: 'Only images in which every pixel of the patch was clear (Scene Classification classes 4–7) are used; same-day images from overlapping tiles are averaged. The step dates when the patch stopped looking like its surroundings — a reason to go and look, not proof of what happened.' });
+  document.getElementById('whenInterpretBody').innerHTML = lines.map(l => '<' + (l.warn ? 'div class="caveat"' : 'p') + '>' + l.text + '</' + (l.warn ? 'div' : 'p') + '>').join('');
+}
+
+function renderWhenTable() {
+  const { rows, ctx } = lastWhen;
+  const f = v => v == null ? '—' : v.toFixed(4);
+  let html = '<thead><tr><th>Date</th><th>Patch ' + ctx.indexName + '</th><th>Surroundings</th><th>Patch − surr.</th><th>Surr. pixels</th><th>Note</th></tr></thead><tbody>';
+  rows.forEach(r => {
+    html += '<tr' + (r.note ? ' style="font-weight:500;"' : '') + '><td>' + r.day + '</td><td>' + f(r.patch) + '</td><td>' + f(r.control) + '</td><td>' + f(r.diff) + '</td><td>' + r.nControl + '</td><td>' + r.note + '</td></tr>';
+  });
+  document.getElementById('whenTable').innerHTML = html + '</tbody>';
+}
+
+document.getElementById('exportWhenCsvBtn').addEventListener('click', () => {
+  if (!lastWhen) return;
+  const { rows, ctx, latlng } = lastWhen;
+  const idx = ctx.indexName.toLowerCase();
+  let csv = 'date,patch_' + idx + ',surroundings_median_' + idx + ',patch_minus_surroundings,surroundings_pixels,note,image_ids\n';
+  rows.forEach(r => { csv += [r.day, r.patch ?? '', r.control ?? '', r.diff ?? '', r.nControl, r.note, r.ids].join(',') + '\n'; });
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'inferrd-when-' + idx + '-' + latlng.lat.toFixed(5) + '_' + latlng.lng.toFixed(5) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
 
 map.on(L.Draw.Event.CREATED, (e) => {
   // Colour keyed off the permanent, ever-incrementing id — not
@@ -1756,6 +2189,7 @@ function handleResults(rows, indexName, monthRows) {
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
+  document.getElementById('whenContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'block';
   expandResultsPane();
@@ -1995,6 +2429,7 @@ function handleComparisonResults(areaSeries, indexName) {
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('whenContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'block';
   expandResultsPane();
@@ -2300,6 +2735,7 @@ function handleIndexComparisonResults(indexSeries, area) {
 
   document.getElementById('resultsEmpty').style.display = 'none';
   document.getElementById('resultsContent').style.display = 'none';
+  document.getElementById('whenContent').style.display = 'none';
   document.getElementById('comparisonContent').style.display = 'none';
   document.getElementById('indexComparisonContent').style.display = 'block';
   expandResultsPane();

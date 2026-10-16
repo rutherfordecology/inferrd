@@ -83,6 +83,19 @@ backed by only one clear image. The sidebar reports hectares per shade, the
 unassessable area, how much flagged loss rests on a single image, and the
 number of clear images behind each date.
 
+To date a flagged change, click a patch on the change map. inferrd. traces
+the flagged patch under the click (the same rule as the map, pixels joined
+eight-connected; a 10 m circle round the point if nothing is flagged
+there), then takes every Sentinel-2 image of roughly the last two years in
+which the whole patch is clear (Scene Classification classes 4–7) and
+compares the patch mean with the median of a ring of surroundings 30–150 m
+out. The results pane plots patch, surroundings and patch minus
+surroundings, and reports "changed between X and Y": the last clear image
+before the difference moves beyond the map's flag threshold and stays
+there for at least two images in a row, and the first one after. A dip
+that recovers on the very next image is called out as likely cloud shadow
+or haze rather than change. The per-image series exports as CSV.
+
 ### Data volume and timing
 
 Every request is a summary-statistics query — mean/std/image-count per year,
