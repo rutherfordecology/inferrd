@@ -61,6 +61,23 @@ there's an `inferrd` preview entry that does this automatically.)
    index decline alone can't distinguish dieback from drought, pests, or
    clearance
 
+### Change between two dates
+
+Section 4 maps the pixels that changed between a "before" and an "after"
+date, for checking a specific event such as reported clearance. Each date
+becomes a cloud-masked median of every clear image within a window around it
+(±15–60 days), and the two are subtracted pixel by pixel (NBR by default —
+the most responsive to bare ground). With "allow for area-wide change" on,
+each pixel's change is measured against the area's median change, so a
+season or drought that shifts every pixel together cancels out. A pixel is
+flagged when it differs from that by more than *k* × the area's robust spread
+(1.4826 × the median absolute deviation, which the outliers themselves can't
+inflate); *k* is the sensitivity slider. Changes under 0.05 are never
+flagged. Each area gets its own baseline, so draw it wider than the
+suspected clearance — if most of the area changed, that change becomes the
+"typical" one. The sidebar reports the flagged hectares and the number of
+clear images behind each date.
+
 ### Data volume and timing
 
 Every request is a summary-statistics query — mean/std/image-count per year,

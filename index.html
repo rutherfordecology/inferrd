@@ -287,6 +287,64 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="status-bar" id="statusBar"></div>
     </div>
 
+    <div class="sidebar-section" id="changeSection" style="display:none">
+      <div class="section-label">4 · Change between two dates</div>
+      <div class="field half">
+        <div>
+          <label for="changeBeforeDate">Before</label>
+          <input type="date" id="changeBeforeDate">
+        </div>
+        <div>
+          <label for="changeAfterDate">After</label>
+          <input type="date" id="changeAfterDate">
+        </div>
+      </div>
+      <div class="field half">
+        <div>
+          <label for="changeWindowSel">Window</label>
+          <select id="changeWindowSel">
+            <option value="15">± 15 days</option>
+            <option value="30" selected>± 30 days</option>
+            <option value="45">± 45 days</option>
+            <option value="60">± 60 days</option>
+          </select>
+        </div>
+        <div>
+          <label for="changeIndexSel">Index</label>
+          <select id="changeIndexSel">
+            <option value="NBR" selected>NBR</option>
+            <option value="NDVI">NDVI</option>
+            <option value="EVI">EVI</option>
+            <option value="NDMI">NDMI</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-hint">Each date becomes a cloud-masked median of every clear Sentinel-2 image within the window around it (using the cloud % from section 3), and the two are subtracted pixel by pixel. Pick dates at the same time of year so ordinary seasonal change doesn't dominate. NBR is the default here because it responds most strongly to bare ground and clearance.</div>
+      <div class="check-row">
+        <input type="checkbox" id="changeRelativeChk" checked>
+        <label for="changeRelativeChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Allow for area-wide change (season, drought)</label>
+      </div>
+      <div class="field" style="margin-top:6px;">
+        <label for="changeSensitivity">Flag pixels beyond</label>
+        <div class="range-row">
+          <input type="range" id="changeSensitivity" min="1.5" max="6" step="0.5" value="3">
+          <span class="range-val" id="changeSensitivityVal" style="min-width:78px;">3× typical</span>
+        </div>
+      </div>
+      <div class="field-hint">With "allow for area-wide change" on, each pixel's change is measured against what the area as a whole did (its median change), so a season or drought that shifts everything together cancels out and only pixels that changed differently from the rest are flagged. The slider sets how different: a pixel is flagged when it's more than that many times the area's typical spread of change (a robust spread that the outliers themselves can't inflate). Lower = more sensitive, more false alarms; higher = only the starkest changes. Changes under 0.05 are never flagged. Draw the area wider than the suspected clearance, taking in surrounding untouched vegetation — if most of the area was cleared, the clearance becomes the "typical" change. Turn the checkbox off to measure raw change from zero instead.</div>
+      <div class="check-row" style="margin-top:6px;">
+        <input type="checkbox" id="changeGainsChk">
+        <label for="changeGainsChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also show gains</label>
+      </div>
+      <button class="tool-btn" id="changeToggleBtn" type="button" style="width:100%;margin-top:8px;">Show change</button>
+      <div id="changeLegend" style="display:none;gap:12px;margin-top:6px;font-size:11px;color:var(--text2);">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#d7191c;border-radius:2px;margin-right:4px;vertical-align:-1px;"></span>Loss</span>
+        <span id="changeLegendGain"><span style="display:inline-block;width:10px;height:10px;background:#1a9641;border-radius:2px;margin-right:4px;vertical-align:-1px;"></span>Gain</span>
+      </div>
+      <div class="field-hint live-hint" id="changeStatus"></div>
+      <div class="field-hint live-hint" id="changeSummary"></div>
+    </div>
+
     <div class="sidebar-footer">
       <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy vegetation. NDVI stays available since it's the more common reference point in time-series work. NBR and NDMI use different bands (shortwave-infrared) to pick up burn/clearance and moisture stress respectively. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
     </div>
@@ -431,6 +489,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Why "no trend" doesn't always mean "nothing happened"</h3>
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
 
+    <h3>Change between two dates</h3>
+    <p>Section 4 maps which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
+
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
 
@@ -489,7 +550,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.10.2';
+const APP_VERSION = 'v0.11.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -567,7 +628,7 @@ document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
    Each static hint/note in the left column gets a chevron toggle. The
    open/closed choice is remembered per hint (localStorage is a
    convenience only — everything works without it). */
-document.querySelectorAll('.sidebar .field-hint:not(#layerStatus), .sidebar p.note').forEach((el, i) => {
+document.querySelectorAll('.sidebar .field-hint:not(#layerStatus):not(.live-hint), .sidebar p.note').forEach((el, i) => {
   const key = 'inferrd.hint.' + i;
   let collapsed = false;
   try { collapsed = localStorage.getItem(key) === '1'; } catch (e) {}
@@ -700,7 +761,9 @@ function renderAreaList() {
     ? 'Runs ~12x more sub-queries per area (one per month instead of one per year), so with ' + areas.length + ' areas that\'s a real wait — but it\'s the only way to see each area\'s seasonal wave and a real, location-specific natural-variability baseline.'
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
+  document.getElementById('changeSection').style.display = areas.length ? 'block' : 'none';
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
+  hideChangeLayers();
   updateRunEnabled();
 }
 
@@ -909,6 +972,185 @@ document.getElementById('layerToggleBtn').addEventListener('click', () => {
   layersHidden = !layersHidden;
   applyLayerOpacity();
 });
+
+/* ---------------------------------------------------------------------
+   Change between two dates — a median composite in a window around each
+   date, subtracted pixel by pixel. Optionally centred on the area's own
+   median change, so a season or drought that moves every pixel together
+   cancels out and only pixels that changed unlike the rest are flagged.
+   "Unlike" is measured in robust spreads (1.4826 × MAD, which the flagged
+   outliers can't inflate the way a standard deviation would). Each area
+   gets its own baseline.
+   --------------------------------------------------------------------- */
+const CHANGE_MIN_ABS = 0.05; // never flag a change smaller than this, however tight the spread
+const S2_SR_START = '2017-03-28';
+let changeLayers = [];
+let changeVisible = false;
+let changeRunId = 0; // bumped on every run/hide so stale callbacks drop out
+
+function isoDate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+(function initChangeDates() {
+  const after = new Date(); after.setDate(after.getDate() - 30);
+  const before = new Date(after); before.setFullYear(before.getFullYear() - 1);
+  const today = isoDate(new Date());
+  ['changeBeforeDate', 'changeAfterDate'].forEach(id => {
+    const el = document.getElementById(id);
+    el.min = S2_SR_START;
+    el.max = today;
+  });
+  document.getElementById('changeBeforeDate').value = isoDate(before);
+  document.getElementById('changeAfterDate').value = isoDate(after);
+})();
+
+const changeSensitivity = document.getElementById('changeSensitivity');
+changeSensitivity.addEventListener('input', () => {
+  document.getElementById('changeSensitivityVal').textContent = changeSensitivity.value + '× typical';
+});
+
+function windowCollection(region, dateStr, days, maxCloudPct, indexName) {
+  const d = ee.Date(dateStr);
+  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(region)
+    .filterDate(d.advance(-days, 'day'), d.advance(days + 1, 'day'))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .map(maskS2Clouds)
+    .map(addIndices)
+    .select(indexName);
+}
+
+function hideChangeLayers() {
+  changeRunId++;
+  changeLayers.forEach(l => map.removeLayer(l));
+  changeLayers = [];
+  changeVisible = false;
+  document.getElementById('changeToggleBtn').textContent = 'Show change';
+  document.getElementById('changeLegend').style.display = 'none';
+  document.getElementById('changeStatus').textContent = '';
+  document.getElementById('changeSummary').innerHTML = '';
+}
+
+function fmtHa(ha) { return ha < 10 ? ha.toFixed(2) : ha.toFixed(1); }
+
+function showChangeLayers() {
+  if (!eeReady) { setStatus('warning', 'Unlock with your access key first to map change.'); return; }
+  if (!areas.length) return;
+  const beforeDate = document.getElementById('changeBeforeDate').value;
+  const afterDate = document.getElementById('changeAfterDate').value;
+  const statusEl = document.getElementById('changeStatus');
+  hideChangeLayers();
+  if (!beforeDate || !afterDate || beforeDate >= afterDate) {
+    statusEl.textContent = 'Pick a "before" date earlier than the "after" date.';
+    return;
+  }
+  const runId = changeRunId;
+  changeVisible = true;
+  document.getElementById('changeToggleBtn').textContent = 'Hide change';
+
+  const days = Number(document.getElementById('changeWindowSel').value);
+  const indexName = document.getElementById('changeIndexSel').value;
+  const relative = document.getElementById('changeRelativeChk').checked;
+  const showGains = document.getElementById('changeGainsChk').checked;
+  const k = Number(changeSensitivity.value);
+  const cloudPct = Number(cloudThresh.value);
+
+  document.getElementById('changeLegend').style.display = 'flex';
+  document.getElementById('changeLegendGain').style.display = showGains ? '' : 'none';
+  statusEl.textContent = 'Computing change for ' + areas.length + (areas.length === 1 ? ' area…' : ' areas…');
+
+  const summaries = areas.map(a => ({ area: a, html: null }));
+  const renderSummaries = () => {
+    document.getElementById('changeSummary').innerHTML = summaries
+      .filter(s => s.html)
+      .map(s => '<div style="margin-top:4px;"><span class="area-swatch" style="display:inline-block;width:8px;height:8px;background:' + s.area.color + ';margin-right:5px;"></span><strong>' + s.area.name.replace(/</g, '&lt;') + ':</strong> ' + s.html + '</div>')
+      .join('');
+  };
+  let pending = areas.length;
+  const done = () => { if (--pending === 0 && runId === changeRunId) statusEl.textContent = ''; };
+
+  areas.forEach((area, i) => {
+    const region = ee.Geometry(area.geojson.geometry);
+    const beforeCol = windowCollection(region, beforeDate, days, cloudPct, indexName);
+    const afterCol = windowCollection(region, afterDate, days, cloudPct, indexName);
+    const nBefore = beforeCol.size(), nAfter = afterCol.size();
+    const diff = afterCol.median().subtract(beforeCol.median()).rename('d').clip(region);
+
+    // Step 1: image counts, plus the area's median change and robust spread
+    // (only computed when both windows actually have images — a band-less
+    // median would otherwise error).
+    const spreadStats = () => {
+      const med = ee.Number(diff.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, scale: 10, maxPixels: 1e9 }).get('d'));
+      const mad = ee.Number(diff.subtract(med).abs().reduceRegion({ reducer: ee.Reducer.median(), geometry: region, scale: 10, maxPixels: 1e9 }).get('d'));
+      return ee.Dictionary({ med: med, mad: mad });
+    };
+    ee.Dictionary({ nBefore: nBefore, nAfter: nAfter })
+      .combine(ee.Dictionary(ee.Algorithms.If(nBefore.gt(0).and(nAfter.gt(0)), spreadStats(), ee.Dictionary({}))))
+      .evaluate((s, err) => {
+        if (runId !== changeRunId) return;
+        if (err || !s) {
+          summaries[i].html = 'failed: ' + err;
+          renderSummaries(); done(); return;
+        }
+        const counts = s.nBefore + ' clear image' + (s.nBefore === 1 ? '' : 's') + ' before, ' + s.nAfter + ' after';
+        if (!s.nBefore || !s.nAfter || s.med == null || s.mad == null) {
+          summaries[i].html = 'not enough clear imagery (' + counts + ') — widen the window or raise the cloud %.';
+          renderSummaries(); done(); return;
+        }
+
+        // Step 2: classify with the numbers from step 1, then map it and
+        // total up the flagged area.
+        const centre = relative ? s.med : 0;
+        const sigma = Math.max(1.4826 * s.mad, 1e-6);
+        const resid = diff.subtract(centre);
+        const z = resid.divide(sigma);
+        const loss = z.lte(-k).and(resid.lte(-CHANGE_MIN_ABS));
+        const gain = z.gte(k).and(resid.gte(CHANGE_MIN_ABS));
+        let cls = ee.Image(0).where(loss, 1);
+        if (showGains) cls = cls.where(gain, 2);
+        cls = cls.updateMask(cls.gt(0)).clip(region);
+
+        cls.getMapId({ min: 1, max: 2, palette: ['d7191c', '1a9641'] }, (mapId, mapErr) => {
+          if (runId !== changeRunId) return;
+          if (mapErr) {
+            summaries[i].html = 'map failed: ' + mapErr;
+            renderSummaries();
+            return;
+          }
+          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.9, maxZoom: 20 });
+          layer.addTo(map);
+          changeLayers.push(layer);
+          drawnItems.bringToFront();
+        });
+
+        const ha = ee.Image.pixelArea().divide(10000);
+        ee.Image.cat(
+          ha.updateMask(loss).rename('loss'),
+          ha.updateMask(gain).rename('gain'),
+          ha.updateMask(diff.mask()).rename('valid')
+        ).reduceRegion({ reducer: ee.Reducer.sum(), geometry: region, scale: 10, maxPixels: 1e9 })
+          .evaluate((sums, sumErr) => {
+            if (runId !== changeRunId) return;
+            if (sumErr || !sums) {
+              summaries[i].html = counts + '; area totals failed: ' + sumErr;
+            } else {
+              const pct = (v) => sums.valid ? ' (' + (100 * v / sums.valid).toFixed(1) + '%)' : '';
+              summaries[i].html =
+                fmtHa(sums.loss || 0) + ' ha flagged as loss' + pct(sums.loss || 0) +
+                (showGains ? ', ' + fmtHa(sums.gain || 0) + ' ha gain' + pct(sums.gain || 0) : '') +
+                '. ' + counts + '.' +
+                (relative ? ' Area-wide change ' + (s.med >= 0 ? '+' : '') + s.med.toFixed(3) + ' ' + indexName + ', typical spread ±' + sigma.toFixed(3) + '.' : ' Typical spread ±' + sigma.toFixed(3) + ' ' + indexName + '.');
+            }
+            renderSummaries(); done();
+          });
+      });
+  });
+}
+
+document.getElementById('changeToggleBtn').addEventListener('click', () => {
+  if (changeVisible) hideChangeLayers(); else showChangeLayers();
+});
+// Any setting change makes the flagged pixels stale — rerun if showing.
+['changeBeforeDate', 'changeAfterDate', 'changeWindowSel', 'changeIndexSel', 'changeRelativeChk', 'changeGainsChk', 'changeSensitivity', 'cloudThresh']
+  .forEach(id => document.getElementById(id).addEventListener('change', () => { if (changeVisible) showChangeLayers(); }));
 
 map.on(L.Draw.Event.CREATED, (e) => {
   // Colour keyed off the permanent, ever-incrementing id — not

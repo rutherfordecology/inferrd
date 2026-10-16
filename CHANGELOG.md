@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.11.0 — 2026-10-16
+
+- **Added "Change between two dates"** (sidebar section 4, shown once an
+  area is drawn). Pick a before and after date and a window around each;
+  inferrd. builds a cloud-masked median for each and maps the pixels whose
+  index changed significantly — red for loss, optionally green for gain —
+  with the flagged hectares and clear-image counts per area. NBR by default.
+- **"Allow for area-wide change"** (on by default) measures each pixel
+  against the area's own median change, so a season or drought that shifts
+  every pixel together cancels out and only pixels that changed unlike the
+  rest are flagged. A sensitivity slider sets how far out (1.5–6 × the
+  area's robust spread, from the median absolute deviation); changes under
+  0.05 are never flagged.
+
 ## v0.10.2 — 2026-10-16
 
 - **Fixed the map preview (Show) failing since v0.10.0.** The service
