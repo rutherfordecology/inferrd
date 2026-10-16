@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.13.0 — 2026-10-16
+
+- **Choose what you want to see first.** A new section 3 asks whether you
+  want a **trend over years** (graphs of the index year by year, with the
+  trend tests) or **change between two dates** (a map of where vegetation
+  increased or decreased). Section 4 then shows only that mode's settings,
+  ending in its own button — Run analysis or Show change — so it's clear
+  which one you're running. The cloud-cover limit is shared by both and
+  sits at the top of section 4.
+- Switching mode removes the other mode's map layers (the index preview or
+  the change map). Results already in the results pane stay until you run
+  something new. The last mode you used is remembered on this device.
+- Show change is greyed out until you've unlocked and drawn an area, like
+  Run analysis, instead of the whole section staying hidden.
+
 ## v0.12.0 — 2026-10-16
 
 - **"When did this change?"** With the change map showing, click a flagged

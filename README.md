@@ -42,28 +42,33 @@ there's an `inferrd` preview entry that does this automatically.)
 ## How it works
 
 1. Draw your area of interest on the map (polygon or rectangle tool)
-2. Choose a start/end year, an optional season window (month range, repeats
+2. In section 3, pick what you want to see: **Trend over years** (the
+   graphs and trend tests described here) or **Change between two dates**
+   (a map of where vegetation increased or decreased, described below).
+   Section 4 then shows only that mode's settings and its own button
+3. For a trend, choose a start/end year, an optional season window (month range, repeats
    every year — see below), a max scene cloud-cover threshold, and an index
    (EVI, NDVI, NBR or NDMI)
-3. For each year, inferrd. builds a cloud-masked median composite from
+4. For each year, inferrd. builds a cloud-masked median composite from
    Sentinel-2 Level-2A surface reflectance (`COPERNICUS/S2_SR_HARMONIZED`) —
    atmospherically corrected via Sen2Cor, not raw top-of-atmosphere imagery,
    to avoid false "change" from atmospheric differences between dates.
    Cloud/shadow/cirrus/defective pixels are dropped using the Scene
    Classification Layer (SCL) band
-4. The per-year mean is run through: OLS linear slope (reference only),
+5. The per-year mean is run through: OLS linear slope (reference only),
    a Mann-Kendall trend test (non-parametric — doesn't assume normality,
    the standard choice for short/noisy environmental time series), and
    Sen's slope estimator (median of all pairwise slopes — robust to
    outliers)
-5. Results include a plain-English interpretation flagging statistical
+6. Results include a plain-English interpretation flagging statistical
    significance, low-data-quality years, and a caveat that a vegetation
    index decline alone can't distinguish dieback from drought, pests, or
    clearance
 
 ### Change between two dates
 
-Section 4 maps the pixels that changed between a "before" and an "after"
+With **Change between two dates** chosen in section 3, inferrd. maps the
+pixels that changed between a "before" and an "after"
 date, for checking a specific event such as reported clearance. Each date
 becomes a cloud-masked median of every clear image within a window around it
 (±15–60 days), and the two are subtracted pixel by pixel (NBR by default —

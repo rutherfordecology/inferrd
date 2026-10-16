@@ -82,6 +82,13 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .tool-btn.previewing { box-shadow: 0 0 0 2px #000; }
 .tool-btn:hover:not(.active) { background: var(--border); }
 
+.mode-row { display: flex; flex-direction: column; gap: 6px; }
+.mode-btn { display: flex; flex-direction: column; gap: 2px; text-align: left; padding: 9px 11px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2); color: var(--text); cursor: pointer; font-family: var(--font-sans); transition: all 0.12s; }
+.mode-btn:hover:not(.active) { background: var(--border); }
+.mode-btn.active { background: var(--orange-light); border-color: var(--orange-dark); box-shadow: inset 3px 0 0 var(--orange-dark); }
+.mode-name { font-size: 13px; font-weight: 600; }
+.mode-btn.active .mode-name { color: var(--orange-dark); }
+.mode-desc { font-size: 11.5px; color: var(--text2); line-height: 1.4; }
 .change-legend-row { display: flex; align-items: center; gap: 4px; }
 .change-legend-label { width: 34px; flex-shrink: 0; }
 .change-legend-row .sw { flex: 1; height: 10px; border-radius: 2px; }
@@ -223,7 +230,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
     </div>
 
     <div class="sidebar-section">
-      <div class="section-label">3 · Analysis settings</div>
+      <div class="section-label">3 · What do you want to see?</div>
+      <div class="mode-row" role="radiogroup" aria-label="Analysis type">
+        <button class="mode-btn active" id="modeTrend" data-mode="trend" type="button" role="radio" aria-checked="true">
+          <span class="mode-name">Trend over years</span>
+          <span class="mode-desc">Graphs of the index year by year, with a trend test</span>
+        </button>
+        <button class="mode-btn" id="modeChange" data-mode="change" type="button" role="radio" aria-checked="false">
+          <span class="mode-name">Change between two dates</span>
+          <span class="mode-desc">A map of where vegetation increased or decreased</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="section-label" id="settingsLabel">4 · Trend settings</div>
+      <div class="field">
+        <label>Max scene cloud %</label>
+        <div class="range-row">
+          <input type="range" id="cloudThresh" min="0" max="80" step="5" value="20">
+          <span class="range-val" id="cloudThreshVal">20%</span>
+        </div>
+        <div class="field-hint">Lower is stricter. 20% or below is recommended for reliable composites — raise it only if too few clear images come back.</div>
+      </div>
+      <div id="trendSettings">
       <div class="field half">
         <div>
           <label>Start year</label>
@@ -241,14 +271,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <select id="seasonEndMonth"></select>
         </div>
         <div class="field-hint">Default is the full year. Narrowing this to the same months each year (e.g. your peak growing season) stops a wetter or cloudier season in one year from being compared against a different season in another — Sentinel-2 revisits every ~5 days, but how many of those are usably cloud-free varies a lot by season.</div>
-      </div>
-      <div class="field">
-        <label>Max scene cloud %</label>
-        <div class="range-row">
-          <input type="range" id="cloudThresh" min="0" max="80" step="5" value="20">
-          <span class="range-val" id="cloudThreshVal">20%</span>
-        </div>
-        <div class="field-hint">Lower is stricter. 20% or below is recommended for reliable composites — raise it only if the per-year image counts below come back too low.</div>
       </div>
       <div class="field">
         <label>Index</label>
@@ -289,11 +311,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="field-hint" id="monthlyHint">Runs ~12x more sub-queries (one per month instead of one per year, per area), so it's slower — but it's the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area's index normally fluctuate."</div>
 
       <button class="run-btn" id="runBtn" disabled>Run analysis</button>
-      <div class="status-bar" id="statusBar"></div>
-    </div>
+      </div>
 
-    <div class="sidebar-section" id="changeSection" style="display:none">
-      <div class="section-label">4 · Change between two dates</div>
+      <div id="changeSettings" hidden>
       <div class="field half">
         <div>
           <label for="changeBeforeDate">Before</label>
@@ -324,7 +344,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">Each date becomes a cloud-masked median of every clear Sentinel-2 image within the window around it (using the cloud % from section 3), and the two are subtracted pixel by pixel. Pick dates at the same time of year so ordinary seasonal change doesn't dominate. NBR is the default here because it responds most strongly to bare ground and clearance.</div>
+      <div class="field-hint">Each date becomes a cloud-masked median of every clear Sentinel-2 image within the window around it (using the cloud % above), and the two are subtracted pixel by pixel. Pick dates at the same time of year so ordinary seasonal change doesn't dominate. NBR is the default here because it responds most strongly to bare ground and clearance.</div>
       <div class="check-row">
         <input type="checkbox" id="changeRelativeChk" checked>
         <label for="changeRelativeChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Allow for area-wide change (season, drought)</label>
@@ -341,7 +361,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <input type="checkbox" id="changeGainsChk">
         <label for="changeGainsChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Also show gains</label>
       </div>
-      <button class="tool-btn" id="changeToggleBtn" type="button" style="width:100%;margin-top:8px;">Show change</button>
+      <button class="run-btn" id="changeToggleBtn" type="button" disabled>Show change</button>
       <div id="changeLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
         <div class="change-legend-row"><span class="change-legend-label">Loss</span><span class="sw" style="background:#fcae91"></span><span class="sw" style="background:#fb6a4a"></span><span class="sw" style="background:#cb181d"></span></div>
         <div class="change-legend-row" id="changeLegendGain"><span class="change-legend-label">Gain</span><span class="sw" style="background:#c7e9c0"></span><span class="sw" style="background:#74c476"></span><span class="sw" style="background:#238b45"></span></div>
@@ -353,6 +373,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, severe over 0.3 (measured from the area-wide change when that's on). The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a severe NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
       <div class="field-hint live-hint" id="changeStatus"></div>
       <div class="field-hint live-hint" id="changeSummary"></div>
+      </div>
+      <div class="status-bar" id="statusBar"></div>
     </div>
 
     <div class="sidebar-footer">
@@ -511,7 +533,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>How it works</h3>
     <ul>
       <li>Draw your area of interest on the map</li>
-      <li>Choose a year range, an optional season window, a cloud-cover threshold, and an index (EVI, NDVI, NBR or NDMI)</li>
+      <li>Pick what you want to see: a trend over years (graphs of the index year by year) or change between two dates (a map of where vegetation increased or decreased, described below)</li>
+      <li>For a trend, choose a year range, an optional season window, a cloud-cover threshold, and an index (EVI, NDVI, NBR or NDMI)</li>
       <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels. The index itself is computed at Sentinel-2's native 10m resolution; the cloud mask comes from the 20m Scene Classification Layer, resampled by Earth Engine to align — completely standard practice, but it means cloud/shadow edges are effectively decided at a coarser resolution than the index itself</li>
       <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
     </ul>
@@ -526,7 +549,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
 
     <h3>Change between two dates</h3>
-    <p>Section 4 maps which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
+    <p>Choose "Change between two dates" in section 3 to map which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
     <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
@@ -587,7 +610,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.12.0';
+const APP_VERSION = 'v0.13.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -798,7 +821,6 @@ function renderAreaList() {
     ? 'Runs ~12x more sub-queries per area (one per month instead of one per year), so with ' + areas.length + ' areas that\'s a real wait — but it\'s the only way to see each area\'s seasonal wave and a real, location-specific natural-variability baseline.'
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
-  document.getElementById('changeSection').style.display = areas.length ? 'block' : 'none';
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   updateRunEnabled();
@@ -1239,8 +1261,31 @@ function showChangeLayers() {
   });
 }
 
+/* ── Mode: trend over years, or change between two dates ─────────────
+   The two are separate jobs with their own settings and map layers, so
+   only one set of settings shows at a time. Switching drops the other
+   mode's map layers; results already in the results pane stay put. */
+let analysisMode = 'trend';
+const modeButtons = [document.getElementById('modeTrend'), document.getElementById('modeChange')];
+function setAnalysisMode(mode) {
+  analysisMode = mode;
+  modeButtons.forEach(b => {
+    const on = b.dataset.mode === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  document.getElementById('trendSettings').hidden = mode !== 'trend';
+  document.getElementById('changeSettings').hidden = mode !== 'change';
+  document.getElementById('settingsLabel').textContent = mode === 'trend' ? '4 · Trend settings' : '4 · Change settings';
+  if (mode === 'trend') hideChangeLayers(); else hideIndexLayers();
+  updateRunEnabled();
+  try { localStorage.setItem('inferrd.mode', mode); } catch (e) {}
+}
+modeButtons.forEach(b => b.addEventListener('click', () => { if (b.dataset.mode !== analysisMode) setAnalysisMode(b.dataset.mode); }));
+
 document.getElementById('changeToggleBtn').addEventListener('click', () => {
   if (changeVisible) hideChangeLayers(); else showChangeLayers();
+  updateRunEnabled();
 });
 // Any setting change makes the flagged pixels stale — rerun if showing.
 ['changeBeforeDate', 'changeAfterDate', 'changeWindowSel', 'changeIndexSel', 'changeRelativeChk', 'changeGainsChk', 'changeSensitivity', 'cloudThresh']
@@ -1655,6 +1700,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
   });
 });
 renderAreaList();
+try { if (localStorage.getItem('inferrd.mode') === 'change') setAnalysisMode('change'); } catch (e) {}
 
 /* ---------------------------------------------------------------------
    Earth Engine auth — an access key is swapped (via the inferrd-auth
@@ -1663,7 +1709,9 @@ renderAreaList();
    ever holds the ~1 hour token. See worker/README.md.
    --------------------------------------------------------------------- */
 function updateRunEnabled() {
-  document.getElementById('runBtn').disabled = !(eeReady && areas.length > 0);
+  const ready = eeReady && areas.length > 0;
+  document.getElementById('runBtn').disabled = !ready;
+  document.getElementById('changeToggleBtn').disabled = !ready && !changeVisible;
 }
 
 function eeLog(stage, detail) {
