@@ -464,11 +464,32 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <div class="field half">
+        <div>
+          <label for="condCanopyK">Canopy decline beyond</label>
+          <select id="condCanopyK">
+            <option value="1.5">1.5× typical</option>
+            <option value="2" selected>2× typical</option>
+            <option value="2.5">2.5× typical</option>
+            <option value="3">3× typical</option>
+          </select>
+        </div>
+        <div>
+          <label for="condCanopyFloor">and at least</label>
+          <select id="condCanopyFloor">
+            <option value="0.05">0.05 NDMI</option>
+            <option value="0.08" selected>0.08 NDMI</option>
+            <option value="0.1">0.10 NDMI</option>
+            <option value="0.15">0.15 NDMI</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Canopy decline compares canopy moisture (NDMI) in the last two years with the first years, in dense canopy only, with its own, gentler tolerance: dying canopy loses leaf water well before it loses its green. Draw or pick an area that includes plenty of unchanged vegetation.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
         <div class="change-legend-row"><span class="sw" style="background:#cb181d;flex:0 0 14px;"></span>S · sudden drop (possible clearance or damage)</div>
         <div class="change-legend-row"><span class="sw" style="background:#7b4fa0;flex:0 0 14px;"></span>R · dropped and recovered (possible storm or slip damage, regrown)</div>
+        <div class="change-legend-row"><span class="sw" style="background:#8a5a12;flex:0 0 14px;"></span>C · canopy decline (canopy losing leaf water; possible dieback)</div>
         <div class="change-legend-row"><span class="sw" style="background:#e08214;flex:0 0 14px;"></span>D · slow decline (possible poor forest health)</div>
         <div class="change-legend-row"><span class="sw" style="background:#238b45;flex:0 0 14px;"></span>G · gain (regrowth or recovery)</div>
       </div>
@@ -1429,10 +1450,21 @@ function showChangeLayers() {
 const COND_BASELINE_DAYS = 180;
 const COND_PAST_STEP_SHARE = 0.6; // a decline counts as a past sudden drop when one year's step is this share of it
 const COND_MAX_SPOTS = 300;
-const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', slow_decline: '#e08214', gain: '#238b45' };
-const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', slow_decline: 'D', gain: 'G' };
-const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', slow_decline: 'Slow decline', gain: 'Gain' };
+const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', canopy_decline: '#8a5a12', slow_decline: '#e08214', gain: '#238b45' };
+const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', canopy_decline: 'C', slow_decline: 'D', gain: 'G' };
+const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', canopy_decline: 'Canopy decline', slow_decline: 'Slow decline', gain: 'Gain' };
 const COND_RECOVER_SHARE = 0.5; // a drop counts as recovered once this share of it has grown back by the last year
+// Canopy decline: canopy moisture (NDMI) in the last two years of the
+// period against the first years (up to four, never overlapping), in
+// dense canopy only (NDVI 0.8 or more in the first years). Tuned on two
+// dieback patches at Riverside Road (WR63) after Cyclone Gabrielle: they
+// lost leaf water while greenness barely moved.
+const COND_CANOPY_INDEX = 'NDMI';
+const COND_DENSE_NDVI = 0.8;
+function condCanopyWindows(years) {
+  const n = years.length, post = years.slice(-2), pre = years.slice(0, Math.min(4, n - 2));
+  return { pre, post, label: (a) => a.length > 1 ? a[0] + '–' + a[a.length - 1] : String(a[0]) };
+}
 let conditionLayer = null;
 let conditionRunning = false;
 let conditionRunId = 0;
@@ -1525,6 +1557,22 @@ function conditionImages(region, proj, s) {
   const dropRec = bigRel.select('q').gte(s.floor).and(bigRel.select('q').gte(sigmaS.multiply(s.k)))
     .and(dropAmt.gte(s.floor)).and(recov.gte(COND_RECOVER_SHARE));
 
+  // ── Canopy decline (see COND_CANOPY_INDEX) ──
+  const win = condCanopyWindows(s.years);
+  const canopyCol = (ys) => ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(region)
+    .filterDate(ys[0] + '-01-01', (ys[ys.length - 1] + 1) + '-01-01')
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', s.cloudPct)).map(maskS2Clouds).map(addIndices).select([COND_CANOPY_INDEX, 'NDVI']);
+  const preC = canopyCol(win.pre), postC = canopyCol(win.post);
+  const cNames = [COND_CANOPY_INDEX, 'NDVI'];
+  const preM = ee.Image(ee.Algorithms.If(preC.size().gt(0), preC.median(), eeMaskedConst(cNames)));
+  const postM = ee.Image(ee.Algorithms.If(postC.size().gt(0), postC.median(), eeMaskedConst(cNames)));
+  const dense = preM.select('NDVI').gte(COND_DENSE_NDVI);
+  const dC = postM.select(COND_CANOPY_INDEX).subtract(preM.select(COND_CANOPY_INDEX)).updateMask(dense).clip(region);
+  const medC = eeAreaMedian(dC, region, proj);
+  const sigmaC = eeAreaMedian(dC.subtract(medC).abs(), region, proj).multiply(1.4826).max(1e-6);
+  const relC = s.relative ? dC.subtract(medC) : dC;
+  const canopy = relC.lte(sigmaC.multiply(-s.canopyK)).and(relC.lte(-s.canopyFloor));
+
   // ── Recent sudden drops ──
   const today = ee.Date(s.today);
   const scanStart = today.advance(-s.lookback, 'day');
@@ -1554,12 +1602,13 @@ function conditionImages(region, proj, s) {
   })(), ee.Image.constant([0, 0, 0, 0, 0, 0]).rename(recentNames).updateMask(ee.Image.constant(0)).set('sigmaR', 0)));
   const rFlag = recent.select('rFlag').unmask(0);
 
-  // ── Classes: 1 recent sudden, 2 older sudden, 5 dropped and recovered,
-  // 3 slow decline, 4 gain (later wins) ──
+  // ── Classes: 1 recent sudden, 2 older sudden, 6 canopy decline,
+  // 5 dropped and recovered, 3 slow decline, 4 gain (later wins) ──
   let cls = ee.Image(0)
     .where(slow.gain.unmask(0), 4)
     .where(slow.loss.unmask(0), 3)
     .where(dropRec.unmask(0), 5)
+    .where(canopy.unmask(0), 6)
     .where(pastSudden.unmask(0), 2)
     .where(rFlag, 1);
   cls = cls.updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
@@ -1567,12 +1616,13 @@ function conditionImages(region, proj, s) {
     .where(cls.eq(4), slow.resid)
     .where(cls.eq(3), slow.resid.multiply(-1))
     .where(cls.eq(5), bigRel.select('q'))
+    .where(cls.eq(6), relC.multiply(-1))
     .where(cls.eq(2), maxDrop)
     .where(cls.eq(1), recent.select('rMag'))
     .rename('mag');
   const yr = biggest.select('yr').where(cls.eq(5), bigRel.select('yr')).rename('yr');
   const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), yr, nYears, recov]);
-  return { cls, stats, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
+  return { cls, stats, medT, sigmaT, medC, sigmaC, nPreC: preC.size(), nPostC: postC.size(), sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
 }
 
 function runCondition() {
@@ -1598,7 +1648,9 @@ function runCondition() {
     minHa: Number(document.getElementById('condMinHa').value),
     cloudPct: Number(cloudThresh.value),
     today: isoDate(new Date()),
-    relative: document.getElementById('condRelativeChk').checked
+    relative: document.getElementById('condRelativeChk').checked,
+    canopyK: Number(document.getElementById('condCanopyK').value),
+    canopyFloor: Number(document.getElementById('condCanopyFloor').value)
   };
   hideConditionLayers();
   const runId = conditionRunId;
@@ -1667,7 +1719,7 @@ function runCondition() {
       spotFc = res; both();
     });
     ee.Dictionary({
-      medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR,
+      medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, medC: c.medC, sigmaC: c.sigmaC, nPreC: c.nPreC, nPostC: c.nPostC,
       nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd')
     }).evaluate((res, err) => {
       if (err) { failed = failed || err; return finish(); }
@@ -1747,10 +1799,11 @@ function conditionTrend(rows, series) {
 
 function showConditionResults(area, s, trendRows, res, series) {
   const trend = conditionTrend(trendRows, series);
-  const counters = { S: 0, R: 0, D: 0, G: 0 };
+  const counters = { S: 0, R: 0, C: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
     const p = f.properties;
-    const kind = p.cls === 5 ? 'dropped_recovered' : p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
+    const kind = p.cls === 6 ? 'canopy_decline' : p.cls === 5 ? 'dropped_recovered' : p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
+    const cw = condCanopyWindows(s.years);
     const dated = kind === 'sudden_drop' || kind === 'dropped_recovered';
     const prefix = COND_PREFIX[kind];
     const recent = p.cls === 1;
@@ -1759,11 +1812,11 @@ function showConditionResults(area, s, trendRows, res, series) {
       severity: gradeOf(Math.abs(p.mag || 0)),
       area_ha: +(p.count / 100).toFixed(2),
       lat: +p.centroid[1].toFixed(6), lon: +p.centroid[0].toFixed(6),
-      date_before: !dated ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
-      date_after: !dated ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
+      date_before: kind === 'canopy_decline' ? cw.label(cw.pre) : !dated ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
+      date_after: kind === 'canopy_decline' ? cw.label(cw.post) : !dated ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
       recovered_share: kind === 'dropped_recovered' && p.recov != null ? +p.recov.toFixed(2) : null,
       change: +(kind === 'gain' ? 1 : -1) * Math.abs(p.mag || 0),
-      index: kind === 'sudden_drop' && recent ? s.dropIndex : s.trendIndex,
+      index: kind === 'canopy_decline' ? COND_CANOPY_INDEX : kind === 'sudden_drop' && recent ? s.dropIndex : s.trendIndex,
       clear_images: recent ? p.nClear : null,
       years_with_data: recent ? null : p.nYears,
       low_confidence: recent ? (p.nDown < 2 || p.nClear < 3) : (p.nYears < 0.8 * s.years.length)
@@ -1772,10 +1825,10 @@ function showConditionResults(area, s, trendRows, res, series) {
     return { spot, geometry: f.geometry, prefix };
   });
   // Number within each kind, biggest first.
-  ['S', 'R', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
+  ['S', 'R', 'C', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
     .sort((a, b) => b.spot.area_ha - a.spot.area_ha)
     .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
-  features.sort((a, b) => 'SRDG'.indexOf(a.prefix) - 'SRDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
+  features.sort((a, b) => 'SRCDG'.indexOf(a.prefix) - 'SRCDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
 
   lastCondition = { area, s, trendRows, series, trend, spots: features, res, runAt: new Date().toISOString() };
 
@@ -1800,6 +1853,7 @@ function showConditionResults(area, s, trendRows, res, series) {
     metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
     metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
     metric('Dropped & recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
+    metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
     metric('Gains', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
@@ -2005,7 +2059,11 @@ function conditionMapPng(c) {
 const CHIP_MAX_SPOTS = 12;
 const CHIP_RENDERS = [
   { key: 'tc', name: 'Natural colour', bands: ['B4', 'B3', 'B2'], vis: { min: 0, max: 0.25, gamma: 1.3 } }, // maskS2Clouds scales reflectance to 0-1
-  { key: 'ir', name: 'Infrared (healthy vegetation red)', bands: ['B8', 'B4', 'B3'], vis: { min: 0, max: [0.45, 0.25, 0.25], gamma: 1.2 } }
+  { key: 'ir', name: 'Infrared (healthy vegetation red)', bands: ['B8', 'B4', 'B3'], vis: { min: 0, max: [0.45, 0.25, 0.25], gamma: 1.2 } },
+  // Shortwave infrared, near-infrared, red: leafy, well-watered canopy is
+  // green; canopy losing leaf water or with dead leaves turns olive to
+  // brown or pink; bare ground and slips are pink to mauve.
+  { key: 'sw', name: 'Shortwave infrared (drying canopy brown)', bands: ['B11', 'B8', 'B4'], vis: { min: 0, max: [0.3, 0.45, 0.15], gamma: 1.2 } }
 ];
 
 // Stitches XYZ tiles for a lon/lat box onto a canvas, at the largest zoom
@@ -2057,6 +2115,10 @@ function chipPeriods(sp, c) {
     return [{ label: 'Before (' + isoDate(bStart) + ' to ' + c.res.scanStart + ')', start: isoDate(bStart), end: c.res.scanStart },
       { label: 'After (' + c.res.scanStart + ' to ' + c.s.today + ')', start: c.res.scanStart, end: c.s.today }];
   }
+  if (sp.kind === 'canopy_decline') {
+    const w = condCanopyWindows(c.s.years);
+    return [year(w.pre[w.pre.length - 1]), year(y1)];
+  }
   if (sp.kind === 'sudden_drop' || sp.kind === 'dropped_recovered') {
     const a = Number(sp.date_before), b = Number(sp.date_after);
     return b < y1 ? [year(a), year(b), year(y1)] : [year(a), year(b)];
@@ -2081,7 +2143,7 @@ function chipPanel(title, periods, rows) {
     row.forEach((chip, pi) => {
       const x = pi * (cw + gap);
       g.fillStyle = '#333'; g.font = Math.round(12 * k) + 'px sans-serif';
-      g.fillText((ri ? 'Infrared' : 'Natural colour') + ' · ' + periods[pi].label, x, top + Math.round(10 * k), cw);
+      g.fillText(['Natural colour', 'Infrared', 'Shortwave infrared'][ri] + ' · ' + periods[pi].label, x, top + Math.round(10 * k), cw);
       g.drawImage(chip, x, top + rowHead);
     });
   });
@@ -2166,6 +2228,7 @@ const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', severe: 'stron
 const SPOT_MAY_BE = {
   sudden_drop: 'clearance, a slip, windthrow or fire',
   dropped_recovered: 'storm damage, a slip or windthrow that has since regrown',
+  canopy_decline: 'dieback after waterlogging, drought or disease',
   slow_decline: 'dieback, browsing, drought stress or weed invasion',
   gain: 'regrowth or recovery'
 };
@@ -2282,14 +2345,14 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
   }
   para(trendSentence);
-  const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), dc = ofKind('slow_decline'), gn = ofKind('gain');
-  const visit = sd.length + dc.length;
+  const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), cd = ofKind('canopy_decline'), dc = ofKind('slow_decline'), gn = ofKind('gain');
+  const visit = sd.length + cd.length + dc.length;
   para(spots.length
     ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
-      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + rc.length + ' dropped and recovered (' + ha(haSum(rc)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
+      sd.length + ' sudden drop' + (sd.length === 1 ? '' : 's') + ' (' + ha(haSum(sd)) + ' ha), ' + rc.length + ' dropped and recovered (' + ha(haSum(rc)) + ' ha), ' + cd.length + ' canopy decline (' + ha(haSum(cd)) + ' ha), ' + dc.length + ' slow decline (' + ha(haSum(dc)) + ' ha) and ' + gn.length + ' gain' + (gn.length === 1 ? '' : 's') + ' (' + ha(haSum(gn)) + ' ha).'
     : 'No spots of change were found inside the area with the settings used (Appendix A).');
   para((visit
-    ? 'Recommended: visit the ' + visit + ' sudden-drop and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
+    ? 'Recommended: visit the ' + visit + ' sudden-drop, canopy-decline and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
     : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
     (rc.length ? ' At the next visit, check what has grown back on the ' + rc.length + ' dropped-and-recovered spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
     (gn.length ? ' Gains need no visit.' : ''), { after: 6 });
@@ -2318,8 +2381,9 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     : sp.recent ? 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after) : 'between ' + sp.date_before + ' and ' + sp.date_after;
   const sections = [['3.1  Sudden drops: possible clearance or damage', 'sudden_drop', 'No sudden drops were found.'],
     ['3.2  Dropped and recovered: possible storm or slip damage that has grown back', 'dropped_recovered', 'No spots dropped and then grew back.'],
-    ['3.3  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
-    ['3.4  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
+    ['3.3  Canopy decline: canopy losing leaf water, possible dieback', 'canopy_decline', 'No canopy decline was found.'],
+    ['3.4  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
+    ['3.5  Gains: regrowth or recovery', 'gain', 'No gains were found.']];
   sections.forEach(([title, kind, none], si) => {
     heading(title, 11);
     const list = ofKind(kind);
@@ -2350,6 +2414,8 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its adjusted images, with a 95% confidence interval (t distribution). Mann-Kendall test on the yearly values p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less the area\'s median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
   para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
+  const cwin = condCanopyWindows(c.s.years);
+  para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): the median of ' + cwin.label(cwin.post) + ' (' + (c.res.nPostC || 0) + ' images) against ' + cwin.label(cwin.pre) + ' (' + (c.res.nPreC || 0) + ' images), in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in ' + cwin.label(cwin.pre) + '), ' + (c.s.relative ? 'measured against the area\'s median change (' + (c.res.medC || 0).toFixed(3) + ')' : 'measured from zero') + '. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times the typical spread (' + (c.res.sigmaC || 0).toFixed(3) + '). It measures water in the leaves, not in the soil.', { size: 9.5 });
   para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against the area\'s median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
@@ -2366,7 +2432,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   if (panels && panels.length) {
     newPage();
     heading('Appendix B  Satellite images', 14);
-    para('Sentinel-2 images of the whole area and of each sudden-drop and slow-decline spot, before and after the change. Each image is the median of the clear images in that period, so passing cloud and shadow are removed; grey means every image in the period was cloudy there. In the infrared images (near-infrared shown as red), healthy leafy canopy is bright red; damaged or thinned canopy is duller, and bare ground, slips and slash show grey-green or brown. Pixels are 10 m, so single trees are not visible.', { size: 9.5, after: 5 });
+    para('Sentinel-2 images of the whole area and of each spot to visit, before and after the change. Each image is the median of the clear images in that period, so passing cloud and shadow are removed; grey means every image in the period was cloudy there. In the infrared images (near-infrared shown as red), healthy leafy canopy is bright red; damaged or thinned canopy is duller, and bare ground, slips and slash show grey-green or brown. In the shortwave-infrared images, leafy, well-watered canopy is green; canopy losing leaf water or carrying dead leaves turns olive to brown, and bare ground pink. Pixels are 10 m, so single trees are not visible.', { size: 9.5, after: 5 });
     for (const pn of panels) {
       await image(pn.blob, pn.id === 'area' ? 150 : 110, 'Figure B' + (panels.indexOf(pn) + 1) + '. ' + pn.title + (pn.id === 'area' ? ' (white outline).' : ' (yellow outline).'));
     }
@@ -2416,7 +2482,8 @@ async function exportCondition() {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
         drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
-        past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE, area_wide_change_allowed_for: c.s.relative,
+        past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE,
+        canopy: { index: COND_CANOPY_INDEX, before_years: condCanopyWindows(c.s.years).pre, after_years: condCanopyWindows(c.s.years).post, dense_ndvi: COND_DENSE_NDVI, spread_multiplier: c.s.canopyK, floor: c.s.canopyFloor, area_median_change: c.res.medC, typical_spread: c.res.sigmaC, images_before: c.res.nPreC, images_after: c.res.nPostC }, area_wide_change_allowed_for: c.s.relative,
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
       trend: {
@@ -2429,6 +2496,7 @@ async function exportCondition() {
       spots: {
         sudden_drop: { count: count('sudden_drop').length, area_ha: haSum(count('sudden_drop')) },
         dropped_recovered: { count: count('dropped_recovered').length, area_ha: haSum(count('dropped_recovered')) },
+        canopy_decline: { count: count('canopy_decline').length, area_ha: haSum(count('canopy_decline')) },
         slow_decline: { count: count('slow_decline').length, area_ha: haSum(count('slow_decline')) },
         gain: { count: count('gain').length, area_ha: haSum(count('gain')) },
         capped_at: spots.length >= COND_MAX_SPOTS ? COND_MAX_SPOTS : null
