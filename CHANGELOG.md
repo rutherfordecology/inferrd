@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.30.1 — 2026-10-17
+
+- **Spots over time shows what each flag compared.** A row of bars per
+  charted spot above the chart: hollow = the years before, solid = the
+  years after (also shaded lightly behind the lines), dashed = the year a
+  dropped-and-recovered spot had grown back by, or the whole period for
+  slow decline and growth; a recent drop is the gap between the last clear
+  image before and the first after. On 5-04-185 this showed five
+  "dropped and recovered" spots flagged on 2020 against 2021, with nothing
+  visible in 2021 on the chart.
+
 ## v0.30.0 — 2026-10-17
 
 - **Condition check against a control area.** With two or more areas
