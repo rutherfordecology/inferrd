@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.29.0 — 2026-10-17
+
+The condition check now shows a block-wide event such as Cyclone Gabrielle,
+which it used to cancel out (found on covenant 5-04-052, flattened in
+February 2023 but reported as "no clear trend" with almost no spots).
+
+- **Whole-area drop.** Besides the trend test, the whole-area result looks
+  for the biggest fall from an earlier year to a later one whose 95% bars
+  don't overlap. "Whole area" then reads "dropped in 2023", the text gives
+  both years' values and how much had grown back, and the PDF's At a glance
+  and `summary.json` (`trend.biggest_drop`) say so. Mann-Kendall only finds
+  steady trends, so a drop that partly recovers came out as "no clear
+  trend".
+- **Warning when area-wide change hides the damage.** If the whole area
+  dropped (that test, or a median change across the area beyond its
+  typical spread) while "allow for area-wide change" is ticked, the results
+  say that shared change was cancelled out of the spots and to untick it.
+  On 5-04-052, unticking it maps a 6.3 ha canopy-decline patch dated 2023.
+- **"Y-axis starts at 0" on the whole-area chart**, as on the trend charts.
+  It only extends the axis down to 0, never crops, and the report's copy
+  follows it.
+- **Layers panel can't be closed in inferrd.** Its ✕ is gone; a chevron on
+  its left edge folds it to a strip at the right of the map and back
+  (remembered). Projects ▾ → Layers brings a folded panel back out.
+- **Spot-type ticks show in one place.** The sidebar copy under Run
+  condition check is hidden while the Layers panel, which has the same
+  ticks, is open.
+
 ## v0.28.2 — 2026-10-17
 
 - **Smallest spot can be 0.01 ha (1 pixel).** A single flagged 10 m pixel

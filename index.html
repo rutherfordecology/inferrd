@@ -88,6 +88,14 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .mode-btn.active { background: var(--orange-light); border-color: var(--orange-dark); box-shadow: inset 3px 0 0 var(--orange-dark); }
 .mode-name { font-size: 13px; font-weight: 600; }
 .mode-btn.active .mode-name { color: var(--orange-dark); }
+/* occurd.'s Layers panel stays on screen in inferrd.: no ✕, and a chevron
+   on its left edge folds it to a strip at the right of the map. */
+#layersPanel #lyrClose { display: none; }
+#layersPanel.lyr-folded { width: 34px !important; overflow: hidden !important; }
+#layersPanel.lyr-folded > div:first-child > :not(#lyrSide), #layersPanel.lyr-folded > :not(:first-child) { display: none !important; }
+#layersPanel.lyr-folded > div:first-child { padding: 8px 0 !important; justify-content: center !important; border-bottom: none !important; }
+#lyrSide { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; line-height: 1; padding: 0 6px 0 0; }
+#layersPanel.lyr-folded #lyrSide { padding: 0; }
 .leaflet-tooltip.cond-label { background: transparent; border: none; box-shadow: none; padding: 0; color: #fff; font-weight: 700; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 3px #000; }
 .leaflet-tooltip.cond-label::before { display: none; }
 .mode-desc { font-size: 11.5px; color: var(--text2); line-height: 1.4; }
@@ -647,7 +655,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div id="condRunCards">
         <div class="metrics" id="condMetrics"></div>
         <div class="chart-card">
-          <div class="card-title">Whole area — <span id="condTitle"></span></div>
+          <div class="table-card-head">
+            <div class="card-title">Whole area — <span id="condTitle"></span></div>
+            <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);cursor:pointer;">
+              <input type="checkbox" id="condYZeroChk">Y-axis starts at 0
+            </label>
+          </div>
           <div class="field-hint" style="margin:-4px 0 8px;" id="condTrendText"></div>
           <canvas id="condTrendCanvas" style="display:block;width:100%;"></canvas>
         </div>
@@ -804,7 +817,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.28.2';
+const APP_VERSION = 'v0.29.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1603,6 +1616,11 @@ try { condShown = JSON.parse(localStorage.getItem('inferrd.condShown') || '{}') 
 const condIsShown = (kind) => kind === 'trend_map' ? condShown[kind] === true : condShown[kind] !== false;
 let condKindLayers = {};
 let condPanelBody = null;
+let condLegendActive = false; // a check's spots are on the map
+// The sidebar copy of the spot-type ticks only shows while the Layers
+// panel (which has the same ticks in its Condition check group) is closed
+// or locked, so the two lists never sit on screen together.
+const condLayersPanelOpen = () => { const p = document.getElementById('layersPanel'); return !!(condPanelBody && p && p.style.display !== 'none'); };
 function setCondKindShown(kind, on) {
   condShown[kind] = on;
   try { localStorage.setItem('inferrd.condShown', JSON.stringify(condShown)); } catch (e) {}
@@ -1630,6 +1648,7 @@ function renderCondToggles() {
   const wire = (el) => el.querySelectorAll('input[data-kind]').forEach(cb => cb.addEventListener('change', () => setCondKindShown(cb.dataset.kind, cb.checked)));
   const leg = document.getElementById('conditionLegend');
   if (leg) {
+    leg.style.display = condLegendActive && !condLayersPanelOpen() ? 'flex' : 'none';
     leg.innerHTML = rows('condTog_') + '<div style="margin-top:2px;color:var(--text3);">Unticked types are hidden on the map and left out of Export for report.</div>';
     wire(leg);
   }
@@ -1803,6 +1822,7 @@ function hideConditionLayers() {
   if (typeof clearSpotChart === 'function') clearSpotChart();
   if (typeof clearValidationSample === 'function') clearValidationSample(); // its points belong to the spots just dropped
   const legend = document.getElementById('conditionLegend');
+  condLegendActive = false;
   if (legend) legend.style.display = 'none';
   const st = document.getElementById('conditionStatus');
   if (st) st.textContent = '';
@@ -2166,6 +2186,26 @@ function lag1Autocorr(monthly) {
   monthly.forEach(x => { if (dev.has(x.k + 1) && Math.floor((x.k + 1) / 12) === x.year) { cov += dev.get(x.k) * dev.get(x.k + 1); pairs++; } });
   return variance > 0 && pairs >= 6 ? (cov / pairs) / variance : 0;
 }
+// A whole-area drop the trend test can't see: a cyclone or storm knocks
+// the whole block down in one year and it partly grows back, which is no
+// steady trend (Mann-Kendall says "no clear trend"). The biggest fall from
+// an earlier year to a later one whose 95% bars don't overlap, so the gap
+// is bigger than both years' uncertainty. Non-overlapping bars is a
+// cautious test (stricter than p < 0.05 for the difference), which offsets
+// trying every pair of years.
+function wholeAreaStep(valid) {
+  let best = null;
+  for (let i = 0; i < valid.length - 1; i++) for (let j = i + 1; j < valid.length; j++) {
+    const a = valid[i], b = valid[j];
+    if (a.ci == null || b.ci == null || a.mean - a.ci <= b.mean + b.ci) continue;
+    if (!best || a.mean - b.mean > best.drop) best = { from: a.year, to: b.year, fromMean: a.mean, toMean: b.mean, drop: a.mean - b.mean };
+  }
+  if (!best) return null;
+  const last = valid[valid.length - 1];
+  best.lastYear = last.year;
+  best.regained = last.year > best.to ? +((last.mean - best.toMean) / best.drop).toFixed(2) : null;
+  return best;
+}
 function conditionTrend(rows, series) {
   const pts = (series || []).filter(p => p.share >= COND_MIN_CLEAR_SHARE && p.v != null);
   const month = (p) => new Date(p.t).getUTCMonth();
@@ -2214,7 +2254,7 @@ function conditionTrend(rows, series) {
       if (win.length >= 5) moving.push({ t, v: median(win) });
     }
   }
-  const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null };
+  const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null, step: wholeAreaStep(valid) };
   if (valid.length < 4) return out;
   const mk = mannKendall(valid.map(r => r.mean), valid.map(r => r.year));
   const slopes = [];
@@ -2291,7 +2331,7 @@ function showConditionResults(area, s, trendRows, res, series, images) {
     });
     if (condIsShown(k)) condKindLayers[k].addTo(map);
   });
-  document.getElementById('conditionLegend').style.display = 'flex';
+  condLegendActive = true; // renderCondToggles decides where the ticks show
   renderCondToggles();
 
   // Results pane
@@ -2305,7 +2345,7 @@ function showConditionResults(area, s, trendRows, res, series, images) {
   const ha = (list) => list.reduce((a, x) => a + x.spot.area_ha, 0);
   const metric = (label, value) => '<div class="metric" title="' + label + ': ' + value + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   document.getElementById('condMetrics').innerHTML =
-    metric('Whole area', trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
+    metric('Whole area', trend.verdict === 'declined' || trend.verdict === 'improved' ? trend.verdict : trend.step ? 'dropped in ' + trend.step.to : trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
     metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
     metric('Recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
     metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
@@ -2315,7 +2355,13 @@ function showConditionResults(area, s, trendRows, res, series, images) {
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
     : 'Adjusted for time of year, from ' + trend.points.length + ' clear images. Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
-      'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').';
+      'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').' +
+      (trend.step ? ' Biggest drop: ' + trend.step.fromMean.toFixed(3) + ' in ' + trend.step.from + ' to ' + trend.step.toMean.toFixed(3) + ' in ' + trend.step.to + ', beyond both years\' 95% bars' +
+        (trend.step.regained != null ? '; ' + Math.max(0, Math.round(trend.step.regained * 100)) + '% regained by ' + trend.step.lastYear : '') + '.' : '') +
+      // The spot tests measure each pixel against the rest of the area, so
+      // damage shared by the whole block (a cyclone) cancels out. Say so.
+      (s.relative && (trend.step || res.medT <= -res.sigmaT)
+        ? ' <span style="color:var(--red);">The area as a whole dropped, and "allow for area-wide change" is ticked, so change shared by the whole area is cancelled out of the spots. Untick it and run again to map it.</span>' : '');
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
 
   const when = (sp) => sp.kind === 'canopy_decline' ? 'from ' + sp.date_after.slice(0, 4) + ' (' + sp.date_after + ' against ' + sp.date_before + ')'
@@ -2366,6 +2412,9 @@ function drawConditionChart(canvas, trend, s, opts) {
   let lo = Math.min(...yrs.map(r => r.mean - (r.ci || 0)), q(0.02) ?? Infinity);
   let hi = Math.max(...yrs.map(r => r.mean + (r.ci || 0)), q(0.98) ?? -Infinity);
   const pad = Math.max((hi - lo) * 0.06, 0.01); lo -= pad; hi += pad;
+  // "Y-axis starts at 0" (also used for the report's copy): only ever
+  // extends the axis down to 0, never crops values below it (NDMI can be).
+  if (document.getElementById('condYZeroChk').checked) lo = Math.min(lo, 0);
   const tStart = Date.UTC(s.years[0], 0, 1), tEnd = Date.UTC(s.years[s.years.length - 1] + 1, 0, 1);
   const X = (t) => L0 + (t - tStart) / (tEnd - tStart) * (W - L0 - R0);
   const Y = (v) => T0 + (hi - Math.min(hi, Math.max(lo, v))) / (hi - lo) * (H - T0 - B0);
@@ -2424,6 +2473,9 @@ function conditionChartBlob(c) {
   drawConditionChart(cv, c.trend, c.s, { width: 1000, height: 330, scale: 2.5 });
   return new Promise(r => cv.toBlob(r, 'image/png'));
 }
+document.getElementById('condYZeroChk').addEventListener('change', () => {
+  if (lastCondition) drawConditionChart(document.getElementById('condTrendCanvas'), lastCondition.trend, lastCondition.s);
+});
 window.addEventListener('resize', () => {
   if (!lastCondition || document.getElementById('conditionContent').style.display !== 'block') return;
   clearTimeout(window._condChartTimer);
@@ -2833,6 +2885,8 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   let trendSentence;
   if (t.verdict === 'declined' || t.verdict === 'improved') trendSentence = 'The vegetation in the area ' + t.verdict + ' between ' + y0 + ' and ' + y1 + '.';
   else trendSentence = 'There was no clear trend up or down in the area\'s vegetation between ' + y0 + ' and ' + y1 + '.';
+  if (t.step) trendSentence += ' It did drop in ' + t.step.to + ', from ' + t.step.fromMean.toFixed(2) + ' in ' + t.step.from + ' to ' + t.step.toMean.toFixed(2) + ' ' + c.s.trendIndex + ', more than either year\'s uncertainty' +
+    (t.step.regained != null ? ', and had regained ' + Math.max(0, Math.round(t.step.regained * 100)) + '% of that by ' + t.step.lastYear : '') + '.';
   if (valid.length) {
     const lowY = valid.reduce((a, r) => r.mean < a.mean ? r : a), highY = valid.reduce((a, r) => r.mean > a.mean ? r : a);
     trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
@@ -2994,7 +3048,7 @@ async function exportCondition() {
       },
       trend: {
         method: 'yearly mean of per-image area averages, each less the normal for its calendar month; 95% t interval', min_clear_share: COND_MIN_CLEAR_SHARE, images_used: c.trend.points.length,
-        verdict: c.trend.verdict, change_vs_error_bar: c.trend.changeVsErrorBar, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
+        verdict: c.trend.verdict, biggest_drop: c.trend.step, change_vs_error_bar: c.trend.changeVsErrorBar, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
         years_used: c.trend.valid.length, years_requested: c.s.years.length
       },
       recent_scan: { clear_images: c.res.nScan, baseline_images: c.res.nBase, typical_spread: c.res.sigmaR },
@@ -5480,10 +5534,32 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   function activateLayers() {
     layersOn = true; setLayersIcon(true);
     lyrForm.style.display = 'none'; menu.style.display = 'none';
-    window._layersActivate();
+    Promise.resolve(window._layersActivate()).then(() => { addLayersFold(); renderCondToggles(); });
+  }
+  // The panel isn't closable here (its ✕ is hidden in the CSS above): a
+  // chevron on its left folds it to a strip at the right edge and back,
+  // remembered in this browser.
+  function setLayersFolded(folded) {
+    const p = document.getElementById('layersPanel'), b = document.getElementById('lyrSide');
+    if (!p || !b) return;
+    p.classList.toggle('lyr-folded', folded);
+    b.textContent = folded ? '‹' : '›';
+    b.title = folded ? 'Show layers' : 'Fold layers to the side';
+    try { localStorage.setItem('inferrd.layersFolded', folded ? '1' : '0'); } catch (e) {}
+  }
+  function addLayersFold() {
+    const p = document.getElementById('layersPanel');
+    if (!p || document.getElementById('lyrSide')) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.id = 'lyrSide';
+    b.addEventListener('click', () => setLayersFolded(!p.classList.contains('lyr-folded')));
+    p.firstElementChild.prepend(b);
+    let folded = false;
+    try { folded = localStorage.getItem('inferrd.layersFolded') === '1'; } catch (e) {}
+    setLayersFolded(folded);
   }
   // layers.js calls this when its panel is closed or the key is forgotten.
-  window._projectsSetLocked = (id) => { if (id === 'layers') { layersOn = false; setLayersIcon(false); } };
+  window._projectsSetLocked = (id) => { if (id === 'layers') { layersOn = false; setLayersIcon(false); renderCondToggles(); } };
 
   function showLayersErr(msg) { lyrErr.textContent = msg; lyrErr.style.display = 'block'; }
   function tryLayersKey() {
@@ -5502,7 +5578,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
 
   lyrItem.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (layersOn) { window._layersDeactivate(); window._projectsSetLocked('layers'); menu.style.display = 'none'; return; }
+    if (layersOn) { setLayersFolded(false); menu.style.display = 'none'; return; } // not closable: bring it back out instead
     if (window._layersHasKey && window._layersHasKey()) { activateLayers(); return; }
     const show = lyrForm.style.display === 'none';
     lyrForm.style.display = show ? 'block' : 'none';
