@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.28.0 — 2026-10-17
+
+Accuracy assessment for the condition check, so the spot rules can be
+validated (Olofsson et al. 2014, *Remote Sensing of Environment* 148:42–57).
+
+- **Validation sample.** A new card under the spots table draws a
+  stratified random sample of 10 m pixels: one stratum per spot type plus
+  `no_spot`, with the number of points per stratum adjustable (50 per spot
+  type and 100 outside spots by default) and a recorded seed. Strata come
+  from the reported spot polygons on the 10 m grid, and each stratum's
+  mapped area is measured from the same grid. Downloads as CSV or GeoJSON
+  with `point_id`, `stratum`, `lat`, `lon`, `stratum_area_ha` and empty
+  `reference_label`, `reference_source` and `notes` columns. Points are
+  shuffled, given neutral ids and shown on the map without their type, for
+  blind labelling.
+- **Load labelled validation sample…** under Run condition check reads the
+  labelled CSV or GeoJSON back (no condition check needed) and shows the
+  area-weighted error matrix, overall, user's and producer's accuracy and
+  error-adjusted areas per type, each with a 95% interval, using the
+  Olofsson et al. (2014) estimators. Results download as CSV. Blank,
+  unsure and unrecognised labels are left out and reported.
+- The estimator matches the `mapaccuracy` R package (Olofsson et al. 2013
+  examples 1–2 and the 2014 paper's Table 8) to floating-point precision,
+  including strata with one or no labelled points (where intervals are
+  flagged as unreliable).
+
 ## v0.27.0 — 2026-10-17
 
 Methods checked against the peer-reviewed literature, and fixed where they

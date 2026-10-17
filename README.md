@@ -110,6 +110,40 @@ there for at least two images in a row, and the first one after. A dip
 that recovers on the very next image is called out as likely cloud shadow
 or haze rather than change. The per-image series exports as CSV.
 
+### Checking the condition-check spots (validation sample)
+
+After a condition check, the **Validation sample** card draws a stratified
+random sample of 10 m pixels to measure how often the spots are wrong and
+how much they miss, following Olofsson et al. (2014, *Remote Sensing of
+Environment* 148:42–57). The strata are the map's own classes: one per spot
+type (`sudden_drop`, `dropped_recovered`, `canopy_decline`, `slow_decline`,
+`gain`) and `no_spot` for everything else in the area. The spots as
+reported (after the smallest-spot filter) are put back on the 10 m grid,
+each stratum's mapped area is measured, and Earth Engine's
+`stratifiedSample` picks the points (50 per spot type and 100 outside spots
+by default; a stratum smaller than that gives every pixel). The seed is
+shown and saved, so a sample can be drawn again.
+
+It downloads as CSV or GeoJSON with `point_id`, `stratum`, `lat`, `lon`,
+`stratum_area_ha` and empty `reference_label`, `reference_source` and
+`notes` columns, plus the area, run time, seed and version. Points are in
+random order with neutral ids, and shown on the map without their type, so
+they can be labelled blind from aerial photos or a site visit.
+`reference_label` takes the stratum codes (or the spot type names, the map
+letters S/R/C/D/G, or `none` for no spot); blank or `unsure` leaves a point
+out.
+
+**Load labelled validation sample…** (under Run condition check) reads the
+file back, with or without a condition check open, and reports overall
+accuracy, user's accuracy (100% minus false alarms) and producer's accuracy
+(100% minus misses) per type, and each type's area corrected for the map's
+errors, all with 95% intervals (±1.96 SE), from the area-weighted error
+matrix (Olofsson et al. 2014, eqs. 2–10). The results download as CSV. The
+estimator reproduces the worked examples in the `mapaccuracy` R package
+(Olofsson et al. 2013 examples 1 and 2, and Table 8 of the 2014 paper:
+deforestation 21,158 ± 6,158 ha, overall accuracy 0.947 ± 0.018) to
+floating-point precision.
+
 ### Reference layers (shared with occurd.)
 
 **Projects ▾ → Layers** unlocks occurd.'s reference layers with the Layers
@@ -195,8 +229,13 @@ trend analysis works identically regardless of which one is selected.
   Riverside Road. Nobody has yet checked a random sample of mapped and
   unmapped pixels against field visits or aerial photos (the standard
   set out in Olofsson et al. 2014, *Remote Sensing of Environment*
-  148:42–57), so the spots' error rates are unknown. Until that is done,
-  a spot is a place to look, not a finding.
+  148:42–57), so the spots' error rates are unknown. The Validation
+  sample card now draws and scores such a sample (see above), but until
+  one has been labelled, a spot is a place to look, not a finding. With
+  50 points a spot type, user's accuracy comes with an interval of
+  roughly ±8–14 percentage points; producer's accuracy for rare types is
+  far less certain, because a few misses in the large no-spot stratum
+  stand for a lot of area.
 - The canopy-decline test tries every split year and keeps the biggest
   drop, which makes chance drops likelier to pass than its spread
   multiplier suggests. It is left as tuned because changing it without

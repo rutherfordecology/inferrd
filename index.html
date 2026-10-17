@@ -494,6 +494,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
+      <button class="dl-btn" id="valLoadBtn" type="button" style="margin-top:8px;">Load labelled validation sample…</button>
+      <input type="file" id="valFile" accept=".csv,.geojson,.json,text/csv" hidden>
       </div>
       <div class="status-bar" id="statusBar"></div>
     </div>
@@ -641,6 +643,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         </div>
       </div>
       <div id="conditionContent" style="display:none">
+        <div id="condRunCards">
         <div class="metrics" id="condMetrics"></div>
         <div class="chart-card">
           <div class="card-title">Whole area — <span id="condTitle"></span></div>
@@ -669,6 +672,36 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </div>
           <div class="field-hint" style="margin:-4px 0 8px;">Click a row to zoom to the spot; tick Chart (or click the spot on the map) to follow it over time. Every spot is a reason to go and look, not proof of what happened.</div>
           <table class="stats-table" id="condTable"></table>
+        </div>
+        <div class="table-card" id="valSampleCard">
+          <div class="table-card-head">
+            <div class="card-title">Validation sample</div>
+            <span style="display:flex;gap:6px;align-items:center;">
+              <button class="dl-btn" id="valCsvBtn" type="button" disabled>CSV</button>
+              <button class="dl-btn" id="valGeoBtn" type="button" disabled>GeoJSON</button>
+            </span>
+          </div>
+          <div class="field-hint" style="margin:-4px 0 8px;">How often are these spots wrong, and how many are missed? Draw a stratified random sample of 10 m pixels: some inside each spot type and more outside every spot. Label each point from aerial photos or a site visit (reference_label: sudden_drop, dropped_recovered, canopy_decline, slow_decline, gain or no_spot; leave it blank if you can't tell), then load the file back with "Load labelled validation sample" under Run condition check. Accuracy and areas are worked out as in Olofsson et al. (2014). Points are listed in random order and shown on the map without their type, so label them without looking at the stratum column if you can.</div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;font-size:12px;color:var(--text2);margin-bottom:6px;">
+            <label style="display:flex;flex-direction:column;gap:2px;">Points per spot type <input type="number" id="valNSpot" min="2" max="1000" step="1" value="50" style="width:70px;"></label>
+            <label style="display:flex;flex-direction:column;gap:2px;">Points outside spots <input type="number" id="valNNone" min="2" max="2000" step="1" value="100" style="width:70px;"></label>
+            <label style="display:flex;flex-direction:column;gap:2px;">Seed <input type="number" id="valSeed" min="0" step="1" style="width:80px;"></label>
+            <button class="dl-btn" id="valDrawBtn" type="button">Draw sample</button>
+          </div>
+          <div class="field-hint live-hint" id="valStatus"></div>
+          <table class="stats-table" id="valStrataTable"></table>
+        </div>
+        </div>
+        <div class="table-card" id="accCard" style="display:none;">
+          <div class="table-card-head">
+            <div class="card-title">Accuracy — <span id="accTitle"></span></div>
+            <button class="dl-btn" id="accCsvBtn" type="button">Download CSV</button>
+          </div>
+          <div class="field-hint" style="margin:-4px 0 8px;" id="accText"></div>
+          <div style="overflow-x:auto;"><table class="stats-table" id="accTable"></table></div>
+          <div class="card-title" style="margin-top:14px;">Error matrix</div>
+          <div class="field-hint" style="margin:-4px 0 8px;">Rows: what the map says (the stratum). Columns: what the point really was. Each cell: labelled points, then the estimated share of the whole area (each stratum's points weighted by its mapped area).</div>
+          <div style="overflow-x:auto;"><table class="stats-table" id="accMatrix"></table></div>
         </div>
       </div>
     </div>
@@ -770,7 +803,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.27.0';
+const APP_VERSION = 'v0.28.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1533,6 +1566,9 @@ let conditionLayer = null;
 let conditionRunning = false;
 let conditionRunId = 0;
 let lastCondition = null;
+let valSample = null; // validation sample drawn from lastCondition: { c, seed, points, strata }
+let valLayer = null;
+let valResult = null; // accuracy from the last labelled file loaded
 
 (function initConditionSettings() {
   const ys = document.getElementById('condYearStart'), ye = document.getElementById('condYearEnd');
@@ -1755,6 +1791,7 @@ function hideConditionLayers() {
   Object.values(condKindLayers).forEach(l => map.removeLayer(l));
   condKindLayers = {};
   if (typeof clearSpotChart === 'function') clearSpotChart();
+  if (typeof clearValidationSample === 'function') clearValidationSample(); // its points belong to the spots just dropped
   const legend = document.getElementById('conditionLegend');
   if (legend) legend.style.display = 'none';
   const st = document.getElementById('conditionStatus');
@@ -2250,6 +2287,7 @@ function showConditionResults(area, s, trendRows, res, series, images) {
   // Results pane
   ['resultsEmpty', 'resultsContent', 'comparisonContent', 'indexComparisonContent', 'whenContent'].forEach(id => { document.getElementById(id).style.display = 'none'; });
   document.getElementById('conditionContent').style.display = 'block';
+  document.getElementById('condRunCards').style.display = '';
   expandResultsPane();
   const esc = (v) => String(v).replace(/</g, '&lt;');
   document.getElementById('condTitle').textContent = area.name + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
@@ -2987,6 +3025,301 @@ async function exportCondition() {
   }
 }
 document.getElementById('condExportBtn').addEventListener('click', exportCondition);
+
+/* ── Validation sample and accuracy ───────────────────────────────────
+   The spot rules were tuned on two dieback patches, not tested, so their
+   false-alarm and miss rates are unknown. This follows the good-practice
+   recipe of Olofsson et al. (2014, Remote Sensing of Environment 148:
+   42–57): a stratified random sample with the map's own classes as strata
+   (one per spot type, plus everything outside the spots), each point
+   labelled from better evidence (aerial photos, a site visit), and then
+   estimators that weight each stratum's points by its mapped area. Plain
+   counts of right and wrong would overweight the small spot strata, which
+   are sampled far more densely than the rest of the area.
+   The map being checked is the spots as reported (after the smallest-spot
+   filter and the cap), so the strata come from the spot polygons on the
+   10 m grid, not from the raw flagged pixels. Spot types ticked off are
+   still their own strata: otherwise their pixels would fall into no_spot. */
+const VAL_STRATA = COND_KINDS.concat(['no_spot']);
+const VAL_NAME = Object.assign({ no_spot: 'No spot' }, COND_KIND_NAME);
+const VAL_FIELDS = ['point_id', 'stratum', 'lat', 'lon', 'stratum_area_ha', 'reference_label', 'reference_source', 'notes', 'area', 'condition_run_at', 'seed', 'tool_version'];
+const VAL_Z = 1.96; // 95% intervals, as in Olofsson et al. (2014)
+document.getElementById('valSeed').value = Math.floor(Math.random() * 1e6); // shown, and saved in the file, so a sample can be drawn again
+
+// Seeded shuffle (mulberry32), so the same seed lists points in the same order.
+function seededShuffle(arr, seed) {
+  let a = seed >>> 0;
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [arr[i], arr[j]] = [arr[j], arr[i]]; }
+  return arr;
+}
+
+// evaluate() as a promise, retrying when Earth Engine is busy (as runCondition does).
+function eeEvaluate(obj, onWait) {
+  return new Promise((resolve, reject) => {
+    let tries = 0;
+    const attempt = () => obj.evaluate((res, err) => {
+      if (err && /concurrent|too many|rate limit|quota|try again/i.test(String(err)) && tries < 4) {
+        const wait = 5000 * Math.pow(2, tries++);
+        if (onWait) onWait(wait);
+        return setTimeout(attempt, wait);
+      }
+      if (err) reject(new Error(err)); else resolve(res);
+    });
+    attempt();
+  });
+}
+
+function clearValidationSample() {
+  valSample = null;
+  if (valLayer) { map.removeLayer(valLayer); valLayer = null; }
+  ['valCsvBtn', 'valGeoBtn'].forEach(id => { document.getElementById(id).disabled = true; });
+  document.getElementById('valStatus').textContent = '';
+  document.getElementById('valStrataTable').innerHTML = '';
+}
+
+async function drawValidationSample() {
+  const c = lastCondition;
+  if (!c || !eeReady) return;
+  const status = document.getElementById('valStatus'), btn = document.getElementById('valDrawBtn');
+  const num = (id, lo, hi) => Math.min(hi, Math.max(lo, Math.round(Number(document.getElementById(id).value) || lo)));
+  const nSpot = num('valNSpot', 2, 1000), nNone = num('valNNone', 2, 2000), seed = num('valSeed', 0, 2147483647);
+  clearValidationSample();
+  btn.disabled = true;
+  try {
+    const region = ee.Geometry(c.area.geojson.geometry);
+    const proj = s2Projection(region, c.s.today, 60);
+    const grid = proj.atScale(10);
+    // Stratum numbers are positions in VAL_STRATA + 1; no_spot fills the rest.
+    const noneVal = VAL_STRATA.length;
+    const spotImg = c.spots.length
+      ? ee.FeatureCollection(c.spots.map(x => ee.Feature(ee.Geometry(x.geometry), { s: VAL_STRATA.indexOf(x.spot.kind) + 1 }))).reduceToImage(['s'], ee.Reducer.first())
+      : ee.Image().int();
+    const strata = spotImg.unmask(noneVal).rename('stratum').toInt().reproject(grid).clip(region);
+    const wait = (ms) => { status.textContent = 'Earth Engine is busy — trying again in ' + Math.round(ms / 1000) + ' s…'; };
+    status.textContent = 'Measuring the mapped area of each stratum…';
+    // Weighted counts: edge pixels count by the share inside the area.
+    const hist = await eeEvaluate(strata.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry: region, crs: proj, scale: 10, maxPixels: 1e10, tileScale: 4 }).get('stratum'), wait);
+    if (lastCondition !== c) return;
+    status.textContent = 'Drawing ' + (nSpot * COND_KINDS.length + nNone) + ' points at most…';
+    const fc = strata.stratifiedSample({
+      numPoints: 0, classBand: 'stratum', region, projection: proj, scale: 10, seed, dropNulls: true, tileScale: 4, geometries: true,
+      classValues: VAL_STRATA.map((k, i) => i + 1), classPoints: VAL_STRATA.map(k => k === 'no_spot' ? nNone : nSpot)
+    }).map(f => ee.Feature(null, { s: f.get('stratum'), xy: f.geometry().transform('EPSG:4326', 1).coordinates() }));
+    const res = await eeEvaluate(fc, wait);
+    if (lastCondition !== c) return;
+    const strataInfo = {};
+    VAL_STRATA.forEach((k, i) => { strataInfo[k] = { ha: +(((hist || {})[String(i + 1)] || 0) / 100).toFixed(2), n: 0 }; }); // 10 m pixels = 0.01 ha
+    // Random order and neutral ids, so whoever labels a point isn't told
+    // what the map called it: a label made blind can't be swayed by the map.
+    const points = seededShuffle(res.features.map(f => ({ stratum: VAL_STRATA[f.properties.s - 1], lon: +f.properties.xy[0].toFixed(6), lat: +f.properties.xy[1].toFixed(6) })), seed)
+      .map((p, i) => Object.assign({ point_id: 'V' + String(i + 1).padStart(3, '0') }, p, { stratum_area_ha: strataInfo[p.stratum].ha }));
+    points.forEach(p => { strataInfo[p.stratum].n++; });
+    valSample = { c, seed, points, strata: strataInfo };
+    valLayer = L.layerGroup(points.map(p => L.circleMarker([p.lat, p.lon], { radius: 4, color: '#111', weight: 1.5, fillColor: '#fff', fillOpacity: 0.9 })
+      .bindTooltip(p.point_id, { direction: 'top' }))).addTo(map);
+    const asked = (k) => k === 'no_spot' ? nNone : nSpot;
+    document.getElementById('valStrataTable').innerHTML = '<tr><th>Stratum</th><th>Mapped (ha)</th><th>Points</th><th></th></tr>' +
+      VAL_STRATA.map(k => '<tr><td>' + VAL_NAME[k] + '</td><td>' + fmtHa(strataInfo[k].ha) + '</td><td>' + strataInfo[k].n + '</td><td style="color:var(--text3);">' +
+        (strataInfo[k].ha === 0 ? 'none mapped' : strataInfo[k].n < asked(k) ? 'every pixel taken' : '') + '</td></tr>').join('');
+    ['valCsvBtn', 'valGeoBtn'].forEach(id => { document.getElementById(id).disabled = !points.length; });
+    status.textContent = points.length + ' points drawn (seed ' + seed + '). Download the CSV or GeoJSON to label them.';
+  } catch (e) {
+    status.textContent = 'Could not draw the sample: ' + (e && e.message ? e.message : e);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function downloadText(name, text, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function valFileStem(areaName) {
+  const slug = areaName.replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'area';
+  return isoDate(new Date()) + '_' + slug;
+}
+function valRows() {
+  const c = valSample.c;
+  return valSample.points.map(p => Object.assign({}, p, { reference_label: '', reference_source: '', notes: '', area: c.area.name, condition_run_at: c.runAt, seed: valSample.seed, tool_version: APP_VERSION }));
+}
+document.getElementById('valDrawBtn').addEventListener('click', drawValidationSample);
+document.getElementById('valCsvBtn').addEventListener('click', () => {
+  if (!valSample) return;
+  downloadText(valFileStem(valSample.c.area.name) + '_validation.csv', VAL_FIELDS.join(',') + '\n' + valRows().map(r => VAL_FIELDS.map(f => csvCell(r[f])).join(',')).join('\n') + '\n', 'text/csv');
+});
+document.getElementById('valGeoBtn').addEventListener('click', () => {
+  if (!valSample) return;
+  downloadText(valFileStem(valSample.c.area.name) + '_validation.geojson', JSON.stringify({ type: 'FeatureCollection',
+    features: valRows().map(r => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [r.lon, r.lat] }, properties: r })) }), 'application/geo+json');
+});
+
+// Olofsson et al. (2014) estimators for stratified random sampling with
+// the map classes as strata (their eqs. 2–10; Card 1982 for producer's
+// accuracy). classes: codes in order; mapped: { code: mapped area, any
+// unit }; pairs: [{ map, ref }], one per labelled point. Checked against
+// the mapaccuracy R package (Costa 2022), which reproduces the paper's
+// worked examples. Where a stratum has fewer than two labelled points its
+// variance terms can't be estimated; like mapaccuracy, they count as zero
+// (understating the intervals), and user's accuracy gets no interval.
+function olofssonAccuracy(classes, mapped, pairs) {
+  const q = classes.length, ix = new Map(classes.map((k, i) => [k, i]));
+  const n = classes.map(() => classes.map(() => 0));
+  pairs.forEach(p => { n[ix.get(p.map)][ix.get(p.ref)]++; });
+  const ni = n.map(r => r.reduce((a, b) => a + b, 0));
+  const N = classes.map(k => mapped[k] || 0);
+  const A = N.reduce((a, b) => a + b, 0);
+  const W = N.map(v => v / A);
+  const share = (i, j) => ni[i] ? n[i][j] / ni[i] : 0;
+  // Estimated share of the whole area in each cell (eq. 4).
+  const p = n.map((r, i) => r.map((v, j) => W[i] * share(i, j)));
+  const varTerm = (i, f) => ni[i] > 1 ? f * (1 - f) / (ni[i] - 1) : 0;
+  const rowP = p.map(r => r.reduce((a, b) => a + b, 0)), colP = classes.map((k, j) => p.reduce((a, r) => a + r[j], 0));
+  const ua = classes.map((k, i) => rowP[i] > 0 ? p[i][i] / rowP[i] : null);
+  const pa = classes.map((k, j) => colP[j] > 0 ? p[j][j] / colP[j] : null);
+  const oa = classes.reduce((a, k, i) => a + p[i][i], 0);
+  const seOa = Math.sqrt(classes.reduce((a, k, i) => a + (ua[i] == null ? 0 : W[i] * W[i] * varTerm(i, ua[i])), 0));
+  const seUa = ua.map((u, i) => u == null || ni[i] < 2 ? null : Math.sqrt(varTerm(i, u)));
+  const sePa = classes.map((k, j) => {
+    if (pa[j] == null) return null;
+    const Nj = classes.reduce((a, kk, i) => a + (ni[i] ? N[i] / ni[i] * n[i][j] : 0), 0); // estimated reference total, N̂.j
+    const t1 = ua[j] == null ? 0 : N[j] * N[j] * (1 - pa[j]) ** 2 * varTerm(j, ua[j]);
+    const t2 = classes.reduce((a, kk, i) => a + (i === j ? 0 : N[i] * N[i] * varTerm(i, share(i, j))), 0);
+    return Math.sqrt((t1 + pa[j] * pa[j] * t2) / (Nj * Nj));
+  });
+  // Area of each class by the reference labels, with its standard error (eqs. 9–10).
+  const sePropArea = classes.map((k, j) => Math.sqrt(classes.reduce((a, kk, i) => a + W[i] * W[i] * varTerm(i, share(i, j)), 0)));
+  return {
+    classes, n, ni, mapped: N, total: A, p, oa, seOa,
+    perClass: classes.map((k, i) => ({ code: k, mapped: N[i], n: ni[i], ua: ua[i], seUa: seUa[i], pa: pa[i], sePa: sePa[i],
+      propArea: colP[i], sePropArea: sePropArea[i], area: A * colP[i], seArea: A * sePropArea[i] }))
+  };
+}
+
+// RFC 4180-ish CSV: quoted fields may hold commas, quotes ("") and line breaks.
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQ) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; } else if (ch === '"') inQ = false; else cell += ch;
+    } else if (ch === '"') inQ = true;
+    else if (ch === ',') { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell !== '' || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(v => v.trim() !== ''));
+}
+
+// Reference labels as people type them: the codes, the spot type names,
+// the map letters (S, R, C, D, G), or "none" for no spot. Blank, "?" or
+// "unsure" means not labelled; anything else is reported back.
+const VAL_ALIASES = (() => {
+  const m = { n: 'no_spot', none: 'no_spot', no: 'no_spot', nospot: 'no_spot', no_change: 'no_spot', unchanged: 'no_spot' };
+  VAL_STRATA.forEach(k => { m[k] = k; m[VAL_NAME[k].toLowerCase().replace(/[^a-z]+/g, '_')] = k; });
+  COND_KINDS.forEach(k => { m[COND_PREFIX[k].toLowerCase()] = k; });
+  return m;
+})();
+const valNorm = (v) => String(v == null ? '' : v).trim().toLowerCase().replace(/[^a-z]+/g, '_').replace(/^_|_$/g, '');
+
+function loadValidationFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const text = String(reader.result).replace(/^﻿/, ''); // Excel's byte-order mark
+      let records;
+      if (/\.(geo)?json$/i.test(file.name) || /^\s*\{/.test(text)) {
+        records = (JSON.parse(text).features || []).map(f => f.properties || {});
+      } else {
+        const rows = parseCsv(text);
+        const head = (rows.shift() || []).map(h => h.trim().toLowerCase());
+        records = rows.map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+      }
+      showAccuracy(records, file.name);
+    } catch (e) {
+      setStatus('error', 'Could not read ' + file.name + ': ' + (e && e.message ? e.message : e));
+    }
+  };
+  reader.readAsText(file);
+}
+
+function showAccuracy(records, fileName) {
+  const missingCols = ['stratum', 'stratum_area_ha', 'reference_label'].filter(f => !records.length || !(f in records[0]));
+  if (missingCols.length) { setStatus('error', fileName + ' has no ' + missingCols.join(', ') + ' column. Load the file from Validation sample, with reference_label filled in.'); return; }
+  // Mapped areas come from every row, labelled or not, so a stratum whose
+  // points were all left blank still counts towards the total.
+  const mapped = {}, badStrata = new Set(), unknown = new Map(), pairs = [];
+  let blank = 0, areaClash = false;
+  records.forEach(r => {
+    const s = valNorm(r.stratum);
+    if (!VAL_STRATA.includes(s)) { badStrata.add(String(r.stratum)); return; }
+    const ha = Number(r.stratum_area_ha);
+    if (mapped[s] == null) mapped[s] = ha; else if (Math.abs(mapped[s] - ha) > 0.005) areaClash = true;
+    const lab = valNorm(r.reference_label);
+    if (!lab || lab === 'unsure' || lab === 'unknown') { blank++; return; }
+    const ref = VAL_ALIASES[lab];
+    if (!ref) { unknown.set(String(r.reference_label).trim(), (unknown.get(String(r.reference_label).trim()) || 0) + 1); return; }
+    pairs.push({ map: s, ref });
+  });
+  if (!pairs.length) { setStatus('error', 'No labelled points in ' + fileName + ': fill in reference_label first.'); return; }
+  const res = olofssonAccuracy(VAL_STRATA, mapped, pairs);
+  valResult = Object.assign(res, { fileName, area: records[0].area || '', pairs: pairs.length, blank });
+
+  const pct = (v) => v == null ? '–' : (100 * v).toFixed(0) + '%';
+  const pm = (v, se) => v == null ? '–' : pct(v) + (se == null ? '' : ' ± ' + (100 * VAL_Z * se).toFixed(0));
+  const notes = [];
+  if (blank) notes.push(blank + ' point' + (blank === 1 ? '' : 's') + ' left blank or unsure, left out');
+  if (unknown.size) notes.push([...unknown.values()].reduce((a, b) => a + b, 0) + ' with labels not recognised, left out (' + [...unknown.keys()].slice(0, 5).map(k => '"' + k + '"').join(', ') + ')');
+  if (badStrata.size) notes.push('rows with an unknown stratum skipped (' + [...badStrata].slice(0, 5).join(', ') + ')');
+  if (areaClash) notes.push('stratum_area_ha differs between rows of one stratum; the first was used');
+  const thin = res.perClass.filter(x => x.mapped > 0 && x.n < 2).map(x => VAL_NAME[x.code].toLowerCase());
+  if (thin.length) notes.push('fewer than two labelled points in ' + thin.join(', ') + ', so the intervals there are too narrow or missing');
+  const esc = (v) => String(v).replace(/</g, '&lt;');
+  document.getElementById('accTitle').textContent = (valResult.area || fileName);
+  document.getElementById('accText').innerHTML = 'Overall accuracy <strong>' + pm(res.oa, res.seOa) + '</strong> (95% interval), from ' + pairs.length + ' labelled points in ' + esc(fileName) + '. ' +
+    'User\'s accuracy: of what the map flags as this type, the share that really is (100% minus false alarms). Producer\'s accuracy: of what really is this type, the share the map caught (100% minus misses). ' +
+    'Estimated area: the area of each type according to the labels, corrected for the map\'s errors (Olofsson et al. 2014).' + (notes.length ? '<br><span style="color:var(--red);">' + esc(notes.join('; ')) + '.</span>' : '');
+  document.getElementById('accTable').innerHTML = '<tr><th>Type</th><th>Mapped (ha)</th><th>Points</th><th>User\'s accuracy</th><th>Producer\'s accuracy</th><th>Estimated area (ha)</th></tr>' +
+    res.perClass.map(x => '<tr><td>' + VAL_NAME[x.code] + '</td><td>' + fmtHa(x.mapped) + '</td><td>' + x.n + '</td><td>' + pm(x.ua, x.seUa) + '</td><td>' + pm(x.pa, x.sePa) +
+      '</td><td>' + fmtHa(x.area) + ' ± ' + fmtHa(VAL_Z * x.seArea) + '</td></tr>').join('');
+  const cell = (cnt, prop) => cnt ? cnt + ' <span style="color:var(--text3);">· ' + (100 * prop).toFixed(prop < 0.001 ? 3 : 1) + '%</span>' : '<span style="color:var(--text3);">0</span>';
+  document.getElementById('accMatrix').innerHTML = '<tr><th>Map ↓ / really →</th>' + VAL_STRATA.map(k => '<th>' + VAL_NAME[k] + '</th>').join('') + '<th>Points</th></tr>' +
+    VAL_STRATA.map((k, i) => '<tr><td><strong>' + VAL_NAME[k] + '</strong></td>' + VAL_STRATA.map((kk, j) => '<td>' + cell(res.n[i][j], res.p[i][j]) + '</td>').join('') + '<td>' + res.ni[i] + '</td></tr>').join('');
+
+  // Shown on its own when no condition check is open (the file carries
+  // everything the numbers need), alongside the check when one is.
+  ['resultsEmpty', 'resultsContent', 'comparisonContent', 'indexComparisonContent', 'whenContent'].forEach(id => { document.getElementById(id).style.display = 'none'; });
+  document.getElementById('conditionContent').style.display = 'block';
+  document.getElementById('condRunCards').style.display = lastCondition ? '' : 'none';
+  document.getElementById('accCard').style.display = '';
+  expandResultsPane();
+  document.getElementById('accCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setStatus('success', 'Accuracy worked out from ' + pairs.length + ' labelled points.');
+}
+
+document.getElementById('valLoadBtn').addEventListener('click', () => document.getElementById('valFile').click());
+document.getElementById('valFile').addEventListener('change', (e) => {
+  const f = e.target.files && e.target.files[0];
+  if (f) loadValidationFile(f);
+  e.target.value = ''; // so the same file can be loaded again after more labelling
+});
+document.getElementById('accCsvBtn').addEventListener('click', () => {
+  const r = valResult;
+  if (!r) return;
+  const f = (v, d) => v == null ? '' : v.toFixed(d);
+  const head = ['class', 'mapped_ha', 'points_labelled'].concat(VAL_STRATA.map(k => 'ref_' + k), ['users_accuracy', 'users_ci95', 'producers_accuracy', 'producers_ci95',
+    'estimated_area_ha', 'area_ci95_ha', 'overall_accuracy', 'overall_ci95', 'points_left_blank', 'source_file', 'method']);
+  const rows = r.perClass.map((x, i) => [x.code, f(x.mapped, 2), x.n].concat(r.n[i], [f(x.ua, 4), f(x.seUa == null ? null : VAL_Z * x.seUa, 4), f(x.pa, 4), f(x.sePa == null ? null : VAL_Z * x.sePa, 4),
+    f(x.area, 2), f(VAL_Z * x.seArea, 2), '', '', '', '', '']));
+  rows.push(['overall', f(r.total, 2), r.pairs].concat(VAL_STRATA.map(() => ''), ['', '', '', '', '', '', f(r.oa, 4), f(VAL_Z * r.seOa, 4), r.blank, r.fileName,
+    'Olofsson et al. 2014 stratified estimators; 95% CI = 1.96 SE']));
+  downloadText(valFileStem(r.area || 'area') + '_accuracy.csv', head.join(',') + '\n' + rows.map(row => row.map(csvCell).join(',')).join('\n') + '\n', 'text/csv');
+});
 
 /* ── Mode: trend over years, or change between two dates ─────────────
    The two are separate jobs with their own settings and map layers, so
