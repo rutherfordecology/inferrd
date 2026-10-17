@@ -110,6 +110,23 @@ there for at least two images in a row, and the first one after. A dip
 that recovers on the very next image is called out as likely cloud shadow
 or haze rather than change. The per-image series exports as CSV.
 
+### Condition check against a control area
+
+With two or more areas drawn, the condition check settings offer **Area to
+check** and **Control**. With a control, every "typical" value behind the
+spot tests (the medians and robust spreads) comes from the control instead
+of the rest of the checked area. So change the two share, such as weather,
+season or a cyclone across both, cancels out, and the spots show where the
+area differs from the control: a fenced covenant against nearby unfenced
+bush, say (a reference-area design). "Allow for area-wide change" is always
+on with a control. The control's own whole-area trend is drawn as a dashed
+line on the whole-area chart, Spots over time charts each spot against the
+control, and the report and `summary.json` (`control_area`,
+`measured_against`) name it. Pick a control of the same vegetation, close
+by and not much smaller. Without a control, a block-wide event is measured
+against itself and cancels out unless "allow for area-wide change" is
+unticked; the results warn when that may be happening.
+
 ### Checking the condition-check spots (validation sample)
 
 After a condition check, the **Validation sample** card draws a stratified

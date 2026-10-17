@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.30.0 — 2026-10-17
+
+- **Condition check against a control area.** With two or more areas
+  drawn, pick the area to check and a control (with exactly two, the other
+  one is the control by default). Every typical value behind the spot
+  tests (area medians and robust spreads, for recent drops, slow decline,
+  dropped and recovered, and canopy decline) then comes from the control,
+  so change shared with it cancels out and the spots show where the area
+  differs from the control. "Allow for area-wide change" is always on with
+  a control. Spots and the canopy trend map stay inside the checked area.
+- The whole-area chart draws the control's trend as a dashed line with
+  hollow yearly averages; the text gives the control's verdict, and Spots
+  over time charts each spot against the control.
+- The report names the control (methods and At a glance), and
+  `summary.json` gains `control_area` and `measured_against`.
+- The whole-area chart's key wraps onto more rows instead of running off
+  a narrow pane.
+
 ## v0.29.0 — 2026-10-17
 
 The condition check now shows a block-wide event such as Cyclone Gabrielle,

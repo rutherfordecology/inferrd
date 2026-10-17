@@ -258,7 +258,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         </button>
         <button class="mode-btn" id="modeCondition" data-mode="condition" type="button" role="radio" aria-checked="false">
           <span class="mode-name">Condition check</span>
-          <span class="mode-desc">One area: its trend, plus spots of sudden drop, slow decline or regrowth inside it, ready for a report</span>
+          <span class="mode-desc">One area, optionally against a control area: its trend, plus spots of sudden drop, slow decline or regrowth inside it, ready for a report</span>
         </button>
       </div>
     </div>
@@ -395,6 +395,17 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="field-hint live-hint" id="changeSummary"></div>
       </div>
       <div id="conditionSettings" hidden>
+      <div class="field half" id="condAreaPicks" style="display:none;">
+        <div>
+          <label for="condArea">Area to check</label>
+          <select id="condArea"></select>
+        </div>
+        <div>
+          <label for="condControl">Control</label>
+          <select id="condControl"></select>
+        </div>
+      </div>
+      <div class="field-hint" id="condControlHint" style="display:none;">With a control, each pixel is measured against the control's typical value and spread instead of the rest of its own area, so a cyclone, drought or season that hit both cancels out and the spots show where the area differs from the control: a fenced covenant against nearby unfenced bush, say. Pick a control of the same kind of vegetation, close by and not much smaller. "Allow for area-wide change" is always on with a control (against the control).</div>
       <div class="field half">
         <div>
           <label for="condYearStart">From year</label>
@@ -674,7 +685,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
               <button class="dl-btn" id="spotChartClear" type="button">Clear</button>
             </span>
           </div>
-          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the whole area, image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. Click spots on the map, or tick them in the table, to add or remove them.</div>
+          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the whole area (or the control, when there is one), image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. Click spots on the map, or tick them in the table, to add or remove them.</div>
           <div id="spotChartChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
           <canvas id="spotChartCanvas" style="display:block;width:100%;"></canvas>
           <div class="field-hint live-hint" id="spotChartStatus"></div>
@@ -817,7 +828,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.29.0';
+const APP_VERSION = 'v0.30.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1032,6 +1043,7 @@ function renderAreaList() {
     nameEl.addEventListener('blur', () => {
       const area = areas.find(a => a.id === id);
       if (area) area.name = nameEl.textContent.trim() || area.name;
+      renderCondAreaPicks();
     });
     nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
   });
@@ -1043,6 +1055,7 @@ function renderAreaList() {
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   hideConditionLayers();
+  renderCondAreaPicks();
   updateRunEnabled();
 }
 
@@ -1075,7 +1088,7 @@ function pruneResultsForArea(id) {
   const shown = (elId) => document.getElementById(elId).style.display === 'block';
   // A condition check belongs to one area: removing it removes the results
   // and what Export for report would save, so a new block starts clean.
-  if (lastCondition && lastCondition.area.id === id) {
+  if (lastCondition && (lastCondition.area.id === id || (lastCondition.control && lastCondition.control.id === id))) {
     lastCondition = null;
     if (shown('conditionContent')) clearResults();
     return;
@@ -1602,6 +1615,32 @@ let valResult = null; // accuracy from the last labelled file loaded
   k.addEventListener('input', () => { document.getElementById('condKVal').textContent = k.value + '× typical'; });
 })();
 
+// ── Area and control ──────────────────────────────────────────────────
+// One area is checked. With two or more drawn, one of the others can be
+// its control (a reference area): see conditionImages. With exactly two,
+// the other one is the control unless "None" is picked.
+function renderCondAreaPicks() {
+  const wrap = document.getElementById('condAreaPicks');
+  if (!wrap) return;
+  const a = document.getElementById('condArea'), k = document.getElementById('condControl');
+  const keepA = a.value, keepK = k.value, picked = k.dataset.chosen === '1';
+  const esc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const opt = (x) => '<option value="' + x.id + '">' + esc(x.name) + '</option>';
+  a.innerHTML = areas.map(opt).join('');
+  if (areas.some(x => String(x.id) === keepA)) a.value = keepA;
+  const others = areas.filter(x => String(x.id) !== a.value);
+  k.innerHTML = '<option value="">None (the area itself)</option>' + others.map(opt).join('');
+  // Keep a choice the user made ("None" included); otherwise, with exactly
+  // two areas, the other one is the control.
+  if (picked && (keepK === '' || others.some(x => String(x.id) === keepK))) k.value = keepK;
+  else k.value = areas.length === 2 ? String(others[0].id) : '';
+  wrap.style.display = areas.length > 1 ? '' : 'none';
+  document.getElementById('condRelativeChk').disabled = !!k.value;
+  document.getElementById('condControlHint').style.display = k.value ? '' : 'none';
+}
+document.getElementById('condArea').addEventListener('change', renderCondAreaPicks);
+document.getElementById('condControl').addEventListener('change', (e) => { e.target.dataset.chosen = '1'; renderCondAreaPicks(); });
+
 // ── Spot types on and off ─────────────────────────────────────────────
 // Each spot type is its own map layer, ticked on or off in the sidebar
 // legend and in a "Condition check" group in the Layers panel (when that
@@ -1707,7 +1746,7 @@ async function loadSpotChart() {
   const runId = ++spotRunId;
   const status = document.getElementById('spotChartStatus');
   try {
-    if (!areaCache.has(index)) { status.textContent = 'Fetching the whole area…'; areaCache.set(index, await perImageMeans(c.area.geojson.geometry, index, c.s, AREA_MIN_CLEAR)); }
+    if (!areaCache.has(index)) { status.textContent = c.control ? 'Fetching the control…' : 'Fetching the whole area…'; areaCache.set(index, await perImageMeans((c.control || c.area).geojson.geometry, index, c.s, AREA_MIN_CLEAR)); }
     for (const sp of spotSel) {
       const key = index + '|' + sp.id;
       if (!spotCache.has(key)) { status.textContent = 'Fetching ' + sp.id + '…'; spotCache.set(key, await perImageMeans(sp.geometry, index, c.s, SPOT_MIN_CLEAR)); }
@@ -1768,7 +1807,7 @@ function drawSpotChart() {
     const xa = Math.round(X(Date.UTC(y, 0, 1))) + 0.5; ctx.beginPath(); ctx.moveTo(xa, T0); ctx.lineTo(xa, H - B0); ctx.stroke();
     if (Date.UTC(y, 6, 1) < tEnd) ctx.fillText(String(y), X(Date.UTC(y, 6, 1)), H - B0 + 10);
   }
-  ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText(index + ': spot minus whole area', 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText(index + ': spot minus ' + (lastCondition.control ? 'control' : 'whole area'), 0, 0); ctx.restore();
   lines.forEach(l => { ctx.fillStyle = l.color + '30'; l.pts.forEach(p => { ctx.beginPath(); ctx.arc(X(p.t), Y(p.v), 1.8, 0, 2 * Math.PI); ctx.fill(); }); });
   lines.forEach(l => {
     if (l.moving.length < 2) return;
@@ -1850,10 +1889,17 @@ function condCollection(region, start, end, cloudPct, indexName) {
 const eeMaskedConst = (names) => ee.Image.constant(names.map(() => 0)).rename(names).updateMask(ee.Image.constant(0)).float();
 
 // Per-pixel images behind the spots; see the header for the rules.
-function conditionImages(region, proj, s) {
+function conditionImages(region, proj, s, ctrl) {
+  // With a control area, every "typical" value (the area medians and
+  // robust spreads below) comes from the control instead of the area
+  // itself, so change the two share (weather, season, a cyclone across
+  // both) cancels out and the spots show where the area differs from the
+  // control: a reference-area design. Images are fetched for both; spots
+  // and the canopy trend map stay inside the area.
+  const both = ctrl ? region.union(ctrl, 1) : region, ref = ctrl || region;
   // ── Years: slow decline, gain, older sudden drops ──
   const yearImgs = s.years.map(y => {
-    const col = yearIndexCollection(region, y, s.cloudPct, 1, 12).select(s.trendIndex);
+    const col = yearIndexCollection(both, y, s.cloudPct, 1, 12).select(s.trendIndex);
     const v = ee.Image(ee.Algorithms.If(col.size().gt(0), col.median().rename('v').float(), eeMaskedConst(['v'])));
     return v.addBands(ee.Image.constant(y).float().rename('t').updateMask(v.mask()));
   });
@@ -1862,9 +1908,9 @@ function conditionImages(region, proj, s) {
   const minYears = Math.max(3, Math.ceil(0.6 * s.years.length));
   const span = s.years[s.years.length - 1] - s.years[0];
   const total = annual.select(['t', 'v']).reduce(ee.Reducer.sensSlope()).select('slope')
-    .multiply(span).rename('d').updateMask(nYears.gte(minYears)).clip(region);
-  const medT = eeAreaMedian(total, region, proj);
-  const sigmaT = eeAreaMedian(total.subtract(medT).abs(), region, proj).multiply(1.4826).max(1e-6);
+    .multiply(span).rename('d').updateMask(nYears.gte(minYears)).clip(both);
+  const medT = eeAreaMedian(total, ref, proj);
+  const sigmaT = eeAreaMedian(total.subtract(medT).abs(), ref, proj).multiply(1.4826).max(1e-6);
   // Unticked: measured from zero, so a decline across the whole area is flagged too.
   const slow = classifyChange(total, s.relative ? medT : ee.Number(0), sigmaT, s.k);
   const steps = ee.ImageCollection(yearImgs.slice(1).map((img, i) => {
@@ -1883,7 +1929,7 @@ function conditionImages(region, proj, s) {
   // has had no time to recover.
   const relSteps = yearImgs.slice(1, -1).map((img, i) => {
     const step = img.select('v').subtract(yearImgs[i].select('v'));
-    const vsArea = step.subtract(eeAreaMedian(step, region, proj));
+    const vsArea = step.subtract(eeAreaMedian(step, ref, proj));
     return (s.relative ? vsArea : step).multiply(-1).rename('q')
       .addBands(vsArea.abs().rename('ad'))
       .addBands(yearImgs[i].select('v').rename('vb'))
@@ -1892,7 +1938,7 @@ function conditionImages(region, proj, s) {
       .toFloat();
   });
   const relCol = ee.ImageCollection(relSteps);
-  const sigmaS = eeAreaMedian(relCol.select('ad').median(), region, proj).multiply(1.4826).max(1e-6);
+  const sigmaS = eeAreaMedian(relCol.select('ad').median(), ref, proj).multiply(1.4826).max(1e-6);
   const bigRel = relCol.qualityMosaic('q');
   const dropAmt = bigRel.select('vb').subtract(bigRel.select('va'));
   const recov = yearImgs[yearImgs.length - 1].select('v').subtract(bigRel.select('va')).divide(dropAmt.max(1e-6)).rename('recov');
@@ -1902,13 +1948,13 @@ function conditionImages(region, proj, s) {
   // ── Canopy decline (see COND_CANOPY_INDEX) ──
   const cNames = [COND_CANOPY_INDEX, 'NDVI'];
   const cYear = s.years.map(y => {
-    const col = yearIndexCollection(region, y, s.cloudPct, 1, 12).select(cNames);
+    const col = yearIndexCollection(both, y, s.cloudPct, 1, 12).select(cNames);
     return ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst(cNames))).toFloat();
   });
   const dense = ee.ImageCollection(cYear).select('NDVI').max().gte(COND_DENSE_NDVI);
   const cRel = cYear.map(img => {
     const v = img.select(COND_CANOPY_INDEX).updateMask(dense);
-    return (s.relative ? v.subtract(eeAreaMedian(v, region, proj)) : v).toFloat().rename('r');
+    return (s.relative ? v.subtract(eeAreaMedian(v, ref, proj)) : v).toFloat().rename('r');
   });
   const cLast = cRel[cRel.length - 1];
   const cSplits = [];
@@ -1917,7 +1963,7 @@ function conditionImages(region, proj, s) {
     const afterList = cRel.slice(i, Math.min(cRel.length, i + COND_CANOPY_AFTER));
     const after = ee.ImageCollection(afterList).mean();
     const drop = before.subtract(after).rename('drop');
-    const spread = eeAreaMedian(drop.subtract(eeAreaMedian(drop, region, proj)).abs(), region, proj).multiply(1.4826).max(1e-6);
+    const spread = eeAreaMedian(drop.subtract(eeAreaMedian(drop, ref, proj)).abs(), ref, proj).multiply(1.4826).max(1e-6);
     cSplits.push(drop.divide(spread).rename('z')
       .addBands(drop)
       .addBands(cLast.subtract(after).divide(drop.max(1e-6)).rename('crec')) // share regained by the last year
@@ -1973,19 +2019,19 @@ function conditionImages(region, proj, s) {
   // ── Recent sudden drops ──
   const today = ee.Date(s.today);
   const scanStart = today.advance(-s.lookback, 'day');
-  const base = condCollection(region, scanStart.advance(-COND_BASELINE_DAYS, 'day'), scanStart, s.cloudPct, s.dropIndex);
-  const scan = condCollection(region, scanStart, today.advance(1, 'day'), s.cloudPct, s.dropIndex).sort('system:time_start');
+  const base = condCollection(both, scanStart.advance(-COND_BASELINE_DAYS, 'day'), scanStart, s.cloudPct, s.dropIndex);
+  const scan = condCollection(both, scanStart, today.advance(1, 'day'), s.cloudPct, s.dropIndex).sort('system:time_start');
   const recentNames = ['rFlag', 'rMag', 'tDown', 'tUp', 'nClear', 'nDown'];
   const recent = ee.Image(ee.Algorithms.If(base.size().gt(0).and(scan.size().gt(0)), (() => {
     const baseImg = base.median();
     const resid = scan.map(img => {
       const d = img.select(s.dropIndex).subtract(baseImg);
       // toFloat: one pixel type for every image, or the collection won't reduce
-      const rr = d.subtract(eeAreaMedian(d, region, proj)).toFloat().rename('rr'); // against the area: sets the spread
+      const rr = d.subtract(eeAreaMedian(d, ref, proj)).toFloat().rename('rr'); // against the area: sets the spread
       const r = (s.relative ? rr : d.toFloat()).rename('r'); // what is flagged
       return r.addBands(rr).addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
     });
-    const sigmaR = eeAreaMedian(resid.select('rr').map(i => i.abs()).median(), region, proj).multiply(1.4826).max(1e-6);
+    const sigmaR = eeAreaMedian(resid.select('rr').map(i => i.abs()).median(), ref, proj).multiply(1.4826).max(1e-6);
     const down = (i) => i.select('r').lte(-s.floor).and(i.select('r').lte(sigmaR.multiply(-s.k)));
     const tDown = resid.map(i => i.select('t').updateMask(down(i))).min().rename('tDown');
     const nDown = resid.map(i => down(i).rename('n')).sum().unmask(0).rename('nDown');
@@ -2025,11 +2071,12 @@ function conditionImages(region, proj, s) {
 function runCondition() {
   if (!eeReady || conditionRunning) return;
   const statusEl = document.getElementById('conditionStatus');
-  if (areas.length !== 1) {
-    statusEl.textContent = areas.length ? 'A condition check runs on one area. Remove the others (✕ in section 2) first.' : 'Draw an area, or pick one with "Analyse this area" on a covenant or plan-layer popup.';
+  if (!areas.length) {
+    statusEl.textContent = 'Draw an area, or pick one with "Analyse this area" on a covenant or plan-layer popup.';
     return;
   }
-  const area = areas[0];
+  const area = areas.find(a => String(a.id) === document.getElementById('condArea').value) || areas[0];
+  const control = areas.length > 1 ? areas.find(a => String(a.id) === document.getElementById('condControl').value && a.id !== area.id) || null : null;
   const y0 = Number(document.getElementById('condYearStart').value), y1 = Number(document.getElementById('condYearEnd').value);
   if (y1 - y0 < 3) { statusEl.textContent = 'Pick a period of at least four years.'; return; }
   const years = [];
@@ -2045,7 +2092,8 @@ function runCondition() {
     minHa: Number(document.getElementById('condMinHa').value),
     cloudPct: Number(cloudThresh.value),
     today: isoDate(new Date()),
-    relative: document.getElementById('condRelativeChk').checked,
+    relative: control ? true : document.getElementById('condRelativeChk').checked, // a control is always the reference
+    control: control ? { id: control.id, name: control.name } : null,
     canopyK: Number(document.getElementById('condCanopyK').value),
     canopyFloor: Number(document.getElementById('condCanopyFloor').value)
   };
@@ -2053,56 +2101,62 @@ function runCondition() {
   const runId = conditionRunId;
   conditionRunning = true;
   updateRunEnabled();
-  statusEl.textContent = 'Working out the trend and tracing spots for ' + area.name + ' — usually under a minute, longer for big areas…';
+  statusEl.textContent = 'Working out the trend and tracing spots for ' + area.name + (control ? ' against ' + control.name : '') + ' — usually under a minute, longer for big areas…';
 
   const region = ee.Geometry(area.geojson.geometry);
+  const ctrlRegion = control ? ee.Geometry(control.geojson.geometry) : null;
   const proj = s2Projection(region, s.today, 60);
-  let trendRows = null, spotsRes = null, series = null, failed = null;
+  let trendRows = null, spotsRes = null, series = null, failed = null, ctrlRows = null, ctrlSeries = null;
   const finish = () => {
     if (runId !== conditionRunId) return;
     if (failed) { conditionRunning = false; updateRunEnabled(); statusEl.textContent = 'Condition check failed: ' + failed; return; }
-    if (!trendRows || !spotsRes || !spotsRes.spots || !series) return;
+    if (!trendRows || !spotsRes || !spotsRes.spots || !series || (control && (!ctrlRows || !ctrlSeries))) return;
     conditionRunning = false;
     updateRunEnabled();
     statusEl.textContent = '';
-    showConditionResults(area, s, trendRows, spotsRes, series, c);
+    showConditionResults(area, s, trendRows, spotsRes, series, c, control ? { area: control, rows: ctrlRows, series: ctrlSeries } : null);
   };
 
   // Earth Engine refuses ("too many concurrent aggregations") when too many
   // of our calculations run at once, so the requests go one after another,
   // and a busy refusal is retried after a growing pause.
   let c = null;
+  // Whole-area values, for the area and for its control when there is one.
+  const yearlyFc = (geom, id) => ee.FeatureCollection(years.map(y => yearStatsFeature(geom, y, s.cloudPct, s.trendIndex, 1, 12, id)));
+  const parseYearly = (res) => res.features.map(f => f.properties)
+    .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images, n_clear: p.n_clear }))
+    .sort((a, b) => a.year - b.year);
+  // One area average per clear image, for the seasonally adjusted trend.
+  const imagesFc = (geom) => {
+    const imgCol = condCollection(geom, years[0] + '-01-01', (years[years.length - 1] + 1) + '-01-01', s.cloudPct, s.trendIndex);
+    const nAll = ee.Image(1).clip(geom).reduceRegion({ reducer: ee.Reducer.count(), geometry: geom, scale: 20, maxPixels: 1e9, bestEffort: true }).values().get(0);
+    return imgCol.map(img => {
+      const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: geom, scale: 20, maxPixels: 1e9, tileScale: 2, bestEffort: true });
+      return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(s.trendIndex + '_mean'), share: ee.Number(st.get(s.trendIndex + '_count')).divide(nAll) });
+    }).filter(ee.Filter.notNull(['v']));
+  };
+  const parseImages = (res) => {
+    // Overlapping tiles give the same day twice: keep the clearer one.
+    // Clear share is relative to the clearest image (see perImageMeans).
+    const rows = res.features.map(f => f.properties);
+    const top = Math.max(...rows.map(p => p.share || 0), 1e-9);
+    rows.forEach(p => { p.share = p.share / top; });
+    const byDay = new Map();
+    rows.forEach(p => {
+      const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
+      if (!have || p.share > have.share) byDay.set(day, p);
+    });
+    return [...byDay.values()].sort((a, b) => a.t - b.t);
+  };
   const steps = [
-    { label: 'Yearly values', build: () => ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, s.cloudPct, s.trendIndex, 1, 12, area.id))),
-      done: (res) => {
-        trendRows = res.features.map(f => f.properties)
-          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images, n_clear: p.n_clear }))
-          .sort((a, b) => a.year - b.year);
-      } },
-    // One area average per clear image, for the seasonally adjusted trend.
-    { label: 'Single images', build: () => {
-        const imgCol = condCollection(region, years[0] + '-01-01', (years[years.length - 1] + 1) + '-01-01', s.cloudPct, s.trendIndex);
-        const nAll = ee.Image(1).clip(region).reduceRegion({ reducer: ee.Reducer.count(), geometry: region, scale: 20, maxPixels: 1e9, bestEffort: true }).values().get(0);
-        return imgCol.map(img => {
-          const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 20, maxPixels: 1e9, tileScale: 2, bestEffort: true });
-          return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(s.trendIndex + '_mean'), share: ee.Number(st.get(s.trendIndex + '_count')).divide(nAll) });
-        }).filter(ee.Filter.notNull(['v']));
-      },
-      done: (res) => {
-        // Overlapping tiles give the same day twice: keep the clearer one.
-        // Clear share is relative to the clearest image (see perImageMeans).
-        const rows = res.features.map(f => f.properties);
-        const top = Math.max(...rows.map(p => p.share || 0), 1e-9);
-        rows.forEach(p => { p.share = p.share / top; });
-        const byDay = new Map();
-        rows.forEach(p => {
-          const day = new Date(p.t).toISOString().slice(0, 10), have = byDay.get(day);
-          if (!have || p.share > have.share) byDay.set(day, p);
-        });
-        series = [...byDay.values()].sort((a, b) => a.t - b.t);
-      } },
+    { label: 'Yearly values', build: () => yearlyFc(region, area.id), done: (res) => { trendRows = parseYearly(res); } },
+    { label: 'Single images', build: () => imagesFc(region), done: (res) => { series = parseImages(res); } }
+  ].concat(control ? [
+    { label: 'Control yearly values', build: () => yearlyFc(ctrlRegion, control.id), done: (res) => { ctrlRows = parseYearly(res); } },
+    { label: 'Control single images', build: () => imagesFc(ctrlRegion), done: (res) => { ctrlSeries = parseImages(res); } }
+  ] : []).concat([
     { label: 'Area-wide change', build: () => {
-        c = conditionImages(region, proj, s);
+        c = conditionImages(region, proj, s, ctrlRegion);
         return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares, trendP: c.trendP });
       },
       done: (res) => { spotsRes = res; } },
@@ -2121,7 +2175,7 @@ function runCondition() {
           });
       },
       done: (res) => { spotsRes = Object.assign({ spots: res }, spotsRes); } }
-  ];
+  ]);
   const busy = (err) => /concurrent|too many|rate limit|quota|try again/i.test(String(err));
   const runStep = (i) => {
     if (runId !== conditionRunId) return;
@@ -2206,6 +2260,8 @@ function wholeAreaStep(valid) {
   best.regained = last.year > best.to ? +((last.mean - best.toMean) / best.drop).toFixed(2) : null;
   return best;
 }
+// The whole-area verdict in a few words: a steady trend, else a drop.
+const trendWords = (t) => t.verdict === 'declined' || t.verdict === 'improved' ? t.verdict : t.step ? 'dropped in ' + t.step.to : t.verdict === 'no clear trend up or down' ? 'no clear trend' : t.verdict;
 function conditionTrend(rows, series) {
   const pts = (series || []).filter(p => p.share >= COND_MIN_CLEAR_SHARE && p.v != null);
   const month = (p) => new Date(p.t).getUTCMonth();
@@ -2271,8 +2327,10 @@ function conditionTrend(rows, series) {
   return out;
 }
 
-function showConditionResults(area, s, trendRows, res, series, images) {
+function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
   const trend = conditionTrend(trendRows, series);
+  // The control's own whole-area trend, drawn alongside on the chart.
+  if (ctrl) trend.control = Object.assign(conditionTrend(ctrl.rows, ctrl.series), { name: ctrl.area.name });
   const counters = { S: 0, R: 0, C: 0, D: 0, G: 0 };
   const features = (res.spots.features || []).map(f => {
     const p = f.properties;
@@ -2310,7 +2368,7 @@ function showConditionResults(area, s, trendRows, res, series, images) {
   const pctOf = (v) => denseHa ? Math.round(100 * (v || 0) / denseHa) : 0;
   const canopyTrend = { denseHa: +denseHa.toFixed(1), improvingHa: +(tg[1] || 0).toFixed(1), stableHa: +(tg[2] || 0).toFixed(1), decliningHa: +(tg[3] || 0).toFixed(1),
     improvingPct: pctOf(tg[1]), stablePct: pctOf(tg[2]), decliningPct: pctOf(tg[3]) };
-  lastCondition = { area, s, trendRows, series, trend, spots: features, res, canopyTrend, runAt: new Date().toISOString() };
+  lastCondition = { area, control: ctrl ? ctrl.area : null, s, trendRows, series, trend, spots: features, res, canopyTrend, runAt: new Date().toISOString() };
   if (images && images.trendClass) {
     images.trendClass.getMapId({ min: 1, max: 3, palette: [TREND_COLORS.improving, TREND_COLORS.stable, TREND_COLORS.declining].map(x => x.slice(1)) }, (m, err) => {
       if (err || !m || lastCondition.area !== area) return;
@@ -2340,12 +2398,12 @@ function showConditionResults(area, s, trendRows, res, series, images) {
   document.getElementById('condRunCards').style.display = '';
   expandResultsPane();
   const esc = (v) => String(v).replace(/</g, '&lt;');
-  document.getElementById('condTitle').textContent = area.name + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
+  document.getElementById('condTitle').textContent = area.name + (ctrl ? ' against ' + ctrl.area.name : '') + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
   const sum = (kind) => features.filter(x => x.spot.kind === kind);
   const ha = (list) => list.reduce((a, x) => a + x.spot.area_ha, 0);
   const metric = (label, value) => '<div class="metric" title="' + label + ': ' + value + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   document.getElementById('condMetrics').innerHTML =
-    metric('Whole area', trend.verdict === 'declined' || trend.verdict === 'improved' ? trend.verdict : trend.step ? 'dropped in ' + trend.step.to : trend.verdict === 'no clear trend up or down' ? 'no clear trend' : trend.verdict) +
+    metric('Whole area', trendWords(trend)) +
     metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
     metric('Recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
     metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
@@ -2360,7 +2418,8 @@ function showConditionResults(area, s, trendRows, res, series, images) {
         (trend.step.regained != null ? '; ' + Math.max(0, Math.round(trend.step.regained * 100)) + '% regained by ' + trend.step.lastYear : '') + '.' : '') +
       // The spot tests measure each pixel against the rest of the area, so
       // damage shared by the whole block (a cyclone) cancels out. Say so.
-      (s.relative && (trend.step || res.medT <= -res.sigmaT)
+      (trend.control ? ' Control (' + esc(trend.control.name) + ', dashed): ' + trendWords(trend.control) + (trend.control.step ? ', from ' + trend.control.step.fromMean.toFixed(3) + ' in ' + trend.control.step.from + ' to ' + trend.control.step.toMean.toFixed(3) + ' in ' + trend.control.step.to : '') + '. Spots are measured against the control.' : '') +
+      (s.relative && !s.control && (trend.step || res.medT <= -res.sigmaT)
         ? ' <span style="color:var(--red);">The area as a whole dropped, and "allow for area-wide change" is ticked, so change shared by the whole area is cancelled out of the spots. Untick it and run again to map it.</span>' : '');
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
 
@@ -2403,14 +2462,24 @@ function drawConditionChart(canvas, trend, s, opts) {
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   const font = (size, weight) => (weight || '400') + ' ' + size + 'px ' + (getComputedStyle(document.body).fontFamily || 'sans-serif');
   const INK = '#2b2b2b', MUTED = '#6b6b6b', GRID = '#ececec', DOT = 'rgba(44, 95, 138, 0.2)', LINE = '#d17a22', YEAR = '#173f63';
-  const L0 = 62, R0 = 24, T0 = 40, B0 = 36;
+  // The key above the plot wraps onto more rows when it won't fit on one
+  // (a narrow pane, or a control to name); the plot starts below it.
+  const L0 = 62, R0 = 24, B0 = 36;
+  const ctrlLabel = trend.control ? 'control' + (trend.control.name ? ': ' + (trend.control.name.length > 28 ? trend.control.name.slice(0, 27) + '…' : trend.control.name) : '') : null;
+  const keyLabels = ['single clear image', '12-month moving median', 'yearly average, 95% interval'].concat(ctrlLabel ? [ctrlLabel] : []);
+  ctx.font = font(11);
+  let keyRows = 1;
+  keyLabels.reduce((x, l) => { const w = 20 + ctx.measureText(l).width; if (x > L0 && x + w > W - R0) { keyRows++; x = L0; } return x + w + 22; }, L0);
+  const T0 = 22 + keyRows * 18;
   ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
   const yrs = trend.valid;
   if (!yrs.length) return;
   const dots = trend.points.map(p => p.adj).sort((a, b) => a - b);
   const q = (f) => dots.length ? dots[Math.min(dots.length - 1, Math.max(0, Math.round(f * (dots.length - 1))))] : null;
-  let lo = Math.min(...yrs.map(r => r.mean - (r.ci || 0)), q(0.02) ?? Infinity);
-  let hi = Math.max(...yrs.map(r => r.mean + (r.ci || 0)), q(0.98) ?? -Infinity);
+  const ct = trend.control && trend.control.valid.length ? trend.control : null;
+  const ctVals = ct ? ct.valid.flatMap(r => [r.mean - (r.ci || 0), r.mean + (r.ci || 0)]).concat(ct.moving.map(m => m.v)) : [];
+  let lo = Math.min(...yrs.map(r => r.mean - (r.ci || 0)), ...ctVals, q(0.02) ?? Infinity);
+  let hi = Math.max(...yrs.map(r => r.mean + (r.ci || 0)), ...ctVals, q(0.98) ?? -Infinity);
   const pad = Math.max((hi - lo) * 0.06, 0.01); lo -= pad; hi += pad;
   // "Y-axis starts at 0" (also used for the report's copy): only ever
   // extends the axis down to 0, never crops values below it (NDMI can be).
@@ -2436,6 +2505,22 @@ function drawConditionChart(canvas, trend, s, opts) {
   ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle';
   ctx.fillText(s.trendIndex + ', adjusted for time of year', 0, 0); ctx.restore();
 
+  // Control first, underneath: dashed moving median, grey yearly averages.
+  const CTRL = '#7d7d7d';
+  if (ct) {
+    if (ct.moving.length > 1) {
+      ctx.strokeStyle = CTRL; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath();
+      ct.moving.forEach((m, i) => { if (i) ctx.lineTo(X(m.t), Y(m.v)); else ctx.moveTo(X(m.t), Y(m.v)); });
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.strokeStyle = CTRL; ctx.fillStyle = '#fff'; ctx.lineWidth = 1.5;
+    ct.valid.forEach(r => {
+      const x = X(Date.UTC(r.year, 6, 1)) + 7; // just right of the area's own, so both bars show
+      if (r.ci != null) { const ya = Y(r.mean - r.ci), yb = Y(r.mean + r.ci); ctx.beginPath(); ctx.moveTo(x, ya); ctx.lineTo(x, yb); ctx.stroke(); }
+      ctx.beginPath(); ctx.arc(x, Y(r.mean), 3.5, 0, 2 * Math.PI); ctx.fill(); ctx.stroke();
+    });
+  }
+
   // Data
   ctx.fillStyle = DOT;
   trend.points.forEach(p => { ctx.beginPath(); ctx.arc(X(p.t), Y(p.adj), 2, 0, 2 * Math.PI); ctx.fill(); });
@@ -2456,8 +2541,11 @@ function drawConditionChart(canvas, trend, s, opts) {
 
   // Key, above the plot
   ctx.font = font(11); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  let kx = L0; const ky = T0 / 2 - 2;
-  const item = (draw, label) => { draw(kx); kx += 20; ctx.fillStyle = INK; ctx.fillText(label, kx, ky); kx += ctx.measureText(label).width + 22; };
+  let kx = L0, ky = 12;
+  const item = (draw, label) => {
+    if (kx > L0 && kx + 20 + ctx.measureText(label).width > W - R0) { kx = L0; ky += 18; }
+    draw(kx); kx += 20; ctx.fillStyle = INK; ctx.fillText(label, kx, ky); kx += ctx.measureText(label).width + 22;
+  };
   item(x => { ctx.fillStyle = 'rgba(44, 95, 138, 0.45)'; ctx.beginPath(); ctx.arc(x + 7, ky, 2.5, 0, 2 * Math.PI); ctx.fill(); }, 'single clear image');
   item(x => { ctx.strokeStyle = LINE; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, ky); ctx.lineTo(x + 14, ky); ctx.stroke(); }, '12-month moving median');
   item(x => {
@@ -2465,6 +2553,8 @@ function drawConditionChart(canvas, trend, s, opts) {
     ctx.beginPath(); ctx.moveTo(x + 7, ky - 6); ctx.lineTo(x + 7, ky + 6); ctx.stroke();
     ctx.beginPath(); ctx.arc(x + 7, ky, 3.5, 0, 2 * Math.PI); ctx.fill();
   }, 'yearly average, 95% interval');
+  if (ct) item(x => { ctx.strokeStyle = CTRL; ctx.lineWidth = 2; ctx.setLineDash([6, 4]); ctx.beginPath(); ctx.moveTo(x, ky); ctx.lineTo(x + 14, ky); ctx.stroke(); ctx.setLineDash([]); },
+    ctrlLabel);
 }
 
 // The report's copy of the chart: a fixed layout at twice the pixels.
@@ -2885,6 +2975,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   let trendSentence;
   if (t.verdict === 'declined' || t.verdict === 'improved') trendSentence = 'The vegetation in the area ' + t.verdict + ' between ' + y0 + ' and ' + y1 + '.';
   else trendSentence = 'There was no clear trend up or down in the area\'s vegetation between ' + y0 + ' and ' + y1 + '.';
+  if (t.control) trendSentence += ' The control area, ' + t.control.name + ', ' + (t.control.verdict === 'declined' || t.control.verdict === 'improved' ? t.control.verdict : t.control.step ? 'dropped in ' + t.control.step.to : 'showed no clear trend') + ' over the same years (dashed line in Figure 2), and spots were measured against it.';
   if (t.step) trendSentence += ' It did drop in ' + t.step.to + ', from ' + t.step.fromMean.toFixed(2) + ' in ' + t.step.from + ' to ' + t.step.toMean.toFixed(2) + ' ' + c.s.trendIndex + ', more than either year\'s uncertainty' +
     (t.step.regained != null ? ', and had regained ' + Math.max(0, Math.round(t.step.regained * 100)) + '% of that by ' + t.step.lastYear : '') + '.';
   if (valid.length) {
@@ -2967,12 +3058,14 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   // ── Appendix A ──
   newPage();
   heading('Appendix A  Methods and settings', 14);
+  const refWord = c.control ? 'the control area\'s' : 'the area\'s';
   para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud over the whole tile were left out. Cloud and cloud shadow were masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023), and no-data, saturated and snow pixels with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
+  if (c.control) para('Control: every pixel was measured against a control area, ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha), not against the rest of the area. The medians and typical spreads below are the control\'s, so change shared with the control (weather, the season, a storm across both) cancels out, and the spots show where the area differs from it. The control\'s own whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its calendar months (each the average of its adjusted images), with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test on the yearly values, its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
-  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less the area\'s median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
-  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
-  para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against the area\'s median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
-  para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against the area\'s median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
+  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less ' + refWord + ' median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times ' + refWord + ' typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
+  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? refWord + ' median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
+  para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against ' + refWord + ' median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
+  para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against ' + refWord + ' median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
   para('Canopy trend and sustained growth (' + c.s.trendIndex + ', with ' + COND_CANOPY_INDEX + ' as a check): for each dense-canopy pixel, a Mann-Kendall test on its yearly values ' + y0 + '–' + y1 + ', measured from zero (not against the rest of the area). Improving steadily: a significant rise after a false-discovery-rate correction across all ' + 'tested pixels (Benjamini-Hochberg, q = ' + COND_FDR_Q + ', which gave a cut-off of p ≤ ' + (c.res.trendP == null ? 'n/a' : (+c.res.trendP).toPrecision(2)) + '), a rise of at least ' + COND_GROW_FLOOR + ' over the period (Sen\'s slope), and canopy moisture not falling significantly; declining steadily is the mirror image; the rest showed no clear trend (not the same as no change). Sustained growth spots are touching improving pixels of at least ' + c.s.minHa + ' ha. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
@@ -3036,6 +3129,9 @@ async function exportCondition() {
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
+      control_area: c.control ? { name: c.control.name, area_ha: +(turf.area(c.control.geojson) / 10000).toFixed(2), source: c.control.source || 'drawn',
+        verdict: c.trend.control ? c.trend.control.verdict : null, biggest_drop: c.trend.control ? c.trend.control.step : null } : null,
+      measured_against: c.control ? 'control area' : c.s.relative ? 'rest of the area' : 'zero',
       data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Cloud Score+ (GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED) cs_cdf >= ' + CS_CLEAR + '; SCL no-data, saturated/defective and snow removed', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10, map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today },
       settings: {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
