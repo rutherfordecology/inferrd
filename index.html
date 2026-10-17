@@ -803,7 +803,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.28.0';
+const APP_VERSION = 'v0.28.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -936,6 +936,14 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/
 
 const drawnItems = new L.FeatureGroup();
 map.addLayer(drawnItems);
+// A 1 px black line along the middle of each area's coloured outline, so
+// the edge reads against bright pasture and dark canopy alike. Its own pane
+// above the overlays keeps it on top of spot and change layers whatever
+// order they're added in, and it never takes clicks meant for the map.
+map.createPane('areaCentreLine');
+map.getPane('areaCentreLine').style.zIndex = 450;
+map.getPane('areaCentreLine').style.pointerEvents = 'none';
+const areaCentreLines = L.layerGroup().addTo(map);
 const drawControl = new L.Control.Draw({
   draw: { polygon: { allowIntersection: false, showArea: true }, polyline: false, circle: false, circlemarker: false, marker: false, rectangle: true },
   edit: { featureGroup: drawnItems, remove: false }
@@ -1028,6 +1036,7 @@ function removeArea(id) {
   const idx = areas.findIndex(a => a.id === id);
   if (idx === -1) return;
   drawnItems.removeLayer(areas[idx].layer);
+  areaCentreLines.removeLayer(areas[idx].centre);
   areas.splice(idx, 1);
   pruneResultsForArea(id);
   renderAreaList();
@@ -3817,10 +3826,13 @@ function addArea(layer, name, meta) {
   // already in use by a surviving area (draw 2, remove the 1st, draw a
   // 3rd: length is back to 1, so the old "2nd colour" logic repeats it).
   const color = AREA_COLORS[nextAreaNum % AREA_COLORS.length];
-  // A wide, see-through outline: visible against canopy without hiding the edge beneath it.
-  if (layer.setStyle) layer.setStyle({ color: color, weight: 4, opacity: 0.45, fillColor: color, fillOpacity: 0.1 });
+  // A wide, nearly solid outline with a thin black line down its middle:
+  // the old see-through outline (45%) all but vanished against canopy.
+  if (layer.setStyle) layer.setStyle({ color: color, weight: 4, opacity: 0.9, fillColor: color, fillOpacity: 0.1 });
   drawnItems.addLayer(layer);
-  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, geojson: layer.toGeoJSON(),
+  const centre = L.polygon(layer.getLatLngs(), { pane: 'areaCentreLine', color: '#000', weight: 1, opacity: 1, fill: false, interactive: false });
+  areaCentreLines.addLayer(centre);
+  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, centre: centre, geojson: layer.toGeoJSON(),
     source: meta && meta.source, properties: meta && meta.properties });
   nextAreaNum++;
   renderAreaList();
@@ -3861,7 +3873,12 @@ map.on(L.Draw.Event.EDITED, (e) => {
     const area = areas.find(a => a.layer === layer);
     if (area) area.geojson = layer.toGeoJSON();
   });
+  syncAreaCentreLines();
 });
+// The black centre line follows the shape while it is being reshaped, and
+// snaps back with it when an edit is cancelled.
+function syncAreaCentreLines() { areas.forEach(a => a.centre.setLatLngs(a.layer.getLatLngs())); }
+[L.Draw.Event.EDITVERTEX, L.Draw.Event.EDITMOVE, L.Draw.Event.EDITRESIZE, L.Draw.Event.EDITSTOP].forEach(ev => map.on(ev, syncAreaCentreLines));
 renderAreaList();
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
@@ -5422,7 +5439,14 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   let layersLoaded = false, layersFailed = false;
   const lyrScript = document.createElement('script');
   lyrScript.src = OCCURD_BASE + 'layers.js';
-  lyrScript.onload = () => { layersLoaded = true; };
+  // Once this browser holds the Layers key, the panel opens with the page
+  // every time, so the reference layers (and the condition-check spot
+  // types) are always to hand. ✕ closes it until the next load; "–"
+  // folds it out of the way.
+  lyrScript.onload = () => {
+    layersLoaded = true;
+    if (window._layersHasKey && window._layersHasKey()) activateLayers();
+  };
   lyrScript.onerror = () => { layersFailed = true; console.warn('[inferrd] could not load layers.js from ' + OCCURD_BASE); };
   document.body.appendChild(lyrScript);
   // Distance and area measuring tools, also shared with occurd.

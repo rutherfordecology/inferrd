@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.28.1 — 2026-10-17
+
+- **Area outlines stand out on the map.** The coloured outline is now 90%
+  opaque instead of 45%, which all but vanished against canopy, with a
+  1 px black line down its middle. The black line sits above spot and
+  change layers, follows the shape while it is reshaped, and goes when the
+  area is removed. Report images already drew their own dark-edged
+  outline and are unchanged.
+- **The Layers panel stays up.** Once this browser holds the Layers
+  password, the panel opens with the page every time instead of waiting
+  for Projects ▾ → Layers. ✕ closes it until the next load.
+
 ## v0.28.0 — 2026-10-17
 
 Accuracy assessment for the condition check, so the spot rules can be
