@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.31.0 — 2026-10-17
+
+- **Per-pixel yearly values allow for the season.** Each year was the
+  median of that year's clear images, so for vegetation with a strong
+  seasonal swing a year with more clear winter images came out lower
+  although nothing had changed. On 5-04-185 that produced five "dropped and
+  recovered" spots (2.3 ha) on 2020 against 2021: the spots' yearly median
+  went 0.54 → 0.35 while 2020 had 15 winter and 15 summer images and 2021
+  had 17 and 11, and nothing showed on the image-by-image chart. Now each
+  month of each year is a median composite less the pixel's normal for
+  that month (its median over the period), each year is the median of its
+  months, and the pixel's average monthly normal is added back. Every
+  month present counts the same and missing months don't matter. This is
+  the per-pixel version of the whole-area adjustment and affects slow
+  decline, gains, older sudden drops, dropped and recovered, canopy
+  decline and the canopy trend map. The report's methods say so.
+- Tested live with the same settings. On 5-04-185 the false "dropped and
+  recovered" spots are gone and canopy decline went from 17 spots (6.04 ha)
+  to 15 (3.25 ha). On 5-04-052 ("allow for area-wide change" unticked) the
+  Gabrielle canopy decline is still found (5.2 ha, dated 2023). Runs took
+  36–41 s, against 83 s before.
+
 ## v0.30.1 — 2026-10-17
 
 - **Spots over time shows what each flag compared.** A row of bars per

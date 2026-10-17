@@ -110,6 +110,17 @@ there for at least two images in a row, and the first one after. A dip
 that recovers on the very next image is called out as likely cloud shadow
 or haze rather than change. The per-image series exports as CSV.
 
+### Condition check: yearly values per pixel
+
+The condition check's per-pixel yearly values (behind slow decline,
+gains, older sudden drops, dropped and recovered, canopy decline and the
+canopy trend map) allow for the season. Each month of each year is a
+median composite less that pixel's normal for the month (its median over
+the period), the year is the median of its months, and the average monthly
+normal is added back, so every month present counts the same. A plain yearly median depends on how many
+clear images fell in winter, which for seasonal vegetation can fake a
+drop.
+
 ### Condition check against a control area
 
 With two or more areas drawn, the condition check settings offer **Area to

@@ -828,7 +828,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.30.1';
+const APP_VERSION = 'v0.31.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1939,11 +1939,34 @@ function conditionImages(region, proj, s, ctrl) {
   // control: a reference-area design. Images are fetched for both; spots
   // and the canopy trend map stay inside the area.
   const both = ctrl ? region.union(ctrl, 1) : region, ref = ctrl || region;
+  // ── Yearly values, allowing for the season ──
+  // A plain median of a year's clear images depends on how many of them
+  // fell in winter: for vegetation with a strong seasonal swing, a year
+  // with more clear winter images comes out lower although nothing
+  // changed (on 5-04-185, five "dropped and recovered" spots were only a
+  // winter-heavy 2021). So each month of each year is a median composite
+  // less the pixel's normal for that month (its median over the whole
+  // period), the year is the median of its months, and the pixel's average
+  // monthly normal is added back so values stay on the index's scale. Every
+  // month present counts the same and missing months don't matter: the
+  // per-pixel version of the whole-area adjustment (conditionTrend). (Taking each image off its
+  // month's normal one by one ran Earth Engine out of memory: it worked the
+  // month's median out again for every image.)
+  const yBands = [s.trendIndex, COND_CANOPY_INDEX, 'NDVI'].filter((b, i, a) => a.indexOf(b) === i);
+  const allImgs = condCollection(both, s.years[0] + '-01-01', (s.years[s.years.length - 1] + 1) + '-01-01', s.cloudPct, yBands).map(img => img.toFloat());
+  const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const monthMedian = (col) => ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst(yBands)));
+  const clim = months.map(m => monthMedian(allImgs.filter(ee.Filter.calendarRange(m, m, 'month'))));
+  const climMean = ee.ImageCollection(clim).mean();
+  const yearly = s.years.map(y => {
+    const inYear = allImgs.filterDate(y + '-01-01', (y + 1) + '-01-01');
+    const anoms = months.map((m, i) => monthMedian(inYear.filter(ee.Filter.calendarRange(m, m, 'month'))).subtract(clim[i]));
+    return ee.ImageCollection(anoms).median().add(climMean).toFloat();
+  });
   // ── Years: slow decline, gain, older sudden drops ──
-  const yearImgs = s.years.map(y => {
-    const col = yearIndexCollection(both, y, s.cloudPct, 1, 12).select(s.trendIndex);
-    const v = ee.Image(ee.Algorithms.If(col.size().gt(0), col.median().rename('v').float(), eeMaskedConst(['v'])));
-    return v.addBands(ee.Image.constant(y).float().rename('t').updateMask(v.mask()));
+  const yearImgs = yearly.map((img, i) => {
+    const v = img.select(s.trendIndex).rename('v');
+    return v.addBands(ee.Image.constant(s.years[i]).float().rename('t').updateMask(v.mask()));
   });
   const annual = ee.ImageCollection(yearImgs);
   const nYears = annual.select('v').count().unmask(0).rename('nYears');
@@ -1989,10 +2012,7 @@ function conditionImages(region, proj, s, ctrl) {
 
   // ── Canopy decline (see COND_CANOPY_INDEX) ──
   const cNames = [COND_CANOPY_INDEX, 'NDVI'];
-  const cYear = s.years.map(y => {
-    const col = yearIndexCollection(both, y, s.cloudPct, 1, 12).select(cNames);
-    return ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst(cNames))).toFloat();
-  });
+  const cYear = yearly.map(img => img.select(cNames)); // allowing for the season, as above
   const dense = ee.ImageCollection(cYear).select('NDVI').max().gte(COND_DENSE_NDVI);
   const cRel = cYear.map(img => {
     const v = img.select(COND_CANOPY_INDEX).updateMask(dense);
@@ -3104,6 +3124,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud over the whole tile were left out. Cloud and cloud shadow were masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023), and no-data, saturated and snow pixels with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
   if (c.control) para('Control: every pixel was measured against a control area, ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha), not against the rest of the area. The medians and typical spreads below are the control\'s, so change shared with the control (weather, the season, a storm across both) cancels out, and the spots show where the area differs from it. The control\'s own whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its calendar months (each the average of its adjusted images), with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test on the yearly values, its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
+  para('Yearly values per pixel (used by slow decline, gains, dropped and recovered, canopy decline and the canopy trend): each month of each year was a median composite less that pixel\'s normal for the month (its median over ' + y0 + '–' + y1 + '), the year is the median of its months, and the pixel\'s average monthly normal was added back, so every month present counts the same. So a year whose clear images happened to fall mostly in winter does not read as a drop.', { size: 9.5 });
   para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less ' + refWord + ' median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times ' + refWord + ' typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
   para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? refWord + ' median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
   para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against ' + refWord + ' median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
