@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.28.2 — 2026-10-17
+
+- **Smallest spot can be 0.01 ha (1 pixel).** A single flagged 10 m pixel
+  then counts as a spot. The hint warns that this also lets through more
+  cloud edges, shadows and odd pixels, and that a lone dead crown is
+  usually split across several pixels and diluted by the live canopy
+  around it, so it may still not be flagged.
+
 ## v0.28.1 — 2026-10-17
 
 - **Area outlines stand out on the map.** The coloured outline is now 90%

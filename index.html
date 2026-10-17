@@ -462,6 +462,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div>
           <label for="condMinHa">Smallest spot</label>
           <select id="condMinHa">
+            <option value="0.01">0.01 ha (1 pixel)</option>
             <option value="0.03">0.03 ha</option>
             <option value="0.1" selected>0.1 ha</option>
             <option value="0.25">0.25 ha</option>
@@ -490,7 +491,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Canopy decline looks for a drop in canopy moisture (NDMI) starting in any year of the period (up to four years before against the two after), in dense canopy only, with its own, gentler tolerance: dying canopy loses leaf water well before it loses its green. Each flagged patch grows into touching pixels that pass a looser test (1.5× and 0.06), so it covers the whole dieback patch. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. A pixel is 10 × 10 m (0.01 ha); at 0.01 ha a single flagged pixel counts as a spot, which catches more small patches but also more cloud edges, shadows and odd pixels, and a lone tree crown is usually split across several pixels and diluted by the live canopy around it, so it may still not be flagged. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Canopy decline looks for a drop in canopy moisture (NDMI) starting in any year of the period (up to four years before against the two after), in dense canopy only, with its own, gentler tolerance: dying canopy loses leaf water well before it loses its green. Each flagged patch grows into touching pixels that pass a looser test (1.5× and 0.06), so it covers the whole dieback patch. Draw or pick an area that includes plenty of unchanged vegetation.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
@@ -803,7 +804,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.28.1';
+const APP_VERSION = 'v0.28.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
