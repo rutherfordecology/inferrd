@@ -1,5 +1,44 @@
 # Changelog
 
+## v0.27.0 — 2026-10-17
+
+Methods checked against the peer-reviewed literature, and fixed where they
+fell short.
+
+- **Cloud mask is now Google's Cloud Score+** (`cs_cdf` ≥ 0.6, Pasquarella
+  et al. 2023) instead of the Scene Classification Layer, which misses much
+  thin cloud and shadow and kept class 7 ("clouds, low probability /
+  unclassified"). The SCL still drops no-data, saturated and snow pixels.
+  Applies everywhere: trends, change map, change dating, condition check
+  and report image chips.
+- **"No significant trend" no longer reads as "stable".** It is reported as
+  "not shown either way", since with ~8 yearly values Mann-Kendall has
+  little power. Fewer than 5 years is flagged as unable to reach
+  significance at all.
+- **Mann-Kendall variance corrected for serial correlation** (Hamed & Rao
+  1998), only ever widened. Checked against an independent scipy
+  implementation.
+- **Sen's slope divides by years elapsed**, so a year missing for cloud no
+  longer distorts the trend mode's slope.
+- **Canopy trend map uses a false discovery rate** (Benjamini–Hochberg,
+  q = 0.05) instead of p < 0.05 per pixel, which flagged about one pixel
+  in twenty in an unchanging forest. The cut-off used is in the PDF and
+  `summary.json` (`canopy_trend.p_cutoff`).
+- **Condition-check error bars allow for correlated images.** Each month is
+  averaged first, and each year's 95% interval uses an effective sample
+  size cut for month-to-month autocorrelation. `trend.csv` columns are now
+  `months_used`, `effective_n`, `scenes` and `clear_looks`.
+- **Clear looks per area.** Results, CSVs and the PDF add `n_clear`, the
+  number of clear views the typical pixel of the area got; the
+  low-quality-year warnings use it instead of the whole-tile scene count.
+- **Years before 2019 flagged.** Level-2A was only produced worldwide from
+  December 2018; year pickers now default to 2019.
+- **Biggest-jump check compares like with like:** a yearly change is now
+  judged against the typical change between deseasonalised yearly
+  averages, not the scatter of single months.
+- **"Severe" is now "strong"** on the change map and in exports, with a
+  note that these are not burn-severity classes.
+
 ## v0.26.0 — 2026-10-16
 
 - **Canopy trend: healthy forest growing well.** Every dense-canopy pixel

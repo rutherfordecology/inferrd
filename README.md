@@ -53,15 +53,23 @@ there's an `inferrd` preview entry that does this automatically.)
    Sentinel-2 Level-2A surface reflectance (`COPERNICUS/S2_SR_HARMONIZED`) —
    atmospherically corrected via Sen2Cor, not raw top-of-atmosphere imagery,
    to avoid false "change" from atmospheric differences between dates.
-   Cloud/shadow/cirrus/defective pixels are dropped using the Scene
-   Classification Layer (SCL) band
+   Cloud and cloud shadow are masked with Google's Cloud Score+
+   (`GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED`, `cs_cdf` ≥ 0.6; Pasquarella
+   et al. 2023), linked to each scene; the Scene Classification Layer still
+   drops no-data, saturated/defective and snow pixels. (The SCL alone misses
+   much thin cloud and shadow in published comparisons.)
 5. The per-year mean is run through: OLS linear slope (reference only),
    a Mann-Kendall trend test (non-parametric — doesn't assume normality,
-   the standard choice for short/noisy environmental time series), and
-   Sen's slope estimator (median of all pairwise slopes — robust to
-   outliers)
+   the standard choice for short/noisy environmental time series) with its
+   variance widened for serial correlation after Hamed & Rao (1998), and
+   Sen's slope estimator (median of all pairwise slopes, divided by the
+   years between them so a missing year doesn't distort it)
 6. Results include a plain-English interpretation flagging statistical
-   significance, low-data-quality years, and a caveat that a vegetation
+   significance (a non-significant result is reported as "not shown either
+   way", never as "stable" — with ~8 yearly values the test has little
+   power), low-data-quality years (judged by clear looks per pixel, see
+   below), years before 2019 (Level-2A was only produced worldwide from
+   December 2018), and a caveat that a vegetation
    index decline alone can't distinguish dieback from drought, pests, or
    clearance
 
@@ -80,9 +88,10 @@ flagged when it differs from that by more than *k* × the area's robust spread
 inflate); *k* is the sensitivity slider. Changes under 0.05 are never
 flagged. Each area gets its own baseline, so draw it wider than the
 suspected clearance — if most of the area changed, that change becomes the
-"typical" one. Flagged pixels are shaded slight / moderate / severe by
+"typical" one. Flagged pixels are shaded slight / moderate / strong by
 the size of the change (0.05–0.15, 0.15–0.3, over 0.3 index units — rough
-defaults, not calibrated thresholds). Grey marks pixels with no clear view
+defaults, not calibrated thresholds, and not burn severity: on Key & Benson's
+2006 dNBR scale a 0.27–0.44 drop is only "moderate-low"). Grey marks pixels with no clear view
 (cloud or shadow on every pass in a window) and light grey marks pixels
 backed by only one clear image. The sidebar reports hectares per shade, the
 unassessable area, how much flagged loss rests on a single image, and the
@@ -92,7 +101,7 @@ To date a flagged change, click a patch on the change map. inferrd. traces
 the flagged patch under the click (the same rule as the map, pixels joined
 eight-connected; a 10 m circle round the point if nothing is flagged
 there), then takes every Sentinel-2 image of roughly the last two years in
-which the whole patch is clear (Scene Classification classes 4–7) and
+which the whole patch is clear (passes the cloud mask above) and
 compares the patch mean with the median of a ring of surroundings 30–150 m
 out. The results pane plots patch, surroundings and patch minus
 surroundings, and reports "changed between X and Y": the last clear image
@@ -139,8 +148,10 @@ come back to.
 
 Sentinel-2's two satellites together revisit most places roughly every 5
 days, but how many of those passes are usably cloud-free varies by season —
-the per-year `n_images` count in the results table is the real signal for
-how much data actually went into a given year. Requesting a full calendar
+the per-year `n_clear` ("Clear looks": how many clear views the typical
+pixel of your area got) is the real signal for how much data actually went
+into a given year. `n_images` ("Scenes") counts scenes that passed the
+whole-tile cloud filter, which can be cloudy over your area. Requesting a full calendar
 year (the default) mixes every season together, which can make two years
 look different just because their cloud-free scenes happened to cluster in
 different seasons. Narrowing the season window to the same months every
@@ -176,9 +187,24 @@ trend analysis works identically regardless of which one is selected.
   from space. Use this to flag where to send someone to look, not as a
   substitute for ground-truthing.
 - The Level-2A surface reflectance data this tool queries only goes back
-  to 28 March 2017 — capping how far back "change over time" can go, and
-  meaning 2017 itself is a partial year (missing Jan-Mar). The year
-  selectors start at 2017 accordingly.
+  to 28 March 2017, and ESA only produced it worldwide from December 2018:
+  outside Europe, 2017 and most of 2018 are missing or thin. The selectors
+  still offer 2017 but default to 2019, and results flag earlier years.
+- **The condition-check spot rules have not been validated.** The
+  canopy-decline thresholds were tuned on two dieback patches at
+  Riverside Road. Nobody has yet checked a random sample of mapped and
+  unmapped pixels against field visits or aerial photos (the standard
+  set out in Olofsson et al. 2014, *Remote Sensing of Environment*
+  148:42–57), so the spots' error rates are unknown. Until that is done,
+  a spot is a place to look, not a finding.
+- The canopy-decline test tries every split year and keeps the biggest
+  drop, which makes chance drops likelier to pass than its spread
+  multiplier suggests. It is left as tuned because changing it without
+  validation data would only swap one unchecked rule for another.
+- The per-pixel canopy trend uses a false discovery rate correction, but
+  not the serial-correlation correction the whole-area trend gets
+  (that would need per-pixel autocorrelation, which Earth Engine can't
+  estimate cheaply from ~8 yearly values anyway).
 - Every visitor needs their own free, Earth-Engine-registered Google
   account — there's no way around this without adding a backend that holds
   service-account credentials (a deliberate trade-off to keep this a plain

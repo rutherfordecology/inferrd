@@ -377,12 +377,12 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div id="changeLegend" style="display:none;flex-direction:column;gap:4px;margin-top:8px;font-size:11px;color:var(--text2);">
         <div class="change-legend-row"><span class="change-legend-label">Loss</span><span class="sw" style="background:#fcae91"></span><span class="sw" style="background:#fb6a4a"></span><span class="sw" style="background:#cb181d"></span></div>
         <div class="change-legend-row" id="changeLegendGain"><span class="change-legend-label">Gain</span><span class="sw" style="background:#c7e9c0"></span><span class="sw" style="background:#74c476"></span><span class="sw" style="background:#238b45"></span></div>
-        <div class="change-legend-row"><span class="change-legend-label"></span><span class="sw-cap">slight</span><span class="sw-cap">moderate</span><span class="sw-cap">severe</span></div>
+        <div class="change-legend-row"><span class="change-legend-label"></span><span class="sw-cap">slight</span><span class="sw-cap">moderate</span><span class="sw-cap">strong</span></div>
         <div class="change-legend-row"><span class="sw" style="background:#7f7f7f;flex:0 0 14px;"></span>No clear view (cloud or shadow on every pass)</div>
         <div class="change-legend-row"><span class="sw" style="background:#d9d9d9;flex:0 0 14px;"></span>Low confidence (only one clear image)</div>
         <div style="margin-top:2px;color:var(--text);">Click a flagged patch on the map to see when it changed.</div>
       </div>
-      <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, severe over 0.3 (measured from the area-wide change when that's on). The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a severe NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
+      <div class="field-hint">Shades show how big a flagged change was in index units — slight 0.05–0.15, moderate 0.15–0.3, strong over 0.3 (measured from the area-wide change when that's on). These are sizes of change, not burn severity: on the standard burn-severity scale for NBR (Key &amp; Benson 2006) a 0.27–0.44 drop is only "moderate-low". The slider still decides which pixels are flagged at all. These are rough defaults, not calibrated thresholds: a strong NBR drop in forest usually means the canopy is gone, but the same number means something different in grassland or scrub. Grey pixels had cloud or shadow on every pass in one of the windows, so they couldn't be assessed — not "no change". Light grey pixels rest on a single clear image, which a missed cloud edge or shadow can easily throw; widen the window to firm them up.</div>
       <div class="field-hint live-hint" id="changeStatus"></div>
       <div class="field-hint live-hint" id="changeSummary"></div>
       </div>
@@ -687,7 +687,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <li>Draw your area of interest on the map</li>
       <li>Pick what you want to see: a trend over years (graphs of the index year by year) or change between two dates (a map of where vegetation increased or decreased, described below)</li>
       <li>For a trend, choose a year range, an optional season window, a cloud-cover threshold, and an index (EVI, NDVI, NBR or NDMI)</li>
-      <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year, using the Scene Classification Layer to drop cloud, cloud-shadow, cirrus and defective pixels. The index itself is computed at Sentinel-2's native 10m resolution; the cloud mask comes from the 20m Scene Classification Layer, resampled by Earth Engine to align — completely standard practice, but it means cloud/shadow edges are effectively decided at a coarser resolution than the index itself</li>
+      <li>inferrd. builds a cloud-masked composite from Sentinel-2 Level-2A surface reflectance (atmospherically corrected, not raw top-of-atmosphere imagery — avoids false "change" from atmospheric differences between dates) for each year. Cloud and cloud shadow are masked with Google's Cloud Score+ (Pasquarella et al. 2023), which catches thin cloud and shadow that Sentinel-2's own Scene Classification Layer often misses; the Scene Classification Layer still drops no-data, saturated and snow pixels. The index is computed at Sentinel-2's native 10m resolution</li>
       <li>The per-year mean is run through a linear trend, a Mann-Kendall test and Sen's slope estimator — the same non-parametric approach standard for short, noisy environmental time series</li>
     </ul>
 
@@ -699,20 +699,21 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Why "no trend" doesn't always mean "nothing happened"</h3>
     <p>Mann-Kendall and Sen's slope specifically test for a <em>monotonic</em> trend — a gradual, sustained direction across the whole period. A sharp one-off disturbance (storm damage, fire, clearance) followed by partial recovery is <em>not</em> monotonic, so these tests can correctly report "no significant trend" even when one year clearly dropped off a cliff. To catch that case, inferrd. separately reports the single biggest year-over-year change in the series and calls it out explicitly whenever it dominates the overall spread — check that figure, not just the trend line, if you're looking for a specific event rather than a gradual change.</p>
+    <p>"No significant trend" is also not the same as "stable". With the eight or so yearly values Sentinel-2 allows, the test only picks up a fairly large, steady change; with four or fewer values it can't reach significance at all. Read a non-significant result as "not shown either way". The test's variance is widened for any year-to-year carry-over in the series (Hamed &amp; Rao 1998), never narrowed.</p>
 
     <h3>Change between two dates</h3>
     <p>Choose "Change between two dates" in section 3 to map which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
     <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
 
     <h3>Condition check</h3>
-    <p>Choose "Condition check" in section 3 for one area, such as a covenant or Protection Management Area added with "Analyse this area". It reports the area's trend over the years and traces spots inside it: sudden drops (recent ones, found image by image in the look-back window and required to stay down; older ones, where most of a pixel's decline happened between two years), slow decline, and gains. Every pixel is judged against what the area as a whole did and against the area's typical spread, as in the change map, and only spots at least the smallest size are kept. "Export for report" saves the results as a zip for writing a condition report. A spot is a place to go and look, not proof of clearance or of a breach.</p>
+    <p>Choose "Condition check" in section 3 for one area, such as a covenant or Protection Management Area added with "Analyse this area". It reports the area's trend over the years and traces spots inside it: sudden drops (recent ones, found image by image in the look-back window and required to stay down; older ones, where most of a pixel's decline happened between two years), slow decline, and gains. Every pixel is judged against what the area as a whole did and against the area's typical spread, as in the change map, and only spots at least the smallest size are kept. The canopy trend map tests every pixel separately, so its cut-off is set by a false discovery rate correction (Benjamini–Hochberg) rather than p &lt; 0.05 each, which would flag about one pixel in twenty in an unchanging forest. The yearly error bars come from monthly averages with the sample size cut for months that run on from one another, since images a few days apart aren't independent. None of the spot rules has yet been checked against field or aerial-photo ground truth, so their error rates are unknown. "Export for report" saves the results as a zip for writing a condition report. A spot is a place to go and look, not proof of clearance or of a breach.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
-    <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "cloud-free images" column in your results table is the real signal for how much data went into each year. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
+    <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "Clear looks" column in your results table (how many clear views the typical point in your area got) is the real signal for how much data went into each year. "Scenes" counts every scene that passed the whole-tile cloud filter, including ones that were cloudy over your area. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
 
     <h3>Read this before trusting a result</h3>
     <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
-    <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). 2017 itself is a partial year (missing January–March), so the first full calendar year available is 2018.</p>
+    <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). ESA only produced it worldwide from December 2018, so outside Europe 2017 and most of 2018 are missing or thin; 2019 is the first full year everywhere, and the default start.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
@@ -769,7 +770,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.26.0';
+const APP_VERSION = 'v0.27.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -777,14 +778,18 @@ const CURRENT_YEAR = new Date().getFullYear();
 const yearStartSel = document.getElementById('yearStart');
 const yearEndSel = document.getElementById('yearEnd');
 // COPERNICUS/S2_SR_HARMONIZED (the Level-2A surface reflectance collection
-// this tool actually queries) starts 2017-03-28 — 2017 itself is partial
-// (missing Jan-Mar), so 2018 is the first genuinely full calendar year.
+// this tool actually queries) starts 2017-03-28, but ESA only produced
+// Level-2A worldwide from December 2018: outside Europe, 2017 and most of
+// 2018 are missing or thin (Earth Engine's catalog: "2017-2018 L2 coverage
+// ... is not yet global"). 2019 is the first full year everywhere, so it's
+// the default; earlier years stay selectable but are flagged in results.
 const EARLIEST_YEAR = 2017;
+const FIRST_GLOBAL_YEAR = 2019;
 for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) {
   yearStartSel.add(new Option(y, y));
   yearEndSel.add(new Option(y, y));
 }
-yearStartSel.value = EARLIEST_YEAR;
+yearStartSel.value = FIRST_GLOBAL_YEAR;
 yearEndSel.value = CURRENT_YEAR;
 
 const layerYearSel = document.getElementById('layerYearSel');
@@ -1218,7 +1223,7 @@ const CHANGE_MIN_ABS = 0.05; // never flag a change smaller than this, however t
 const CHANGE_GRADES = [
   { name: 'slight',   lo: CHANGE_MIN_ABS, hi: 0.15 },
   { name: 'moderate', lo: 0.15,           hi: 0.3 },
-  { name: 'severe',   lo: 0.3,            hi: null }
+  { name: 'strong',   lo: 0.3,            hi: null }
 ];
 // Class values in the map image → palette index (value - 1).
 const CHANGE_CLASS = { loss: [1, 2, 3], gain: [4, 5, 6], noData: 7, lowConf: 8 };
@@ -1250,10 +1255,10 @@ changeSensitivity.addEventListener('input', () => {
 
 function windowCollection(region, dateStr, days, maxCloudPct, indexName) {
   const d = ee.Date(dateStr);
-  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  return linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
     .filterDate(d.advance(-days, 'day'), d.advance(days + 1, 'day'))
-    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct)))
     .map(maskS2Clouds)
     .map(addIndices)
     .select(indexName);
@@ -1477,12 +1482,30 @@ const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', canopy_decline: 
 const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', canopy_decline: 'Canopy decline', slow_decline: 'Slow decline', gain: 'Sustained growth' };
 // Canopy trend, per pixel: Mann-Kendall on each dense-canopy pixel's yearly
 // trend index (EVI by default), the same test as the whole-area chart.
-// Improving steadily: z of 1.96 or more (p < 0.05), a rise of at least
+// Improving steadily: a rise significant after a Benjamini-Hochberg false
+// discovery rate correction across the pixels (COND_FDR_Q), a rise of at least
 // COND_GROW_FLOOR over the period, and canopy moisture (NDMI) not falling
 // significantly at the same time. Declining steadily: the mirror image.
 // Measured from zero, not against the rest of the area, so a whole forest
 // improving shows as improving.
-const COND_GROW_FLOOR = 0.03, COND_MK_Z = 1.96;
+const COND_GROW_FLOOR = 0.03, COND_MK_Z = 1.96, COND_FDR_Q = 0.05;
+// Benjamini-Hochberg p cut-off for a p-value image over the masked pixels:
+// the largest t with (number of p ≤ t) ≥ m·t/q, m = pixels tested, found
+// from a fine histogram of p on [0, q] (only p ≤ q can ever pass). 0 when
+// nothing passes. 20 m is enough to count with.
+function fdrThreshold(pImg, mask, region, proj) {
+  const opts = { geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 4, bestEffort: true };
+  const nBins = 500, width = COND_FDR_Q / nBins;
+  const hist = pImg.updateMask(mask).rename('p').reduceRegion(Object.assign({ reducer: ee.Reducer.fixedHistogram(0, COND_FDR_Q, nBins) }, opts)).get('p');
+  const m = ee.Number(mask.selfMask().rename('m').reduceRegion(Object.assign({ reducer: ee.Reducer.count() }, opts)).get('m'));
+  return ee.Number(ee.Algorithms.If(hist, ee.Algorithms.If(m.gt(0), (() => {
+    const arr = ee.Array(hist);
+    const cum = arr.slice(1, 1, 2).project([0]).accum(0);
+    const edges = arr.slice(1, 0, 1).project([0]).add(width);
+    const ok = cum.gte(edges.multiply(m).divide(COND_FDR_Q));
+    return edges.multiply(ok).reduce(ee.Reducer.max(), [0]).get([0]);
+  })(), 0), 0));
+}
 const TREND_COLORS = { improving: '#1a9850', stable: '#d9d2a6', declining: '#f46d43' };
 const COND_RECOVER_SHARE = 0.5; // a drop counts as recovered once this share of it has grown back by the last year
 // Canopy decline: a drop in canopy moisture (NDMI) at any point in the
@@ -1514,7 +1537,7 @@ let lastCondition = null;
 (function initConditionSettings() {
   const ys = document.getElementById('condYearStart'), ye = document.getElementById('condYearEnd');
   for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) { ys.add(new Option(y, y)); ye.add(new Option(y, y)); }
-  ys.value = 2018; // first full year of Sentinel-2 surface reflectance
+  ys.value = FIRST_GLOBAL_YEAR; // first full year of worldwide Sentinel-2 surface reflectance
   ye.value = CURRENT_YEAR - 1; // last full year
   const k = document.getElementById('condK');
   k.addEventListener('input', () => { document.getElementById('condKVal').textContent = k.value + '× typical'; });
@@ -1556,7 +1579,7 @@ function renderCondToggles() {
     return '<label style="display:flex;align-items:flex-start;gap:6px;margin:5px 0 3px;cursor:pointer;text-transform:none;letter-spacing:normal;font-weight:400;font-size:11px;color:var(--text2);">' +
       '<input type="checkbox" data-kind="trend_map" id="' + prefix + 'trend_map"' + (condIsShown('trend_map') ? ' checked' : '') + ' style="margin-top:2px;accent-color:' + TREND_COLORS.improving + ';">' +
       '<span style="display:inline-flex;margin-top:2px;flex-shrink:0;">' + ['improving', 'stable', 'declining'].map(k => '<span style="width:6px;height:10px;background:' + TREND_COLORS[k] + ';"></span>').join('') + '</span>' +
-      '<span style="line-height:1.35;">Canopy trend map (improving, stable, declining steadily)' + pct + '</span></label>';
+      '<span style="line-height:1.35;">Canopy trend map (improving, no clear trend, declining steadily)' + pct + '</span></label>';
   })();
   const wire = (el) => el.querySelectorAll('input[data-kind]').forEach(cb => cb.addEventListener('change', () => setCondKindShown(cb.dataset.kind, cb.checked)));
   const leg = document.getElementById('conditionLegend');
@@ -1748,10 +1771,10 @@ function eeAreaMedian(img, region, proj) {
 }
 
 function condCollection(region, start, end, cloudPct, indexName) {
-  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  return linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
     .filterDate(start, end)
-    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', cloudPct))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', cloudPct)))
     .map(maskS2Clouds)
     .map(addIndices)
     .select(indexName);
@@ -1861,8 +1884,21 @@ function conditionImages(region, proj, s) {
     return S.subtract(S.signum()).divide(varS.sqrt());
   };
   const zTrend = mkZ(yearImgs, 'v'), zWater = mkZ(cYear, COND_CANOPY_INDEX);
-  const improving = zTrend.gte(COND_MK_Z).and(total.gte(COND_GROW_FLOOR)).and(zWater.gt(-COND_MK_Z)).and(dense);
-  const declining = zTrend.lte(-COND_MK_Z).and(total.lte(-COND_GROW_FLOOR)).and(dense);
+  // One test per pixel means thousands of tests: at p < 0.05 each, about
+  // 5% of an unchanging forest would come out improving or declining by
+  // chance. The p cut-off is instead set by Benjamini-Hochberg across all
+  // tested pixels, holding the expected share of false calls among the
+  // flagged pixels to COND_FDR_Q (Benjamini & Hochberg 1995; Wilks 2016,
+  // BAMS, "The stippling shows statistically significant grid points").
+  // Neighbouring pixels are correlated, which BH tolerates for this kind
+  // of positive dependence. The moisture veto (zWater) stays uncorrected:
+  // vetoing more is the cautious side.
+  const pTrend = zTrend.abs().divide(Math.SQRT2).erfc();
+  const tested = dense.and(total.mask());
+  const trendP = fdrThreshold(pTrend, tested, region, proj);
+  const sigTrend = pTrend.lte(trendP);
+  const improving = sigTrend.and(zTrend.gt(0)).and(total.gte(COND_GROW_FLOOR)).and(zWater.gt(-COND_MK_Z)).and(dense);
+  const declining = sigTrend.and(zTrend.lt(0)).and(total.lte(-COND_GROW_FLOOR)).and(dense);
   const trendClass = ee.Image(2).where(improving, 1).where(declining, 3).updateMask(dense.and(total.mask())).clip(region).toInt().rename('tc');
   const trendShares = ee.Image.pixelArea().divide(1e4).addBands(trendClass).reduceRegion({
     reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 16 }); // shares need not be 10 m
@@ -1916,7 +1952,7 @@ function conditionImages(region, proj, s) {
     .rename('mag');
   const yr = biggest.select('yr').where(cls.eq(5), bigRel.select('yr')).rename('yr');
   const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), yr, nYears, recov, bestC.select(['cyr', 'crec', 'cna'])]);
-  return { cls, stats, trendClass, trendShares, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
+  return { cls, stats, trendClass, trendShares, trendP, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
 }
 
 function runCondition() {
@@ -1973,7 +2009,7 @@ function runCondition() {
     { label: 'Yearly values', build: () => ee.FeatureCollection(years.map(y => yearStatsFeature(region, y, s.cloudPct, s.trendIndex, 1, 12, area.id))),
       done: (res) => {
         trendRows = res.features.map(f => f.properties)
-          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images }))
+          .map(p => ({ year: p.year, mean: p.mean === MISSING_SENTINEL ? null : p.mean, std: p.std === MISSING_SENTINEL ? null : p.std, n_images: p.n_images, n_clear: p.n_clear }))
           .sort((a, b) => a.year - b.year);
       } },
     // One area average per clear image, for the seasonally adjusted trend.
@@ -2000,7 +2036,7 @@ function runCondition() {
       } },
     { label: 'Area-wide change', build: () => {
         c = conditionImages(region, proj, s);
-        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares });
+        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares, trendP: c.trendP });
       },
       done: (res) => { spotsRes = res; } },
     // Fetched on its own: a collection nested in a Dictionary comes back as
@@ -2060,12 +2096,29 @@ function isoFromMs(ms) { return ms ? new Date(ms).toISOString().slice(0, 10) : n
 // the area clear). The normal value for each calendar month, from all
 // years, is taken off every image, so spring growth and winter dips, and
 // a year that happened to get mostly winter images, don't move the yearly
-// value. Each year = the average of its adjusted images, with a 95%
-// confidence interval from their scatter and number. The composite mean
+// value. Each year = the average of its months (each the average of its
+// adjusted images), with a 95% confidence interval allowing for months
+// that run on from one another (see below). The composite mean
 // and between-pixel SD from the yearly composites are kept alongside.
 const T_CRIT_95 = [null, 12.71, 4.30, 3.18, 2.78, 2.57, 2.45, 2.36, 2.31, 2.26, 2.23, 2.20, 2.18, 2.16, 2.14, 2.13, 2.12, 2.11, 2.10, 2.09, 2.09];
 const tCrit95 = (df) => df < 1 ? null : df < T_CRIT_95.length ? T_CRIT_95[df] : df < 30 ? 2.05 : 1.98;
 const COND_MIN_CLEAR_SHARE = 0.5;
+// Lag-1 autocorrelation of a monthly series { k: month number, year, v }
+// within years: each month is taken from its own year's average first, so
+// a real change between years (the thing the trend test looks for) isn't
+// mistaken for carry-over and doesn't widen the bars. Only months whose
+// next month is in the same year are paired, and the covariance is
+// averaged per pair so gaps don't drag it towards zero.
+function lag1Autocorr(monthly) {
+  if (monthly.length < 3) return 0;
+  const sums = new Map();
+  monthly.forEach(x => { const a = sums.get(x.year) || [0, 0]; a[0] += x.v; a[1]++; sums.set(x.year, a); });
+  const dev = new Map(monthly.map(x => [x.k, x.v - sums.get(x.year)[0] / sums.get(x.year)[1]]));
+  const variance = [...dev.values()].reduce((s, d) => s + d * d, 0) / dev.size;
+  let cov = 0, pairs = 0;
+  monthly.forEach(x => { if (dev.has(x.k + 1) && Math.floor((x.k + 1) / 12) === x.year) { cov += dev.get(x.k) * dev.get(x.k + 1); pairs++; } });
+  return variance > 0 && pairs >= 6 ? (cov / pairs) / variance : 0;
+}
 function conditionTrend(rows, series) {
   const pts = (series || []).filter(p => p.share >= COND_MIN_CLEAR_SHARE && p.v != null);
   const month = (p) => new Date(p.t).getUTCMonth();
@@ -2078,14 +2131,31 @@ function conditionTrend(rows, series) {
   const known = clim.filter(v => v != null);
   const base = known.length ? known.reduce((a, b) => a + b, 0) / known.length : allMed;
   pts.forEach(p => { p.normal = clim[month(p)] != null ? clim[month(p)] : allMed; p.adj = base + (p.v - p.normal); });
+  // Images a few days apart see the same conditions, so they aren't
+  // independent samples of the year, and treating them as such made the
+  // 95% intervals far too narrow. Each calendar month is averaged first,
+  // and the year's interval comes from its monthly averages with the
+  // sample size cut to an effective one for the month-to-month
+  // autocorrelation r of the whole record: n(1 - r)/(1 + r), the usual
+  // AR(1) correction (e.g. Wilks, Statistical Methods in the Atmospheric
+  // Sciences, ch. 5). r is clamped to 0–0.9.
+  const monthKey = (p) => { const d = new Date(p.t); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };
+  const byMonthKey = new Map();
+  pts.forEach(p => { const k = monthKey(p); if (!byMonthKey.has(k)) byMonthKey.set(k, []); byMonthKey.get(k).push(p.adj); });
+  const monthly = [...byMonthKey.entries()].sort((a, b) => a[0] - b[0])
+    .map(([k, vs]) => ({ k, year: Math.floor(k / 12), v: vs.reduce((s, x) => s + x, 0) / vs.length }));
+  const rEff = Math.min(0.9, Math.max(0, lag1Autocorr(monthly)));
   const byYear = new Map(rows.map(r => [r.year, r]));
   const yearly = [...new Set(rows.map(r => r.year))].sort((a, b) => a - b).map(y => {
-    const a = pts.filter(p => new Date(p.t).getUTCFullYear() === y).map(p => p.adj);
+    const a = monthly.filter(x => x.year === y).map(x => x.v);
     const n = a.length, m = n ? a.reduce((s, v) => s + v, 0) / n : null;
     const sd = n > 1 ? Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / (n - 1)) : null;
+    // Floored at 2 (one degree of freedom) so a strongly autocorrelated
+    // record still gets a bar, just a very wide one, rather than none.
+    const nEff = Math.min(n, Math.max(2, n * (1 - rEff) / (1 + rEff)));
     const r = byYear.get(y) || {};
-    return { year: y, mean: m, ci: sd != null ? tCrit95(n - 1) * sd / Math.sqrt(n) : null, n_used: n,
-      composite_mean: r.mean, std: r.std, n_images: r.n_images };
+    return { year: y, mean: m, ci: sd != null ? tCrit95(Math.floor(nEff - 1)) * sd / Math.sqrt(nEff) : null, n_used: n,
+      n_eff: +nEff.toFixed(1), composite_mean: r.mean, std: r.std, n_images: r.n_images, n_clear: r.n_clear };
   });
   const valid = yearly.filter(r => r.mean != null && r.n_used >= 3);
   // 12-month moving median of the adjusted images, one point a month.
@@ -2099,7 +2169,7 @@ function conditionTrend(rows, series) {
   }
   const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null };
   if (valid.length < 4) return out;
-  const mk = mannKendall(valid.map(r => r.mean));
+  const mk = mannKendall(valid.map(r => r.mean), valid.map(r => r.year));
   const slopes = [];
   for (let i = 0; i < valid.length - 1; i++) for (let j = i + 1; j < valid.length; j++) {
     slopes.push((valid[j].mean - valid[i].mean) / (valid[j].year - valid[i].year));
@@ -2553,8 +2623,8 @@ async function conditionChips(c, onProgress) {
     const key = p.start + '|' + p.end + '|' + r.key;
     if (!mapIds.has(key)) {
       mapIds.set(key, new Promise((resolve, reject) => {
-        ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(wholeRegion).filterDate(p.start, p.end)
-          .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', c.s.cloudPct)).map(maskS2Clouds)
+        linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(wholeRegion).filterDate(p.start, p.end)
+          .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', c.s.cloudPct))).map(maskS2Clouds)
           .select(r.bands).median().clip(wholeRegion).visualize(r.vis)
           .getMapId({}, (m, err) => err ? reject(new Error(err)) : resolve(m.urlFormat));
       }));
@@ -2599,7 +2669,7 @@ function loadJsPDF() {
 const blobToDataUrl = (b) => new Promise((resolve, reject) => { const r = new FileReader(); r.onload = () => resolve(r.result); r.onerror = reject; r.readAsDataURL(b); });
 const imgSize = (url) => new Promise(resolve => { const i = new Image(); i.onload = () => resolve([i.naturalWidth, i.naturalHeight]); i.onerror = () => resolve(null); i.src = url; });
 const fmtLongDate = (iso) => { const d = new Date(iso + 'T00:00:00Z'); return d.getUTCDate() + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
-const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', severe: 'strong' }; // "severe" reads as a judgement of harm
+const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', strong: 'strong', severe: 'strong' }; // older exports said "severe"
 const SPOT_MAY_BE = {
   sudden_drop: 'clearance, a slip, windthrow or fire',
   dropped_recovered: 'storm damage, a slip or windthrow that has since regrown',
@@ -2721,7 +2791,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   }
   para(trendSentence);
   const ctr = c.canopyTrend;
-  if (ctr && ctr.denseHa) para('Across the ' + ha(ctr.denseHa) + ' ha of dense canopy, ' + ctr.improvingPct + '% improved steadily between ' + y0 + ' and ' + y1 + ', ' + ctr.stablePct + '% stayed about the same and ' + ctr.decliningPct + '% declined steadily.');
+  if (ctr && ctr.denseHa) para('Across the ' + ha(ctr.denseHa) + ' ha of dense canopy, ' + ctr.improvingPct + '% improved steadily between ' + y0 + ' and ' + y1 + ', ' + ctr.stablePct + '% showed no clear trend either way (which is not proof of no change) and ' + ctr.decliningPct + '% declined steadily.');
   const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), cd = ofKind('canopy_decline'), dc = ofKind('slow_decline'), gn = ofKind('gain');
   const visit = sd.length + cd.length + dc.length;
   const left = c.hiddenKinds || [];
@@ -2781,30 +2851,32 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
 
   // ── 4 What this can't tell you ──
   heading('4  What this analysis can and can\'t tell you', 13);
-  const thinYears = valid.filter(r => r.n_images < 10).map(r => r.year);
+  const thinYears = valid.filter(r => r.n_clear != null && r.n_clear < 10).map(r => r.year);
+  const patchyYears = t.yearly.filter(r => r.year < FIRST_GLOBAL_YEAR).map(r => r.year);
   [
     'The satellite sees a change in the vegetation signal, not its cause. Clearance, slips, windthrow, fire, dieback and browsing can look alike from space.',
     'Spots smaller than ' + c.s.minHa + ' ha were not reported, so small clearings or single trees can be missed.',
     'Recent drops were looked for over ' + c.s.lookback + ' days, using ' + c.res.nScan + ' clear-enough satellite images.' + (c.res.nScan < 4 ? ' That is few; a recent change may have been missed under cloud.' : ''),
-    thinYears.length ? 'Some years had fewer than ten clear images (' + thinYears.join(', ') + '), so their values are less certain.' : null,
+    thinYears.length ? 'In some years the typical point in the area was seen clearly fewer than ten times (' + thinYears.join(', ') + '), so their values are less certain.' : null,
+    patchyYears.length ? 'Sentinel-2 surface reflectance was only produced worldwide from December 2018, so ' + patchyYears.join(' and ') + ' can be missing or thin outside Europe.' : null,
     'Spots at the edge of the area can include change just outside it.'
   ].filter(Boolean).forEach((s, i) => para((i + 1) + '.  ' + s));
 
   // ── Appendix A ──
   newPage();
   heading('Appendix A  Methods and settings', 14);
-  para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud were left out, and cloud, shadow and snow pixels were masked with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
-  para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its adjusted images, with a 95% confidence interval (t distribution). Mann-Kendall test on the yearly values p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
+  para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud over the whole tile were left out. Cloud and cloud shadow were masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023), and no-data, saturated and snow pixels with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
+  para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its calendar months (each the average of its adjusted images), with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test on the yearly values, its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less the area\'s median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times the area\'s typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
   para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? 'the area\'s median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
   para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against the area\'s median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
   para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against the area\'s median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
-  para('Canopy trend and sustained growth (' + c.s.trendIndex + ', with ' + COND_CANOPY_INDEX + ' as a check): for each dense-canopy pixel, a Mann-Kendall test on its yearly values ' + y0 + '–' + y1 + ', measured from zero (not against the rest of the area). Improving steadily: z of at least ' + COND_MK_Z + ' (p < 0.05), a rise of at least ' + COND_GROW_FLOOR + ' over the period (Sen\'s slope), and canopy moisture not falling significantly; declining steadily is the mirror image; the rest is stable. Sustained growth spots are touching improving pixels of at least ' + c.s.minHa + ' ha. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
+  para('Canopy trend and sustained growth (' + c.s.trendIndex + ', with ' + COND_CANOPY_INDEX + ' as a check): for each dense-canopy pixel, a Mann-Kendall test on its yearly values ' + y0 + '–' + y1 + ', measured from zero (not against the rest of the area). Improving steadily: a significant rise after a false-discovery-rate correction across all ' + 'tested pixels (Benjamini-Hochberg, q = ' + COND_FDR_Q + ', which gave a cut-off of p ≤ ' + (c.res.trendP == null ? 'n/a' : (+c.res.trendP).toPrecision(2)) + '), a rise of at least ' + COND_GROW_FLOOR + ' over the period (Sen\'s slope), and canopy moisture not falling significantly; declining steadily is the mirror image; the rest showed no clear trend (not the same as no change). Sustained growth spots are touching improving pixels of at least ' + c.s.minHa + ' ha. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
   heading('Yearly values', 11);
-  table([['Year', 0.1], ['Adjusted average', 0.17], ['95% interval', 0.15], ['Images used', 0.14], ['Composite average', 0.16], ['Between-pixel SD', 0.15], ['Clear images', 0.13]],
-    t.yearly.map(r => [r.year, r.mean == null ? 'none' : r.mean.toFixed(3), r.ci == null ? '' : '± ' + r.ci.toFixed(3), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images]));
-  para('Adjusted average and 95% interval: from single images, as above. Composite average and between-pixel SD: from each year\'s median composite; the SD shows how varied the area is from place to place, not uncertainty. Clear images: all images in the year, including partly cloudy ones.', { size: 8.5, italic: true });
+  table([['Year', 0.08], ['Adjusted average', 0.15], ['95% interval', 0.13], ['Months used', 0.12], ['Composite average', 0.15], ['Between-pixel SD', 0.14], ['Scenes', 0.1], ['Clear looks', 0.13]],
+    t.yearly.map(r => [r.year, r.mean == null ? 'none' : r.mean.toFixed(3), r.ci == null ? '' : '± ' + r.ci.toFixed(3), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images, r.n_clear == null ? '' : r.n_clear]));
+  para('Adjusted average and 95% interval: from single images, as above. Composite average and between-pixel SD: from each year\'s median composite; the SD shows how varied the area is from place to place, not uncertainty. Months used: calendar months with clear images, each the average of its images. Scenes: all images in the year that passed the whole-tile cloud filter, including ones cloudy over this area. Clear looks: how many clear views the typical point in the area had.', { size: 8.5, italic: true });
   if (spots.length) {
     heading('All spots', 11);
     table([['Spot', 0.08], ['Kind', 0.15], ['Size (ha)', 0.1], ['When', 0.22], ['Change', 0.13], ['Images or years', 0.14], ['Confidence', 0.18]],
@@ -2862,13 +2934,13 @@ async function exportCondition() {
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
-      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Scene Classification (SCL) band: vegetation, bare soil, water and unclassified kept', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10, map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today },
+      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Cloud Score+ (GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED) cs_cdf >= ' + CS_CLEAR + '; SCL no-data, saturated/defective and snow removed', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10, map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today },
       settings: {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
         drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
         past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE,
-        canopy_trend: Object.assign({ index: c.s.trendIndex, check_index: COND_CANOPY_INDEX, test: 'Mann-Kendall per pixel', z_needed: COND_MK_Z, min_rise: COND_GROW_FLOOR, relative_to_area: false }, c.canopyTrend || {}),
+        canopy_trend: Object.assign({ index: c.s.trendIndex, check_index: COND_CANOPY_INDEX, test: 'Mann-Kendall per pixel, Benjamini-Hochberg false discovery rate', fdr_q: COND_FDR_Q, p_cutoff: c.res.trendP, moisture_veto_z: COND_MK_Z, min_rise: COND_GROW_FLOOR, relative_to_area: false }, c.canopyTrend || {}),
         canopy: { index: COND_CANOPY_INDEX, method: 'yearly median vs area, best split year; cores grown into touching pixels', grow_spread_multiplier: COND_CANOPY_GROW_K, grow_floor: COND_CANOPY_GROW_FLOOR, years_before: COND_CANOPY_BEFORE, years_after: COND_CANOPY_AFTER, dense_ndvi: COND_DENSE_NDVI, spread_multiplier: c.s.canopyK, floor: c.s.canopyFloor }, area_wide_change_allowed_for: c.s.relative,
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
@@ -2892,8 +2964,8 @@ async function exportCondition() {
     };
     dir.file('summary.json', JSON.stringify(summary, null, 2));
     const ixn = c.s.trendIndex.toLowerCase();
-    dir.file('trend.csv', 'year,' + ixn + '_adjusted_mean,ci95,images_used,' + ixn + '_composite_mean,' + ixn + '_between_pixel_sd,clear_images\n' +
-      c.trend.yearly.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.ci == null ? '' : r.ci.toFixed(4), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(4), r.std == null ? '' : r.std.toFixed(4), r.n_images].join(',')).join('\n') + '\n');
+    dir.file('trend.csv', 'year,' + ixn + '_adjusted_mean,ci95,months_used,effective_n,' + ixn + '_composite_mean,' + ixn + '_between_pixel_sd,scenes,clear_looks\n' +
+      c.trend.yearly.map(r => [r.year, r.mean == null ? '' : r.mean.toFixed(4), r.ci == null ? '' : r.ci.toFixed(4), r.n_used, r.n_eff ?? '', r.composite_mean == null ? '' : r.composite_mean.toFixed(4), r.std == null ? '' : r.std.toFixed(4), r.n_images, r.n_clear ?? ''].join(',')).join('\n') + '\n');
     dir.file('images.csv', 'date,' + ixn + ',month_normal,adjusted,clear_share\n' +
       c.trend.points.map(pt => [new Date(pt.t).toISOString().slice(0, 10), pt.v.toFixed(4), pt.normal.toFixed(4), pt.adj.toFixed(4), pt.share.toFixed(2)].join(',')).join('\n') + '\n');
     dir.file('spots.csv', SPOT_FIELDS.join(',') + '\n' + spots.map(sp => SPOT_FIELDS.map(f => csvCell(sp[f])).join(',')).join('\n') + '\n');
@@ -3065,11 +3137,11 @@ function runWhenSeries(area, ctx, latlng, runId, patch, kind, retraced) {
   // On the Sentinel-2 grid "the patch" is exactly its pixels (centres
   // inside the traced outline) and nothing either side.
   const px = { crs: ctx.proj, scale: 10 };
-  const all = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(patch).filterDate(start, isoDate(endD));
-  // "Fully clear": every patch pixel is vegetation/soil/water/unclassified
-  // in the Scene Classification Layer. Off-swath pixels count as not clear.
+  const all = linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED').filterBounds(patch).filterDate(start, isoDate(endD)));
+  // "Fully clear": every patch pixel passes the cloud mask (Cloud Score+
+  // and the SCL checks in clearMask). Off-swath pixels count as not clear.
   const clear = all.map(img => {
-    const ok = img.select('SCL').remap([4, 5, 6, 7], [1, 1, 1, 1], 0).unmask(0).rename('ok');
+    const ok = clearMask(img).unmask(0).rename('ok');
     return img.set('patchClear', ok.reduceRegion(Object.assign({ reducer: ee.Reducer.min(), geometry: patch, maxPixels: 1e6 }, px)).get('ok'));
   }).filter(ee.Filter.eq('patchClear', 1));
   const series = ee.FeatureCollection(clear.map(img => {
@@ -3119,8 +3191,8 @@ function retraceFromStep(runId) {
   const { area, ctx, latlng, res, pts, step } = lastWhen;
   const before = pts.slice(Math.max(0, step.j - WHEN_RETRACE_BEFORE), step.j);
   const after = pts.slice(step.j, step.j + WHEN_PERSIST);
-  const composite = rows => ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-    .filter(ee.Filter.inList('system:index', rows.flatMap(r => r.ids.split(' '))))
+  const composite = rows => linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filter(ee.Filter.inList('system:index', rows.flatMap(r => r.ids.split(' ')))))
     .map(maskS2Clouds)
     .map(addIndices)
     .select(ctx.indexName)
@@ -3370,7 +3442,7 @@ function renderWhenInterpretation() {
     lines.push({ text: 'No persistent step: the patch never moved more than ' + thr.toFixed(3) + ' ' + ctx.indexName + ' from its usual difference to its surroundings for ' + WHEN_PERSIST + '+ clear images in a row (after at least ' + WHEN_MIN_BASELINE + ' clear images to set that baseline).' + (kindName ? ' The change map flags it, so the change may predate the start of this series, or have built up gradually rather than in one step.' : '') });
   }
   if (dips.length) {
-    lines.push({ warn: true, text: dips.length + ' single-image dip' + (dips.length === 1 ? '' : 's') + ' (' + dips.map(p => fmtDate(p.t)).join(', ') + ') recovered on the next clear image — most likely cloud shadow or haze the Scene Classification Layer missed, not change.' });
+    lines.push({ warn: true, text: dips.length + ' single-image dip' + (dips.length === 1 ? '' : 's') + ' (' + dips.map(p => fmtDate(p.t)).join(', ') + ') recovered on the next clear image — most likely cloud shadow or haze the cloud mask missed, not change.' });
   }
   if (latestDip) {
     lines.push({ warn: true, text: 'The latest clear image (' + fmtDate(latestDip.t) + ') is low, but there\'s nothing after it yet to tell a real change from a missed shadow. Check again after the next clear pass.' });
@@ -3378,7 +3450,7 @@ function renderWhenInterpretation() {
   if (lastWhen.res.retraced) lines.push({ text: 'The change map compares two windows of images, which dilutes a change that happened inside one of them, so the patch was traced again from the clear images either side of the step, with the same rule. The series above is for that patch.' });
   if (lastWhen.retraceNote) lines.push({ text: lastWhen.retraceNote });
   if (!kindName) lines.push({ text: 'No flagged patch was under the click, so this is the ' + PATCH_FALLBACK_M + ' m around the point. Click inside a coloured patch to inspect a flagged change.' });
-  lines.push({ text: 'Only images in which every pixel of the patch was clear (Scene Classification classes 4–7) are used; same-day images from overlapping tiles are averaged. The step dates when the patch stopped looking like its surroundings — a reason to go and look, not proof of what happened.' });
+  lines.push({ text: 'Only images in which every pixel of the patch was clear (Cloud Score+ and the Scene Classification checks) are used; same-day images from overlapping tiles are averaged. The step dates when the patch stopped looking like its surroundings — a reason to go and look, not proof of what happened.' });
   document.getElementById('whenInterpretBody').innerHTML = lines.map(l => '<' + (l.warn ? 'div class="caveat"' : 'p') + '>' + l.text + '</' + (l.warn ? 'div' : 'p') + '>').join('');
 }
 
@@ -3575,12 +3647,28 @@ window.addEventListener('load', () => {
    Earth Engine compute — direct port of inferrd.py's
    _mask_s2_clouds / _add_ndvi / _annual_ndvi_composite / _extract_year_stats.
    --------------------------------------------------------------------- */
-function maskS2Clouds(image) {
+// Clouds and their shadows come from Google's Cloud Score+ (Pasquarella et
+// al. 2023, CVPR Workshops), linked to each scene by system:index. The
+// Scene Classification Layer alone misses much thin cloud and shadow in
+// published comparisons, and its class 7 ("unclassified") is partly low-
+// probability cloud. cs_cdf of 0.6 is Earth Engine's suggested threshold
+// (0.5-0.65 generally works; higher strips more haze). The SCL still drops
+// no-data, saturated/defective and snow pixels, which Cloud Score+ doesn't
+// judge. A scene without a Cloud Score+ match is masked entirely.
+const CS_PLUS = 'GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED';
+const CS_CLEAR = 0.6;
+// Linked after the date/place filters so Earth Engine only matches the
+// scenes actually used.
+function linkCS(col) {
+  return col.linkCollection(ee.ImageCollection(CS_PLUS), ['cs_cdf']);
+}
+function clearMask(image) {
+  const cs = ee.Image(ee.Algorithms.If(image.bandNames().contains('cs_cdf'), image.select('cs_cdf'), ee.Image.constant(0)));
   const scl = image.select('SCL');
-  const goodClasses = [4, 5, 6, 7]; // vegetation, bare soil, water, unclassified
-  let mask = scl.eq(goodClasses[0]);
-  for (let i = 1; i < goodClasses.length; i++) mask = mask.or(scl.eq(goodClasses[i]));
-  return image.updateMask(mask).divide(10000).copyProperties(image, ['system:time_start']);
+  return cs.gte(CS_CLEAR).and(scl.neq(0)).and(scl.neq(1)).and(scl.neq(11));
+}
+function maskS2Clouds(image) {
+  return image.select('B.*').updateMask(clearMask(image)).divide(10000).copyProperties(image, ['system:time_start']);
 }
 
 function addIndices(image) {
@@ -3629,10 +3717,10 @@ function seasonDateRange(year, startMonth, endMonth) {
 // (buildYearComposite) so both build the exact same composite.
 function yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth) {
   const { start, end } = seasonDateRange(year, startMonth, endMonth);
-  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  return linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
     .filterDate(start, end)
-    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct)))
     .map(maskS2Clouds)
     .map(addIndices);
 }
@@ -3642,6 +3730,18 @@ function yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth) {
 function buildYearComposite(region, year, maxCloudPct, indexName, startMonth, endMonth) {
   return yearIndexCollection(region, year, maxCloudPct, startMonth, endMonth)
     .select(indexName).median().clip(region);
+}
+
+// n_images counts scenes that passed the whole-tile cloud filter, which
+// says nothing about this area (a scene can be clear on the far side of
+// its 100 km tile and cloudy here). n_clear is the number of clear looks
+// the typical pixel of the area actually got: the median, over the area,
+// of each pixel's count of unmasked images. 20 m is plenty for a median.
+function clearViews(col, indexName, region) {
+  const v = col.select(indexName).count().unmask(0).clip(region).reduceRegion({
+    reducer: ee.Reducer.median(), geometry: region, scale: 20, maxPixels: 1e9, bestEffort: true, tileScale: 2
+  }).values().get(0);
+  return ee.Algorithms.If(v, v, 0);
 }
 
 function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endMonth, areaId) {
@@ -3662,7 +3762,8 @@ function yearStatsFeature(region, year, maxCloudPct, indexName, startMonth, endM
     year: year,
     mean: safeDictGet(stats, indexName + '_mean'),
     std: safeDictGet(stats, indexName + '_stdDev'),
-    n_images: nImages
+    n_images: nImages,
+    n_clear: clearViews(col, indexName, region)
   });
 }
 
@@ -3679,10 +3780,10 @@ function monthDateRange(year, month) {
 // annual (or season-window) trend analysis.
 function monthStatsFeature(region, year, month, maxCloudPct, indexName, areaId) {
   const { start, end } = monthDateRange(year, month);
-  const col = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+  const col = linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
     .filterBounds(region)
     .filterDate(start, end)
-    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', maxCloudPct)))
     .map(maskS2Clouds)
     .map(addIndices);
 
@@ -3703,7 +3804,8 @@ function monthStatsFeature(region, year, month, maxCloudPct, indexName, areaId) 
     month: month,
     mean: safeDictGet(stats, indexName + '_mean'),
     std: safeDictGet(stats, indexName + '_stdDev'),
-    n_images: nImages
+    n_images: nImages,
+    n_clear: clearViews(col, indexName, region)
   });
 }
 
@@ -3844,32 +3946,75 @@ function olsSlope(years, values) {
   return { slope, intercept: meanY - slope * meanX };
 }
 
-function mannKendall(values) {
+// years is optional; when given, Sen's slope divides by the years between
+// two values rather than their places in the list, so a year dropped for
+// cloud doesn't shrink the gap it leaves (values 2019, 2021 are two years
+// apart, not one).
+//
+// The variance of S is corrected for serial correlation after Hamed & Rao
+// (1998, J. Hydrology 204:182-196), as pymannkendall's
+// hamed_rao_modification_test does: the series is detrended by Sen's slope,
+// the autocorrelation of its ranks is taken at every lag, and lags
+// significant at 5% inflate the variance. Here the variance is only ever
+// widened, never narrowed below the standard test's: a conservative choice
+// for the short series this tool sees. With fewer than about ten values
+// few lags can reach significance, so the correction rarely bites there.
+function mannKendall(values, years) {
   const n = values.length;
+  const t = years && years.length === n ? years : values.map((v, i) => i);
   let s = 0;
   for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) s += Math.sign(values[j] - values[i]);
 
   const counts = {};
   values.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
   let tieSum = 0;
-  Object.values(counts).forEach(t => { if (t > 1) tieSum += t * (t - 1) * (2 * t + 5); });
-  const varS = (n * (n - 1) * (2 * n + 5) - tieSum) / 18;
+  Object.values(counts).forEach(c => { if (c > 1) tieSum += c * (c - 1) * (2 * c + 5); });
+  const varS0 = (n * (n - 1) * (2 * n + 5) - tieSum) / 18;
+
+  const slopes = [];
+  for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) slopes.push((values[j] - values[i]) / (t[j] - t[i]));
+  slopes.sort((a, b) => a - b);
+  const mid = Math.floor(slopes.length / 2);
+  const senSlope = !slopes.length ? 0 : slopes.length % 2 ? slopes[mid] : (slopes[mid - 1] + slopes[mid]) / 2;
+
+  const varFactor = n >= 3 ? hamedRaoFactor(values.map((v, i) => v - senSlope * t[i])) : 1;
+  const varS = varS0 * varFactor;
 
   let z = 0;
   if (s > 0) z = (s - 1) / Math.sqrt(varS);
   else if (s < 0) z = (s + 1) / Math.sqrt(varS);
   const p = 2 * (1 - normalCdf(Math.abs(z)));
 
-  const slopes = [];
-  for (let i = 0; i < n - 1; i++) for (let j = i + 1; j < n; j++) slopes.push((values[j] - values[i]) / (j - i));
-  slopes.sort((a, b) => a - b);
-  const mid = Math.floor(slopes.length / 2);
-  const senSlope = slopes.length % 2 ? slopes[mid] : (slopes[mid - 1] + slopes[mid]) / 2;
-
   let trend = 'no trend';
   if (p < 0.05) trend = s > 0 ? 'increasing' : 'decreasing';
 
-  return { s, varS, z, p, trend, senSlope };
+  return { s, varS, varFactor, z, p, trend, senSlope };
+}
+
+// n/n* of Hamed & Rao (1998): 1 + 2/(n(n-1)(n-2)) · Σ (n-k)(n-k-1)(n-k-2) ρk
+// over the lags k whose rank autocorrelation ρk is beyond ±1.96/√n.
+function hamedRaoFactor(detrended) {
+  const n = detrended.length;
+  const order = detrended.map((v, i) => i).sort((a, b) => detrended[a] - detrended[b]);
+  const rank = new Array(n);
+  for (let i = 0; i < n;) {
+    let j = i;
+    while (j + 1 < n && detrended[order[j + 1]] === detrended[order[i]]) j++;
+    for (let k = i; k <= j; k++) rank[order[k]] = (i + j) / 2 + 1;
+    i = j + 1;
+  }
+  const m = (n + 1) / 2;
+  const den = rank.reduce((a, r) => a + (r - m) ** 2, 0);
+  if (!den) return 1;
+  const limit = 1.96 / Math.sqrt(n);
+  let sum = 0;
+  for (let k = 1; k < n; k++) {
+    let num = 0;
+    for (let i = 0; i + k < n; i++) num += (rank[i] - m) * (rank[i + k] - m);
+    const rho = num / den;
+    if (Math.abs(rho) > limit) sum += (n - k) * (n - k - 1) * (n - k - 2) * rho;
+  }
+  return Math.max(1, 1 + 2 * sum / (n * (n - 1) * (n - 2)));
 }
 
 // From a monthly time series, separates the normal seasonal wave (the
@@ -3890,7 +4035,28 @@ function computeSeasonalBaseline(monthRows) {
   const anomalies = valid.map(r => r.mean - climatology[r.month]);
   const meanAnom = anomalies.reduce((a, b) => a + b, 0) / anomalies.length;
   const variance = anomalies.reduce((a, b) => a + (b - meanAnom) ** 2, 0) / Math.max(1, anomalies.length - 1);
-  return { climatology, anomalyStd: Math.sqrt(variance), n: valid.length };
+  // A yardstick on the same footing as a change between two yearly values:
+  // each year's average anomaly (3+ months), then the typical change from
+  // one year to the next, as 1.4826 × the median absolute deviation so the
+  // one big jump being judged can't inflate it. Monthly anomalies scatter
+  // far more than yearly averages do, so judging a yearly change against
+  // them (as before) understated how unusual it was.
+  const byYear = {};
+  valid.forEach((r, i) => { (byYear[r.year] = byYear[r.year] || []).push(anomalies[i]); });
+  const yearAnom = Object.keys(byYear).map(Number).sort((a, b) => a - b)
+    .filter(y => byYear[y].length >= 3)
+    .map(y => ({ y, a: byYear[y].reduce((p, q) => p + q, 0) / byYear[y].length }));
+  const steps = [];
+  for (let i = 1; i < yearAnom.length; i++) if (yearAnom[i].y - yearAnom[i - 1].y === 1) steps.push(yearAnom[i].a - yearAnom[i - 1].a);
+  // With only a handful of steps the MAD can come out near zero by chance,
+  // so it is floored at the spread two yearly means of independent months
+  // would show anyway: σ_month × √(2/12).
+  let yearStepSigma = null;
+  if (steps.length >= 3) {
+    const med = median(steps);
+    yearStepSigma = Math.max(1.4826 * median(steps.map(d => Math.abs(d - med))), Math.sqrt(variance) * Math.sqrt(2 / 12));
+  }
+  return { climatology, anomalyStd: Math.sqrt(variance), yearStepSigma, nYearSteps: steps.length, n: valid.length };
 }
 
 // Mann-Kendall/Sen's slope only test for a monotonic trend across the whole
@@ -3913,11 +4079,11 @@ function largestYoyChange(years, values, stds, baseline) {
   const range = Math.max(...values) - Math.min(...values);
   best.pctOfRange = range > 0 ? Math.abs(best.delta) / range : 0;
 
-  if (baseline && baseline.anomalyStd > 0) {
-    // Preferred check: compare against this location's own actual
-    // interannual variability (from the monthly climatology), not just
+  if (baseline && baseline.yearStepSigma > 0) {
+    // Preferred check: compare against this location's own typical
+    // year-to-year change (from the monthly detail, deseasonalised), not
     // this one composite's spatial pixel spread.
-    best.baselineSigma = Math.abs(best.delta) / baseline.anomalyStd;
+    best.baselineSigma = Math.abs(best.delta) / baseline.yearStepSigma;
     best.dominant = best.pctOfRange > 0.5 && best.baselineSigma > 2;
   } else {
     // Fallback (no monthly baseline available): same-year spatial std is a
@@ -3931,33 +4097,37 @@ function largestYoyChange(years, values, stds, baseline) {
 
 function analyzeTrend(years, values) {
   const ols = olsSlope(years, values);
-  const mk = mannKendall(values);
+  const mk = mannKendall(values, years);
   let confidenceNote;
-  if (years.length < 4) {
-    confidenceNote = 'Fewer than 4 years of data — Mann-Kendall results are indicative only, not statistically reliable at this sample size. Treat any apparent trend with caution until more years are added.';
+  if (years.length < 5) {
+    confidenceNote = 'Fewer than 5 years of data — with 4 or fewer values the Mann-Kendall test cannot reach p < 0.05 however steady the change, so this result says nothing either way. Add more years before reading anything into it.';
   } else if (mk.p < 0.05) {
     confidenceNote = 'Trend is statistically significant (p=' + mk.p.toFixed(3) + ', Mann-Kendall test).';
   } else {
-    confidenceNote = 'No statistically significant trend detected (p=' + mk.p.toFixed(3) + '). Observed year-to-year change is within the range plausibly explained by natural variability, sensor noise, or residual atmospheric/cloud effects rather than a real ecological change.';
+    confidenceNote = 'No statistically significant trend detected (p=' + mk.p.toFixed(3) + '). That is not evidence the area is stable: with ' + years.length + ' yearly values the test only picks up a fairly large, steady change, so a real but modest trend can go undetected. Read this as "not shown either way".';
   }
   return { olsSlope: ols.slope, mkTrend: mk.trend, mkPValue: mk.p, senSlope: mk.senSlope, confidenceNote };
 }
 
 function interpret(rows, trend, yoy) {
   const lines = [];
-  const lowQualityYears = rows.filter(r => r.n_images < 3).map(r => r.year);
+  const lowQualityYears = rows.filter(r => r.mean != null && r.n_clear != null && r.n_clear < 3).map(r => r.year);
   if (lowQualityYears.length) {
-    lines.push({ warn: true, text: 'Years ' + lowQualityYears.join(', ') + ' had fewer than 3 cloud-free images contributing to the composite — treat those data points as lower confidence.' });
+    lines.push({ warn: true, text: 'In ' + lowQualityYears.join(', ') + ' the typical point in the area had fewer than 3 clear views behind its composite — treat those data points as lower confidence.' });
+  }
+  const patchyYears = rows.filter(r => r.year < FIRST_GLOBAL_YEAR).map(r => r.year);
+  if (patchyYears.length) {
+    lines.push({ warn: true, text: 'Sentinel-2 surface reflectance was only produced worldwide from December 2018, so ' + patchyYears.join(' and ') + ' can be missing or thin outside Europe (check the clear looks in the table). A thin early year can make a trend look steeper or flatter than it is.' });
   }
   if (trend.mkTrend === 'no trend') {
     if (yoy && yoy.dominant) {
       lines.push({ warn: false, text: 'Overall assessment: no statistically significant monotonic trend across the full period. ' + trend.confidenceNote + ' That test looks for a gradual, sustained direction across every year — it is not designed to catch a sharp disturbance followed by partial recovery, which is exactly what this series looks like.' });
       const sigmaText = (yoy.baselineSigma !== undefined)
-        ? ' — ' + yoy.baselineSigma.toFixed(1) + '× this location\'s own typical natural (deseasonalized) year-to-year variability, from the monthly detail'
+        ? ' — ' + yoy.baselineSigma.toFixed(1) + '× this location\'s typical change from one year to the next (deseasonalised, from the monthly detail)'
         : ' (' + (yoy.pctOfRange * 100).toFixed(0) + '% of the series\' total spread)';
       lines.push({ warn: true, text: 'The single biggest change in the series was ' + yoy.fromYear + '→' + yoy.toYear + ': ' + (yoy.delta > 0 ? '+' : '') + yoy.delta.toFixed(4) + sigmaText + '. A jump that size, on its own, is worth ground-truthing regardless of what the overall trend test says — it can reflect a discrete event (storm damage, fire, clearance) that a multi-year monotonic-trend test isn\'t built to flag.' });
     } else {
-      lines.push({ warn: false, text: 'Overall assessment: the index has been effectively stable over the monitored period. ' + trend.confidenceNote });
+      lines.push({ warn: false, text: 'Overall assessment: no clear trend up or down could be shown over the monitored period. ' + trend.confidenceNote });
     }
   } else {
     lines.push({ warn: false, text: 'Overall assessment: the index shows a ' + trend.mkTrend + ' trend (~' + trend.senSlope.toFixed(4) + '/year, Sen\'s slope). ' + trend.confidenceNote });
@@ -4198,11 +4368,11 @@ function renderInterpretation(rows, trend, yoy) {
 
 function renderTable(rows, indexName) {
   const table = document.getElementById('statsTable');
-  let html = '<thead><tr><th>Year</th><th>Mean ' + indexName + '</th><th>Std dev</th><th>Cloud-free images</th></tr></thead><tbody>';
+  let html = '<thead><tr><th>Year</th><th>Mean ' + indexName + '</th><th>Std dev</th><th title="Scenes that passed the whole-tile cloud filter">Scenes</th><th title="Clear views the typical point in the area got">Clear looks</th></tr></thead><tbody>';
   rows.forEach(r => {
     const mean = (r.mean === null || r.mean === undefined) ? '—' : r.mean.toFixed(4);
     const std = (r.std === null || r.std === undefined) ? '—' : r.std.toFixed(4);
-    html += '<tr><td>' + r.year + '</td><td>' + mean + '</td><td>' + std + '</td><td>' + r.n_images + '</td></tr>';
+    html += '<tr><td>' + r.year + '</td><td>' + mean + '</td><td>' + std + '</td><td>' + r.n_images + '</td><td>' + (r.n_clear ?? '—') + '</td></tr>';
   });
   html += '</tbody>';
   table.innerHTML = html;
@@ -4210,8 +4380,8 @@ function renderTable(rows, indexName) {
 
 document.getElementById('exportCsvBtn').addEventListener('click', () => {
   if (!lastRows) return;
-  let csv = 'year,mean_' + lastIndexName + ',std_' + lastIndexName + ',n_images\n';
-  lastRows.forEach(r => { csv += [r.year, r.mean ?? '', r.std ?? '', r.n_images].join(',') + '\n'; });
+  let csv = 'year,mean_' + lastIndexName + ',std_' + lastIndexName + ',n_images,n_clear\n';
+  lastRows.forEach(r => { csv += [r.year, r.mean ?? '', r.std ?? '', r.n_images, r.n_clear ?? ''].join(',') + '\n'; });
   const blob = new Blob([csv], { type: 'text/csv' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -4505,10 +4675,10 @@ function renderMonthlyComparisonChart(areaSeries) {
 
 document.getElementById('exportCompareCsvBtn').addEventListener('click', () => {
   if (!lastAreaSeries) return;
-  let csv = 'area,year,mean_' + lastIndexName + ',std_' + lastIndexName + ',n_images\n';
+  let csv = 'area,year,mean_' + lastIndexName + ',std_' + lastIndexName + ',n_images,n_clear\n';
   lastAreaSeries.forEach(s => {
     s.rows.forEach(r => {
-      csv += ['"' + s.area.name.replace(/"/g, '""') + '"', r.year, r.mean ?? '', r.std ?? '', r.n_images].join(',') + '\n';
+      csv += ['"' + s.area.name.replace(/"/g, '""') + '"', r.year, r.mean ?? '', r.std ?? '', r.n_images, r.n_clear ?? ''].join(',') + '\n';
     });
   });
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -4714,10 +4884,10 @@ function renderIndexMonthlyComparisonChart(indexSeries) {
 
 document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', () => {
   if (!lastIndexSeries) return;
-  let csv = 'index,year,mean,std,n_images\n';
+  let csv = 'index,year,mean,std,n_images,n_clear\n';
   lastIndexSeries.forEach(s => {
     s.rows.forEach(r => {
-      csv += [s.idx, r.year, r.mean ?? '', r.std ?? '', r.n_images].join(',') + '\n';
+      csv += [s.idx, r.year, r.mean ?? '', r.std ?? '', r.n_images, r.n_clear ?? ''].join(',') + '\n';
     });
   });
   const blob = new Blob([csv], { type: 'text/csv' });
