@@ -405,7 +405,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <select id="condControl"></select>
         </div>
       </div>
-      <div class="field-hint" id="condControlHint" style="display:none;">With a control, each pixel is measured against the control's typical value and spread instead of the rest of its own area, so a cyclone, drought or season that hit both cancels out and the spots show where the area differs from the control: a fenced covenant against nearby unfenced bush, say. Pick a control of the same kind of vegetation, close by and not much smaller. "Allow for area-wide change" is always on with a control (against the control).</div>
+      <div class="field-hint" id="condControlHint" style="display:none;">The control is analysed with the same methods, and the report sets the two side by side: when and how much each was disturbed, how much is recovering, and their whole-area trends. Pick a control of the same kind of vegetation, close by and not much smaller (a reference-site comparison, as in Before-After-Control-Impact designs).</div>
       <div class="field half">
         <div>
           <label for="condYearStart">From year</label>
@@ -427,90 +427,33 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
         <div>
-          <label for="condDropIndex">Drop index</label>
-          <select id="condDropIndex">
+          <label for="condChangeIndex">Disturbance measured on</label>
+          <select id="condChangeIndex">
             <option value="NBR" selected>NBR</option>
-            <option value="EVI">EVI</option>
-            <option value="NDVI">NDVI</option>
             <option value="NDMI">NDMI</option>
           </select>
         </div>
       </div>
-      <div class="field-hint">The trend index is used for the whole-area trend and for slow decline or regrowth year by year. The drop index is used to find recent sudden drops; NBR responds most strongly to canopy turning into bare ground or slash.</div>
       <div class="field half">
         <div>
-          <label for="condLookback">Look for recent drops over</label>
+          <label for="condLookback">Recent means the last</label>
           <select id="condLookback">
-            <option value="30">last 30 days</option>
-            <option value="90" selected>last 90 days</option>
-            <option value="180">last 180 days</option>
-            <option value="365">last year</option>
-          </select>
-        </div>
-        <div>
-          <label for="condFloor">Smallest drop</label>
-          <select id="condFloor">
-            <option value="0.1">0.10</option>
-            <option value="0.15" selected>0.15</option>
-            <option value="0.2">0.20</option>
-            <option value="0.3">0.30</option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <label for="condK">And beyond</label>
-        <div class="range-row">
-          <input type="range" id="condK" min="1.5" max="6" step="0.5" value="3">
-          <span class="range-val" id="condKVal" style="min-width:78px;">3× typical</span>
-        </div>
-      </div>
-      <div class="check-row">
-        <input type="checkbox" id="condRelativeChk" checked>
-        <label for="condRelativeChk" style="text-transform:none;font-size:12.5px;font-weight:400;letter-spacing:normal;color:var(--text);">Allow for area-wide change (season, drought)</label>
-      </div>
-      <div class="field half">
-        <div>
-          <label for="condPersist">Must stay down for</label>
-          <select id="condPersist">
-            <option value="1">1 clear image</option>
-            <option value="2" selected>2 clear images</option>
-            <option value="3">3 clear images</option>
-            <option value="4">4 clear images</option>
+            <option value="90">90 days</option>
+            <option value="180">180 days</option>
+            <option value="365" selected>year</option>
           </select>
         </div>
         <div>
           <label for="condMinHa">Smallest spot</label>
           <select id="condMinHa">
-            <option value="0.01">0.01 ha (1 pixel)</option>
-            <option value="0.03">0.03 ha</option>
-            <option value="0.1" selected>0.1 ha</option>
-            <option value="0.25">0.25 ha</option>
+            <option value="0.09">0.09 ha (1 pixel)</option>
+            <option value="0.27" selected>0.27 ha (3 pixels)</option>
             <option value="0.5">0.5 ha</option>
             <option value="1">1 ha</option>
           </select>
         </div>
       </div>
-      <div class="field half">
-        <div>
-          <label for="condCanopyK">Canopy decline beyond</label>
-          <select id="condCanopyK">
-            <option value="1.5">1.5× typical</option>
-            <option value="2" selected>2× typical</option>
-            <option value="2.5">2.5× typical</option>
-            <option value="3">3× typical</option>
-          </select>
-        </div>
-        <div>
-          <label for="condCanopyFloor">and at least</label>
-          <select id="condCanopyFloor">
-            <option value="0.05">0.05 NDMI</option>
-            <option value="0.08" selected>0.08 NDMI</option>
-            <option value="0.1">0.10 NDMI</option>
-            <option value="0.15">0.15 NDMI</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-hint">A pixel is flagged only when its change passes both tests: at least the smallest drop (in index units) and more than the slider's multiple of the area's typical spread, measured against what the area as a whole did, so a season or drought that moves everything cancels out. Untick "allow for area-wide change" to measure from zero instead, so a decline across most of the area (after a cyclone, say) is flagged too; recent drops are then more easily set off by the season. A recent drop must stay down for that many clear images in a row, so a one-off cloud shadow doesn't count. Flagged pixels are joined into spots, and spots smaller than the smallest spot are dropped. A pixel is 10 × 10 m (0.01 ha); at 0.01 ha a single flagged pixel counts as a spot, which catches more small patches but also more cloud edges, shadows and odd pixels, and a lone tree crown is usually split across several pixels and diluted by the live canopy around it, so it may still not be flagged. Slow decline and regrowth use the same spread test on each pixel's change over the years, with a smallest change of 0.05; a decline that happened mostly in one year is reported as a sudden drop in that year instead. A one-year drop that has since grown back by at least half (storm or slip damage, say) is reported as dropped and recovered. Canopy decline looks for a drop in canopy moisture (NDMI) starting in any year of the period (up to four years before against the two after), in dense canopy only, with its own, gentler tolerance: dying canopy loses leaf water well before it loses its green. Each flagged patch grows into touching pixels that pass a looser test (1.5× and 0.06), so it covers the whole dieback patch. Draw or pick an area that includes plenty of unchanged vegetation.</div>
+      <div class="field-hint">Published methods at their published settings (details in About and in the report's Appendix A). Disturbance and recovery: CCDC (Zhu &amp; Woodcock 2014) on every clear Landsat 8/9 image since 2013 (NASA's Harmonized Landsat Sentinel-2 Landsat product), on its 30 m grid (0.09 ha pixels). A disturbance is a break in the period where the chosen index falls; it is recovering when the fitted line after the break rises. Steady decline or improvement: Mann-Kendall and Theil-Sen on each 10 m Sentinel-2 pixel's yearly values, allowing for the season, with a false discovery rate correction. Nothing is tuned to particular sites. The smallest spot only decides what is reported. Single trees and patches under about 0.1 ha are below what 30 m pixels can map, and every result is unvalidated until a validation sample has been labelled.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
@@ -706,7 +649,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
               <button class="dl-btn" id="valGeoBtn" type="button" disabled>GeoJSON</button>
             </span>
           </div>
-          <div class="field-hint" style="margin:-4px 0 8px;">How often are these spots wrong, and how many are missed? Draw a stratified random sample of 10 m pixels: some inside each spot type and more outside every spot. Label each point from aerial photos or a site visit (reference_label: sudden_drop, dropped_recovered, canopy_decline, slow_decline, gain or no_spot; leave it blank if you can't tell), then load the file back with "Load labelled validation sample" under Run condition check. Accuracy and areas are worked out as in Olofsson et al. (2014). Points are listed in random order and shown on the map without their type, so label them without looking at the stratum column if you can.</div>
+          <div class="field-hint" style="margin:-4px 0 8px;">How often are these spots wrong, and how many are missed? Draw a stratified random sample of 30 m pixels: some inside each spot type and more outside every spot. Label each point from aerial photos or a site visit (reference_label: sudden_drop for a disturbance, dropped_recovered for one that is recovering, slow_decline, gain, or no_spot; leave it blank if you can't tell), then load the file back with "Load labelled validation sample" under Run condition check. Accuracy and areas are worked out as in Olofsson et al. (2014). Points are listed in random order and shown on the map without their type, so label them without looking at the stratum column if you can.</div>
           <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;font-size:12px;color:var(--text2);margin-bottom:6px;">
             <label style="display:flex;flex-direction:column;gap:2px;">Points per spot type <input type="number" id="valNSpot" min="2" max="1000" step="1" value="50" style="width:70px;"></label>
             <label style="display:flex;flex-direction:column;gap:2px;">Points outside spots <input type="number" id="valNNone" min="2" max="2000" step="1" value="100" style="width:70px;"></label>
@@ -764,7 +707,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
 
     <h3>Condition check</h3>
-    <p>Choose "Condition check" in section 3 for one area, such as a covenant or Protection Management Area added with "Analyse this area". It reports the area's trend over the years and traces spots inside it: sudden drops (recent ones, found image by image in the look-back window and required to stay down; older ones, where most of a pixel's decline happened between two years), slow decline, and gains. Every pixel is judged against what the area as a whole did and against the area's typical spread, as in the change map, and only spots at least the smallest size are kept. The canopy trend map tests every pixel separately, so its cut-off is set by a false discovery rate correction (Benjamini–Hochberg) rather than p &lt; 0.05 each, which would flag about one pixel in twenty in an unchanging forest. The yearly error bars come from monthly averages with the sample size cut for months that run on from one another, since images a few days apart aren't independent. None of the spot rules has yet been checked against field or aerial-photo ground truth, so their error rates are unknown. "Export for report" saves the results as a zip for writing a condition report. A spot is a place to go and look, not proof of clearance or of a breach.</p>
+    <p>Choose "Condition check" in section 3 for one area, such as a covenant or Protection Management Area added with "Analyse this area". It reports the area's trend over the years and traces spots inside it, with published methods at their published settings. Disturbance and recovery come from CCDC (Zhu &amp; Woodcock 2014), which fits every clear Landsat 8/9 image since 2013 with a seasonal model and records a break once six clear images in a row depart from it; a disturbance is a break where the canopy signal fell, and it is recovering when the fitted line after the break rises. Steady decline and improvement come from a Mann-Kendall test and Theil-Sen slope on each 10 m Sentinel-2 pixel's seasonally adjusted yearly values, with a false discovery rate correction (Benjamini–Hochberg), since a test at p &lt; 0.05 per pixel would flag about one pixel in twenty in an unchanging forest. Spots are 30 m pixels joined into patches of at least the smallest size; nothing is tuned to particular sites. Optionally, a second area is analysed the same way as a control. The results have not yet been checked against field or aerial-photo ground truth here, so their error rates are unknown until a validation sample has been labelled. "Export for report" saves the results as a zip for writing a condition report. A spot is a place to go and look, not proof of clearance or of a breach.</p>
 
     <h3>Sentinel-2 revisit rate &amp; seasonality</h3>
     <p>Sentinel-2's two satellites together revisit most places roughly every 5 days, but how many of those passes are actually usable depends on cloud cover, which varies by season — the "Clear looks" column in your results table (how many clear views the typical point in your area got) is the real signal for how much data went into each year. "Scenes" counts every scene that passed the whole-tile cloud filter, including ones that were cloudy over your area. By default each year's composite uses the whole calendar year, which mixes seasons together; narrowing the season window to the same months every year (e.g. your peak growing season) keeps years genuinely comparable instead of accidentally comparing a summer-heavy year against a winter-heavy one.</p>
@@ -828,7 +771,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.31.2';
+const APP_VERSION = 'v0.32.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1524,46 +1467,37 @@ function showChangeLayers() {
 }
 
 /* ---------------------------------------------------------------------
-   Condition check — one area, three questions, for a report:
-   1. The whole area's trend: the yearly composites of the trend index,
-      Mann-Kendall and Sen's slope (the same as Trend over years).
-   2. Spots inside it, each a group of flagged 10 m pixels:
-      S  sudden drop. Recent: in the look-back window, each clear image of
-         the drop index is compared with a median of the 180 days before
-         the window, minus the area's median change for that image (so
-         season and weather cancel). A pixel is flagged when it fell by at
-         least the floor AND more than k × the area's typical spread, and
-         has stayed down on at least N clear images with no clear image
-         back up since. Older: a pixel whose decline over the years
-         (below) happened mostly between two years.
-      D  slow decline, and G gain: each pixel's Sen's slope across the
-         yearly composites, × the period, measured against the area's
-         median and robust spread with the same rule as the change map
-         (classifyChange).
+   Condition check — one area (optionally against a control), for a report.
+   Methods are specified, with references, in docs/condition-check-methods.md;
+   every step follows a published method at its published settings.
+   1. The whole area's trend: area averages on every clear Sentinel-2
+      image, adjusted for the season, Mann-Kendall (Hamed & Rao 1998
+      variance) and Sen's slope.
+   2. Spots inside it, groups of 30 m pixels:
+      S  disturbance: a CCDC break (Zhu & Woodcock 2014) on the HLS
+         Landsat 8/9 record from 2013, in the period, where the change index
+         (NBR by default) falls; "recent" when it falls in the recent window.
+      R  disturbed, recovering: the same, where the fitted line after the
+         break rises.
+      D  steady decline, and G steady improvement: Mann-Kendall and
+         Theil-Sen on each pixel's seasonally adjusted yearly Sentinel-2
+         values, with a Benjamini-Hochberg false discovery rate correction.
    3. "Export for report" bundles it for the report workflow
       (OneDrive\Workflow\skills\condition-writer.md describes the files).
    --------------------------------------------------------------------- */
-const COND_BASELINE_DAYS = 180;
-const COND_PAST_STEP_SHARE = 0.6; // a decline counts as a past sudden drop when one year's step is this share of it
 const COND_MAX_SPOTS = 300;
-const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', canopy_decline: '#8a5a12', slow_decline: '#e08214', gain: '#238b45' };
-const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', canopy_decline: 'C', slow_decline: 'D', gain: 'G' };
-const COND_KIND_NAME = { sudden_drop: 'Sudden drop', dropped_recovered: 'Dropped and recovered', canopy_decline: 'Canopy decline', slow_decline: 'Slow decline', gain: 'Sustained growth' };
-// Canopy trend, per pixel: Mann-Kendall on each dense-canopy pixel's yearly
-// trend index (EVI by default), the same test as the whole-area chart.
-// Improving steadily: a rise significant after a Benjamini-Hochberg false
-// discovery rate correction across the pixels (COND_FDR_Q), a rise of at least
-// COND_GROW_FLOOR over the period, and canopy moisture (NDMI) not falling
-// significantly at the same time. Declining steadily: the mirror image.
-// Measured from zero, not against the rest of the area, so a whole forest
-// improving shows as improving.
-const COND_GROW_FLOOR = 0.03, COND_MK_Z = 1.96, COND_FDR_Q = 0.05;
+const COND_COLORS = { sudden_drop: '#cb181d', dropped_recovered: '#7b4fa0', slow_decline: '#e08214', gain: '#238b45' };
+const COND_PREFIX = { sudden_drop: 'S', dropped_recovered: 'R', slow_decline: 'D', gain: 'G' };
+const COND_KIND_NAME = { sudden_drop: 'Disturbance', dropped_recovered: 'Disturbed, recovering', slow_decline: 'Steady decline', gain: 'Steady improvement' };
+const COND_FDR_Q = 0.05;
+// The analysis grid: HLS Landsat's 30 m.
+const COND_PIXEL_M = 30, COND_PIXEL_HA = 0.09;
 // Benjamini-Hochberg p cut-off for a p-value image over the masked pixels:
 // the largest t with (number of p ≤ t) ≥ m·t/q, m = pixels tested, found
 // from a fine histogram of p on [0, q] (only p ≤ q can ever pass). 0 when
-// nothing passes. 20 m is enough to count with.
+// nothing passes.
 function fdrThreshold(pImg, mask, region, proj) {
-  const opts = { geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 4, bestEffort: true };
+  const opts = { geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 4, bestEffort: true }; // 20 m is enough to count with
   const nBins = 500, width = COND_FDR_Q / nBins;
   const hist = pImg.updateMask(mask).rename('p').reduceRegion(Object.assign({ reducer: ee.Reducer.fixedHistogram(0, COND_FDR_Q, nBins) }, opts)).get('p');
   const m = ee.Number(mask.selfMask().rename('m').reduceRegion(Object.assign({ reducer: ee.Reducer.count() }, opts)).get('m'));
@@ -1576,27 +1510,57 @@ function fdrThreshold(pImg, mask, region, proj) {
   })(), 0), 0));
 }
 const TREND_COLORS = { improving: '#1a9850', stable: '#d9d2a6', declining: '#f46d43' };
-const COND_RECOVER_SHARE = 0.5; // a drop counts as recovered once this share of it has grown back by the last year
-// Canopy decline: a drop in canopy moisture (NDMI) at any point in the
-// period, not tied to one event. Each pixel's yearly NDMI, measured
-// against the rest of the area that year, is split at every year in
-// turn: up to four years before against the two years after (one at the
-// very end). The split with the biggest drop, against the typical spread
-// of drops at that split, is kept; it dates the decline. Dense canopy
-// only (NDVI 0.8 or more in at least one year). Tuned on two dieback
-// patches at Riverside Road (WR63) after Cyclone Gabrielle, which lost
-// leaf water while greenness barely moved.
-const COND_CANOPY_INDEX = 'NDMI';
-const COND_DENSE_NDVI = 0.8;
-const COND_CANOPY_BEFORE = 4, COND_CANOPY_AFTER = 2;
-// Spots start from pixels that pass the canopy decline test and grow into
-// touching pixels that pass this looser one, so a spot follows the whole
-// dieback patch rather than only its strongest core.
-const COND_CANOPY_GROW_K = 1.5, COND_CANOPY_GROW_FLOOR = 0.06;
-function condCanopySplit(years, splitYear) {
-  const i = years.indexOf(splitYear);
-  const before = years.slice(Math.max(0, i - COND_CANOPY_BEFORE), i), after = years.slice(i, Math.min(years.length, i + COND_CANOPY_AFTER));
-  return { before, after, label: (a) => a.length > 1 ? a[0] + '–' + a[a.length - 1] : String(a[0]) };
+
+// ── The record CCDC runs on: Landsat 8/9 ──
+// NASA's Harmonized Landsat Sentinel-2 Landsat product (HLS L30 v2.0;
+// Claverie et al. 2018), view-angle normalised (NBAR), from April 2013,
+// masked with its Fmask bits (1 cloud, 2 next to cloud or shadow, 3 cloud
+// shadow, 4 snow or ice). CCDC was designed and published on Landsat.
+// Sentinel-2 is left out of it on purpose: Earth Engine doesn't host
+// HLS's Sentinel-2 product, and Sentinel-2 Level-2A put on the Landsat
+// scale with HLS's bandpass coefficients alone (no view-angle
+// normalisation) left a step where Sentinel-2 joins the record over New
+// Zealand at the end of 2018. On 5-04-185, 162 pixels "broke" in 2019 with
+// both satellites, 4 with Landsat alone. Sentinel-2 still drives the
+// whole-area trend, the steady-trend test and the report images.
+const HLS_BANDS = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2'];
+const HLS_START = '2013-04-11'; // first HLS Landsat 8 image
+// Whole scenes this cloudy are skipped to keep the request small; clouds
+// are masked pixel by pixel either way.
+const HLS_SCENE_CLOUD = 80;
+// CCDC at Earth Engine's defaults, which are those of Zhu & Woodcock (2014)
+// and Arévalo et al. (2020). lambda 20 assumes reflectance scaled 0–10 000,
+// so every band (indices too) is scaled that way before fitting.
+const CCDC_PARAMS = { breakpointBands: ['green', 'red', 'nir', 'swir1', 'swir2'], tmaskBands: ['green', 'swir2'], minObservations: 6,
+  chiSquareProbability: 0.99, minNumOfYearsScaler: 1.33, dateFormat: 1, lambda: 20, maxIterations: 25000 };
+// An index from the HLS bands (reflectance 0–1).
+function hlsIndex(img, name) {
+  if (name === 'NDVI') return img.normalizedDifference(['nir', 'red']).rename(name);
+  if (name === 'NBR') return img.normalizedDifference(['nir', 'swir2']).rename(name);
+  if (name === 'NDMI') return img.normalizedDifference(['nir', 'swir1']).rename(name);
+  return img.expression('2.5 * ((N - R) / (N + 6 * R - 7.5 * B + 1))', { N: img.select('nir'), R: img.select('red'), B: img.select('blue') }).rename('EVI');
+}
+// Every clear Landsat day, one image per day: where HLS tiles overlap, the
+// same pass comes twice, and CCDC would count it as two observations.
+// Joined by date and mosaicked (filtering the collection once per day ran
+// Earth Engine out of memory).
+function hlsDaily(region, end) {
+  const L = ee.ImageCollection('NASA/HLS/HLSL30/v002').filterBounds(region).filterDate(HLS_START, end)
+    .filter(ee.Filter.lt('CLOUD_COVERAGE', HLS_SCENE_CLOUD));
+  const prep = (img) => img.select(['B2', 'B3', 'B4', 'B5', 'B6', 'B7'], HLS_BANDS)
+    .updateMask(img.select('Fmask').bitwiseAnd(2 + 4 + 8 + 16).eq(0)).toFloat();
+  const d = L.map(i => i.set('day', ee.Date(i.get('system:time_start')).format('YYYY-MM-dd')));
+  const joined = ee.Join.saveAll('same').apply(d.distinct('day'), d, ee.Filter.equals({ leftField: 'day', rightField: 'day' }));
+  const daily = ee.ImageCollection(joined).map(f => ee.ImageCollection.fromImages(ee.Image(f).get('same')).map(prep).mosaic()
+    .set('system:time_start', ee.Image(f).get('system:time_start')));
+  // Days counted cheaply, without building the join.
+  return { daily, nDays: d.aggregate_array('day').distinct().size() };
+}
+// CCDC's fractional years (dateFormat 1) as ISO dates.
+function fracYearToIso(f) {
+  if (f == null || !isFinite(f)) return null;
+  const y = Math.floor(f), t0 = Date.UTC(y, 0, 1);
+  return new Date(t0 + (f - y) * (Date.UTC(y + 1, 0, 1) - t0)).toISOString().slice(0, 10);
 }
 let conditionLayer = null;
 let conditionRunning = false;
@@ -1608,16 +1572,15 @@ let valResult = null; // accuracy from the last labelled file loaded
 
 (function initConditionSettings() {
   const ys = document.getElementById('condYearStart'), ye = document.getElementById('condYearEnd');
-  for (let y = EARLIEST_YEAR; y <= CURRENT_YEAR; y++) { ys.add(new Option(y, y)); ye.add(new Option(y, y)); }
-  ys.value = FIRST_GLOBAL_YEAR; // first full year of worldwide Sentinel-2 surface reflectance
+  // From 2014, the first full year of the harmonised Landsat record.
+  for (let y = 2014; y <= CURRENT_YEAR; y++) { ys.add(new Option(y, y)); ye.add(new Option(y, y)); }
+  ys.value = FIRST_GLOBAL_YEAR; // first full year of worldwide Sentinel-2 surface reflectance (the whole-area trend uses it)
   ye.value = CURRENT_YEAR - 1; // last full year
-  const k = document.getElementById('condK');
-  k.addEventListener('input', () => { document.getElementById('condKVal').textContent = k.value + '× typical'; });
 })();
 
 // ── Area and control ──────────────────────────────────────────────────
 // One area is checked. With two or more drawn, one of the others can be
-// its control (a reference area): see conditionImages. With exactly two,
+// its control (a reference area), analysed the same way. With exactly two,
 // the other one is the control unless "None" is picked.
 function renderCondAreaPicks() {
   const wrap = document.getElementById('condAreaPicks');
@@ -1635,7 +1598,6 @@ function renderCondAreaPicks() {
   if (picked && (keepK === '' || others.some(x => String(x.id) === keepK))) k.value = keepK;
   else k.value = areas.length === 2 ? String(others[0].id) : '';
   wrap.style.display = areas.length > 1 ? '' : 'none';
-  document.getElementById('condRelativeChk').disabled = !!k.value;
   document.getElementById('condControlHint').style.display = k.value ? '' : 'none';
 }
 document.getElementById('condArea').addEventListener('change', renderCondAreaPicks);
@@ -1645,10 +1607,10 @@ document.getElementById('condControl').addEventListener('change', (e) => { e.tar
 // Each spot type is its own map layer, ticked on or off in the sidebar
 // legend and in a "Condition check" group in the Layers panel (when that
 // is unlocked). Unticked types are also left out of Export for report.
-const COND_KINDS = ['sudden_drop', 'dropped_recovered', 'canopy_decline', 'slow_decline', 'gain'];
+const COND_KINDS = ['sudden_drop', 'dropped_recovered', 'slow_decline', 'gain'];
 const COND_KIND_DESC = {
-  sudden_drop: 'possible clearance or damage', dropped_recovered: 'possible storm or slip damage, regrown',
-  canopy_decline: 'canopy losing leaf water; possible dieback', slow_decline: 'possible poor forest health', gain: 'canopy improving steadily year on year'
+  sudden_drop: 'a break where the canopy signal fell', dropped_recovered: 'a break, since recovering',
+  slow_decline: 'falling steadily year on year', gain: 'rising steadily year on year'
 };
 let condShown = {};
 try { condShown = JSON.parse(localStorage.getItem('inferrd.condShown') || '{}') || {}; } catch (e) {}
@@ -1784,20 +1746,14 @@ function spotLines(index) {
 }
 
 // The stretch of time a spot's flag rests on, for the Spots over time
-// chart: the years its test compared ("before" against "after"), and for
-// dropped and recovered the year it had grown back by. A recent drop is
-// the gap between the last clear image before and the first one after.
-// Slow decline and growth rest on the whole period.
+// chart: for a disturbance, the gap between the last clear observation
+// before its break and the first after; for a steady trend, the period.
 function spotFlagPeriods(sp, s) {
-  const yStart = (str) => Date.UTC(Number(String(str).split('–')[0]), 0, 1);
-  const yEnd = (str) => { const ys = String(str).split('–'); return Date.UTC(Number(ys[ys.length - 1]) + 1, 0, 1); };
   if (sp.kind === 'slow_decline' || sp.kind === 'gain') return { whole: true };
   if (!sp.date_before || !sp.date_after) return null;
-  if (sp.recent) return { gap: [Date.parse(sp.date_before), Date.parse(sp.date_after) + 864e5] };
-  const out = { before: [yStart(sp.date_before), yEnd(sp.date_before)], after: [yStart(sp.date_after), yEnd(sp.date_after)] };
-  const last = s.years[s.years.length - 1];
-  if (sp.kind === 'dropped_recovered' && Number(String(sp.date_after).split('–').pop()) < last) out.back = [Date.UTC(last, 0, 1), Date.UTC(last + 1, 0, 1)];
-  return out;
+  // A CCDC break: between the last clear observation before it and the
+  // first one after.
+  return { gap: [Date.parse(sp.date_before), Date.parse(sp.date_after) + 864e5] };
 }
 function drawSpotChart() {
   const canvas = document.getElementById('spotChartCanvas');
@@ -1920,14 +1876,6 @@ function hideConditionLayers() {
   if (st) st.textContent = '';
 }
 
-// Robust median of an image over the area; 0 when there's nothing to
-// reduce (If treats a null result as false).
-function eeAreaMedian(img, region, proj) {
-  // 20 m and bestEffort: a median for the whole area doesn't need every
-  // 10 m pixel, and this runs many times per check.
-  const v = img.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 4, bestEffort: true }).values().get(0);
-  return ee.Number(ee.Algorithms.If(v, v, 0));
-}
 
 function condCollection(region, start, end, cloudPct, indexName) {
   return linkCS(ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
@@ -1941,223 +1889,118 @@ function condCollection(region, start, end, cloudPct, indexName) {
 
 const eeMaskedConst = (names) => ee.Image.constant(names.map(() => 0)).rename(names).updateMask(ee.Image.constant(0)).float();
 
-// Per-pixel images behind the spots; see the header for the rules.
-function conditionImages(region, proj, s, ctrl) {
-  // With a control area, every "typical" value (the area medians and
-  // robust spreads below) comes from the control instead of the area
-  // itself, so change the two share (weather, season, a cyclone across
-  // both) cancels out and the spots show where the area differs from the
-  // control: a reference-area design. Images are fetched for both; spots
-  // and the canopy trend map stay inside the area.
-  const both = ctrl ? region.union(ctrl, 1) : region, ref = ctrl || region;
-  // ── Yearly values, allowing for the season ──
-  // A plain median of a year's clear images depends on how many of them
-  // fell in winter: for vegetation with a strong seasonal swing, a year
-  // with more clear winter images comes out lower although nothing
-  // changed (on 5-04-185, five "dropped and recovered" spots were only a
-  // winter-heavy 2021). So each month of each year is a median composite
-  // less the pixel's normal for that month (its median over the whole
-  // period), the year is the median of its months, and the pixel's average
-  // monthly normal is added back so values stay on the index's scale. Every
-  // month present counts the same and missing months don't matter: the
-  // per-pixel version of the whole-area adjustment (conditionTrend). (Taking each image off its
-  // month's normal one by one ran Earth Engine out of memory: it worked the
-  // month's median out again for every image.)
-  const yBands = [s.trendIndex, COND_CANOPY_INDEX, 'NDVI'].filter((b, i, a) => a.indexOf(b) === i);
-  const allImgs = condCollection(both, s.years[0] + '-01-01', (s.years[s.years.length - 1] + 1) + '-01-01', s.cloudPct, yBands).map(img => img.toFloat());
+// Per-pixel images behind the spots (methods: docs/condition-check-methods.md).
+// region: where spots are mapped (the area, or its control). Classes:
+// 1 recent disturbance, 2 older disturbance, 5 disturbed and recovering,
+// 3 steady decline, 4 steady improvement, 6 possible recent change not yet
+// confirmed (not a spot); a break outranks the rest.
+function conditionImages(region, s) {
+  const grid = ee.ImageCollection('NASA/HLS/HLSL30/v002').filterBounds(region).first().select('B4').projection();
+  const today = ee.Date(s.today), end = today.advance(1, 'day');
+  const days = hlsDaily(region, end);
+  const daily = days.daily;
+  const fy = (d) => ee.Number(d.get('year')).add(d.getFraction('year'));
+  const scanStart = today.advance(-s.lookback, 'day');
+
+  // ── Disturbance and recovery: CCDC ──
+  const ccdIn = daily.map(img => img.addBands(hlsIndex(img, 'NBR')).addBands(hlsIndex(img, 'NDMI')).multiply(10000).toFloat()
+    .set('system:time_start', img.get('system:time_start')));
+  const ccd = ee.Algorithms.TemporalSegmentation.Ccdc(Object.assign({ collection: ccdIn }, CCDC_PARAMS));
+  const tB = ccd.select('tBreak'), magAll = ccd.select(s.changeIndex + '_magnitude').divide(10000);
+  const segIdx = tB.multiply(0).add(1).arrayAccum(0, ee.Reducer.sum()).subtract(1); // 0, 1, 2… per segment
+  // Confirmed breaks (change probability 1: minObservations clear images
+  // in a row departed from the model) in the period where the index fell;
+  // the biggest fall is reported. At the end of the record Earth Engine
+  // also reports a departure still being confirmed (probability under 1,
+  // e.g. 1/6 after one odd image): that is a possible recent change, kept
+  // apart (class 6) and never a spot.
+  const cp = ccd.select('changeProb');
+  const cand = tB.gte(s.years[0]).and(tB.lte(ee.Image.constant(fy(today)))).and(magAll.lt(0)).and(cp.gte(1));
+  const lastSeg = tB.arrayLength(0).subtract(1).max(0).toInt();
+  const unconfirmed = cp.arrayGet(lastSeg).gt(0).and(cp.arrayGet(lastSeg).lt(1)).and(magAll.arrayGet(lastSeg).lt(0)).unmask(0);
+  const order = segIdx.arrayMask(cand).arraySort(magAll.arrayMask(cand));
+  const hasBreak = order.arrayLength(0).gt(0);
+  const i = order.arraySlice(0, 0, 1).arrayFlatten([['i']]).updateMask(hasBreak).toInt();
+  const nSeg = tB.arrayLength(0);
+  const tBreak = tB.arrayGet(i).rename('tBreak');
+  const tPrev = ccd.select('tEnd').arrayGet(i).rename('tPrev'); // last observation before the break
+  const drop = magAll.arrayGet(i).multiply(-1).rename('drop'); // size of the fall, positive
+  // After the break: the next segment's slope (per year), its end and how
+  // many observations it rests on.
+  const hasPost = i.add(1).lt(nSeg);
+  const j = i.add(1).min(nSeg.subtract(1)).toInt();
+  const postSlope = ccd.select(s.changeIndex + '_coefs').arrayGet(j.addBands(ee.Image.constant(1).toInt())).divide(10000).updateMask(hasPost);
+  const postEnd = ccd.select('tEnd').arrayGet(j).updateMask(hasPost);
+  const nPost = ccd.select('numObs').arrayGet(j).updateMask(hasPost).rename('nPost');
+  // Recovering: the fitted line after the break rises. The share regained
+  // by the end of that line is reported alongside (cf. Kennedy et al.
+  // 2012's relative recovery indicator).
+  const recovering = postSlope.gt(0).unmask(0);
+  const recov = postSlope.multiply(postEnd.subtract(tBreak)).divide(drop.max(1e-6)).max(0).min(1).rename('recov');
+  const recent = tBreak.gte(ee.Image.constant(fy(scanStart))).unmask(0);
+
+  // ── Steady decline or improvement: Mann-Kendall and Theil-Sen ──
+  // Yearly values allowing for the season: each month of each year is a
+  // median composite less the pixel's normal for that month (its median
+  // over the period), the year is the median of its months, and the
+  // average monthly normal is added back.
+  const y0 = s.years[0], y1 = s.years[s.years.length - 1];
+  // Sentinel-2 alone, at 10 m, over the reporting years (from 2019 it
+  // covers every year); the trend classes are sampled onto the 30 m grid
+  // when spots are traced. Images keep their band name and properties:
+  // renaming and re-dating each one made these composites run Earth Engine
+  // out of memory.
+  const proj10 = s2Projection(region, s.today, 60);
+  const vals = condCollection(region, y0 + '-01-01', (y1 + 1) + '-01-01', s.cloudPct, s.trendIndex).map(img => img.toFloat());
   const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
-  const monthMedian = (col) => ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst(yBands)));
-  const clim = months.map(m => monthMedian(allImgs.filter(ee.Filter.calendarRange(m, m, 'month'))));
+  const monthMedian = (col) => ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst([s.trendIndex])));
+  const clim = months.map(m => monthMedian(vals.filter(ee.Filter.calendarRange(m, m, 'month'))));
   const climMean = ee.ImageCollection(clim).mean();
-  const yearly = s.years.map(y => {
-    const inYear = allImgs.filterDate(y + '-01-01', (y + 1) + '-01-01');
-    const anoms = months.map((m, i) => monthMedian(inYear.filter(ee.Filter.calendarRange(m, m, 'month'))).subtract(clim[i]));
-    return ee.ImageCollection(anoms).median().add(climMean).toFloat();
-  });
-  // ── Years: slow decline, gain, older sudden drops ──
-  const yearImgs = yearly.map((img, i) => {
-    const v = img.select(s.trendIndex).rename('v');
-    return v.addBands(ee.Image.constant(s.years[i]).float().rename('t').updateMask(v.mask()));
+  const yearImgs = s.years.map(y => {
+    const inYear = vals.filterDate(y + '-01-01', (y + 1) + '-01-01');
+    const v = ee.ImageCollection(months.map((m, k) => monthMedian(inYear.filter(ee.Filter.calendarRange(m, m, 'month'))).subtract(clim[k])))
+      .median().add(climMean).rename('v').toFloat();
+    return v.addBands(ee.Image.constant(y).float().rename('t').updateMask(v.mask()));
   });
   const annual = ee.ImageCollection(yearImgs);
   const nYears = annual.select('v').count().unmask(0).rename('nYears');
   const minYears = Math.max(3, Math.ceil(0.6 * s.years.length));
-  const span = s.years[s.years.length - 1] - s.years[0];
+  // Theil-Sen slope × the period: the change over the period.
   const total = annual.select(['t', 'v']).reduce(ee.Reducer.sensSlope()).select('slope')
-    .multiply(span).rename('d').updateMask(nYears.gte(minYears)).clip(both);
-  const medT = eeAreaMedian(total, ref, proj);
-  const sigmaT = eeAreaMedian(total.subtract(medT).abs(), ref, proj).multiply(1.4826).max(1e-6);
-  // Unticked: measured from zero, so a decline across the whole area is flagged too.
-  const slow = classifyChange(total, s.relative ? medT : ee.Number(0), sigmaT, s.k);
-  const steps = ee.ImageCollection(yearImgs.slice(1).map((img, i) => {
-    const step = img.select('v').subtract(yearImgs[i].select('v'));
-    return step.rename('step').addBands(step.multiply(-1).rename('q')).addBands(ee.Image.constant(s.years[i + 1]).float().rename('yr'));
-  }));
-  const biggest = steps.qualityMosaic('q');
-  const maxDrop = biggest.select('q');
-  const pastSudden = slow.loss.and(maxDrop.gte(s.floor)).and(maxDrop.gte(slow.resid.multiply(-COND_PAST_STEP_SHARE)));
-
-  // ── Dropped and recovered: storm or slip damage that has grown back ──
-  // A one-year drop, measured against that year's area-wide change when
-  // that's allowed for, past the floor and k × the typical spread of
-  // one-year changes, that has regained at least COND_RECOVER_SHARE of the
-  // drop by the last year. The step into the last year is left out: it
-  // has had no time to recover.
-  const relSteps = yearImgs.slice(1, -1).map((img, i) => {
-    const step = img.select('v').subtract(yearImgs[i].select('v'));
-    const vsArea = step.subtract(eeAreaMedian(step, ref, proj));
-    return (s.relative ? vsArea : step).multiply(-1).rename('q')
-      .addBands(vsArea.abs().rename('ad'))
-      .addBands(yearImgs[i].select('v').rename('vb'))
-      .addBands(img.select('v').rename('va'))
-      .addBands(ee.Image.constant(s.years[i + 1]).rename('yr'))
-      .toFloat();
-  });
-  const relCol = ee.ImageCollection(relSteps);
-  const sigmaS = eeAreaMedian(relCol.select('ad').median(), ref, proj).multiply(1.4826).max(1e-6);
-  const bigRel = relCol.qualityMosaic('q');
-  const dropAmt = bigRel.select('vb').subtract(bigRel.select('va'));
-  const recov = yearImgs[yearImgs.length - 1].select('v').subtract(bigRel.select('va')).divide(dropAmt.max(1e-6)).rename('recov');
-  const dropRec = bigRel.select('q').gte(s.floor).and(bigRel.select('q').gte(sigmaS.multiply(s.k)))
-    .and(dropAmt.gte(s.floor)).and(recov.gte(COND_RECOVER_SHARE));
-
-  // ── Canopy decline (see COND_CANOPY_INDEX) ──
-  const cNames = [COND_CANOPY_INDEX, 'NDVI'];
-  const cYear = yearly.map(img => img.select(cNames)); // allowing for the season, as above
-  const dense = ee.ImageCollection(cYear).select('NDVI').max().gte(COND_DENSE_NDVI);
-  const cRel = cYear.map(img => {
-    const v = img.select(COND_CANOPY_INDEX).updateMask(dense);
-    return (s.relative ? v.subtract(eeAreaMedian(v, ref, proj)) : v).toFloat().rename('r');
-  });
-  const cLast = cRel[cRel.length - 1];
-  const splitParts = [];
-  for (let i = 1; i < cRel.length; i++) {
-    const before = ee.ImageCollection(cRel.slice(Math.max(0, i - COND_CANOPY_BEFORE), i)).mean();
-    const afterList = cRel.slice(i, Math.min(cRel.length, i + COND_CANOPY_AFTER));
-    const after = ee.ImageCollection(afterList).mean();
-    const drop = before.subtract(after).rename('drop');
-    splitParts.push({ i, after, afterList, drop, spread: eeAreaMedian(drop.subtract(eeAreaMedian(drop, ref, proj)).abs(), ref, proj).multiply(1.4826) });
-  }
-  // One yardstick for every split: the typical (median) spread of drops
-  // across the splits. A split's own spread is widened by any event big
-  // enough to cover much of the area, so the event's own split was the one
-  // it was least likely to pass (a patch a third of the area failed at
-  // its real year and passed two years later).
-  const spreadAll = ee.Number(ee.List(splitParts.map(p => p.spread)).reduce(ee.Reducer.median())).max(1e-6);
-  const cSplits = [];
-  splitParts.forEach(({ i, after, afterList, drop }) => {
-    cSplits.push(drop.divide(spreadAll).rename('z')
-      .addBands(drop)
-      .addBands(cLast.subtract(after).divide(drop.max(1e-6)).rename('crec')) // share regained by the last year
-      .addBands(ee.Image.constant(s.years[i]).rename('cyr'))
-      .addBands(ee.Image.constant(afterList.length).rename('cna'))
-      .toFloat());
-  });
-  // Which split dates the decline: among the splits where the pixel passes
-  // the test, the one with the biggest drop in index units (then splits
-  // that pass only the looser growing test, then the rest by drop). Taking
-  // the biggest drop against the spread (z) dated a patch that lost its
-  // leaf water in late 2021 to 2024 on a small area where the patch was a
-  // third of it: at the 2022 split its own pixels widened the spread, so a
-  // later, quieter split with a smaller drop scored higher.
-  const bestC = ee.ImageCollection(cSplits.map(c => c.addBands(
-    c.select('z').gte(s.canopyK).and(c.select('drop').gte(s.canopyFloor)).multiply(1000)
-      .add(c.select('z').gte(Math.min(COND_CANOPY_GROW_K, s.canopyK)).and(c.select('drop').gte(Math.min(COND_CANOPY_GROW_FLOOR, s.canopyFloor))).multiply(100))
-      .add(c.select('drop')).rename('pick').toFloat()))).qualityMosaic('pick');
-  // Connected-pixel steps must run on the 10 m grid, or Earth Engine
-  // works them out at a far finer scale and runs out of memory.
-  const grid = proj.atScale(10);
-  const bestG = bestC.reproject(grid);
-  const cCore = bestG.select('z').gte(s.canopyK).and(bestG.select('drop').gte(s.canopyFloor)).unmask(0).clip(region);
-  const cWeak = bestG.select('z').gte(Math.min(COND_CANOPY_GROW_K, s.canopyK)).and(bestG.select('drop').gte(Math.min(COND_CANOPY_GROW_FLOOR, s.canopyFloor))).unmask(0).clip(region);
-  const cLabels = cWeak.selfMask().connectedComponents(ee.Kernel.square(1), 1024).select('labels').reproject(grid);
-  const cGrown = cCore.rename('core').addBands(cLabels).reduceConnectedComponents(ee.Reducer.max(), 'labels', 1024).eq(1).unmask(0).reproject(grid);
-  const canopy = cCore.or(cGrown); // cores of patches too big to label still count
-
-  // ── Canopy trend per pixel (see COND_MK_Z) ──
-  // Kendall's tau in one pass (pairwise differences for every pixel ran
-  // out of memory on large areas); S and its z follow from tau and n.
-  const mkZ = (imgs, band) => {
-    const col = ee.ImageCollection(imgs.map((im, i) => {
-      const v = im.select(band).rename('v').toFloat();
-      return ee.Image.constant(s.years[i]).toFloat().rename('t').updateMask(v.mask()).addBands(v);
-    }));
-    const tau = col.reduce(ee.Reducer.kendallsCorrelation(2)).select('tau');
-    const n = col.select('v').count().toFloat();
-    const S = tau.multiply(n.multiply(n.subtract(1)).divide(2));
-    const varS = n.multiply(n.subtract(1)).multiply(n.multiply(2).add(5)).divide(18).max(1e-6);
-    return S.subtract(S.signum()).divide(varS.sqrt());
-  };
-  const zTrend = mkZ(yearImgs, 'v'), zWater = mkZ(cYear, COND_CANOPY_INDEX);
-  // One test per pixel means thousands of tests: at p < 0.05 each, about
-  // 5% of an unchanging forest would come out improving or declining by
-  // chance. The p cut-off is instead set by Benjamini-Hochberg across all
-  // tested pixels, holding the expected share of false calls among the
-  // flagged pixels to COND_FDR_Q (Benjamini & Hochberg 1995; Wilks 2016,
-  // BAMS, "The stippling shows statistically significant grid points").
-  // Neighbouring pixels are correlated, which BH tolerates for this kind
-  // of positive dependence. The moisture veto (zWater) stays uncorrected:
-  // vetoing more is the cautious side.
+    .multiply(y1 - y0).rename('total').updateMask(nYears.gte(minYears));
+  // Mann-Kendall S from Kendall's tau in one pass, and its z.
+  const tau = annual.select(['t', 'v']).reduce(ee.Reducer.kendallsCorrelation(2)).select('tau');
+  const n = annual.select('v').count().toFloat();
+  const S = tau.multiply(n.multiply(n.subtract(1)).divide(2));
+  const varS = n.multiply(n.subtract(1)).multiply(n.multiply(2).add(5)).divide(18).max(1e-6);
+  const zTrend = S.subtract(S.signum()).divide(varS.sqrt());
+  // One test per pixel means thousands of tests, so the p cut-off is set
+  // by Benjamini-Hochberg across the area's pixels (q = COND_FDR_Q).
   const pTrend = zTrend.abs().divide(Math.SQRT2).erfc();
-  const tested = dense.and(total.mask());
-  const trendP = fdrThreshold(pTrend, tested, region, proj);
-  const sigTrend = pTrend.lte(trendP);
-  const improving = sigTrend.and(zTrend.gt(0)).and(total.gte(COND_GROW_FLOOR)).and(zWater.gt(-COND_MK_Z)).and(dense);
-  const declining = sigTrend.and(zTrend.lt(0)).and(total.lte(-COND_GROW_FLOOR)).and(dense);
-  const trendClass = ee.Image(2).where(improving, 1).where(declining, 3).updateMask(dense.and(total.mask())).clip(region).toInt().rename('tc');
+  const tested = total.mask();
+  const trendP = fdrThreshold(pTrend, tested, region, proj10);
+  const sig = pTrend.lte(trendP).and(tested);
+  const improving = sig.and(zTrend.gt(0)).unmask(0);
+  const declining = sig.and(zTrend.lt(0)).unmask(0);
+  const trendClass = ee.Image(2).where(improving, 1).where(declining, 3).updateMask(tested).clip(region).toInt().rename('tc');
   const trendShares = ee.Image.pixelArea().divide(1e4).addBands(trendClass).reduceRegion({
-    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj, scale: 20, maxPixels: 1e9, tileScale: 16 }); // shares need not be 10 m
+    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj10, scale: 20, maxPixels: 1e9, tileScale: 16 }); // shares need not be 10 m
 
-  // ── Recent sudden drops ──
-  const today = ee.Date(s.today);
-  const scanStart = today.advance(-s.lookback, 'day');
-  const base = condCollection(both, scanStart.advance(-COND_BASELINE_DAYS, 'day'), scanStart, s.cloudPct, s.dropIndex);
-  const scan = condCollection(both, scanStart, today.advance(1, 'day'), s.cloudPct, s.dropIndex).sort('system:time_start');
-  const recentNames = ['rFlag', 'rMag', 'tDown', 'tUp', 'nClear', 'nDown'];
-  const recent = ee.Image(ee.Algorithms.If(base.size().gt(0).and(scan.size().gt(0)), (() => {
-    const baseImg = base.median();
-    const resid = scan.map(img => {
-      const d = img.select(s.dropIndex).subtract(baseImg);
-      // toFloat: one pixel type for every image, or the collection won't reduce
-      const rr = d.subtract(eeAreaMedian(d, ref, proj)).toFloat().rename('rr'); // against the area: sets the spread
-      const r = (s.relative ? rr : d.toFloat()).rename('r'); // what is flagged
-      return r.addBands(rr).addBands(ee.Image.constant(ee.Number(img.get('system:time_start'))).double().rename('t').updateMask(r.mask()));
-    });
-    const sigmaR = eeAreaMedian(resid.select('rr').map(i => i.abs()).median(), ref, proj).multiply(1.4826).max(1e-6);
-    const down = (i) => i.select('r').lte(-s.floor).and(i.select('r').lte(sigmaR.multiply(-s.k)));
-    const tDown = resid.map(i => i.select('t').updateMask(down(i))).min().rename('tDown');
-    const nDown = resid.map(i => down(i).rename('n')).sum().unmask(0).rename('nDown');
-    const upAfter = resid.map(i => down(i).not().and(i.select('t').gt(tDown)).unmask(0).rename('n')).sum().unmask(0);
-    const tUp = resid.map(i => i.select('t').updateMask(down(i).not().and(i.select('t').lt(tDown)))).max()
-      .unmask(ee.Number(scanStart.millis())).rename('tUp');
-    const nClear = resid.select('r').count().unmask(0).rename('nClear');
-    const rFlag = nDown.gte(s.persist).and(upAfter.eq(0)).unmask(0).rename('rFlag');
-    const rMag = resid.select('r').mosaic().multiply(-1).rename('rMag'); // latest clear image
-    return ee.Image.cat([rFlag, rMag, tDown.double(), tUp.double(), nClear, nDown]).set('sigmaR', sigmaR);
-  })(), ee.Image.constant([0, 0, 0, 0, 0, 0]).rename(recentNames).updateMask(ee.Image.constant(0)).set('sigmaR', 0)));
-  const rFlag = recent.select('rFlag').unmask(0);
-
-  // ── Classes: 1 recent sudden, 2 older sudden, 6 canopy decline,
-  // 5 dropped and recovered, 3 slow decline, 4 gain (later wins) ──
+  const brk = hasBreak.unmask(0);
   let cls = ee.Image(0)
-    .where(improving.unmask(0), 4)
-    .where(slow.loss.unmask(0), 3)
-    .where(dropRec.unmask(0), 5)
-    .where(canopy.unmask(0), 6)
-    .where(pastSudden.unmask(0), 2)
-    .where(rFlag, 1);
-  cls = cls.updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
-  const mag = ee.Image(0)
-    .where(cls.eq(4), total)
-    .where(cls.eq(3), slow.resid.multiply(-1))
-    .where(cls.eq(5), bigRel.select('q'))
-    .where(cls.eq(6), bestC.select('drop'))
-    .where(cls.eq(2), maxDrop)
-    .where(cls.eq(1), recent.select('rMag'))
-    .rename('mag');
-  const yr = biggest.select('yr').where(cls.eq(5), bigRel.select('yr')).rename('yr');
-  const stats = ee.Image.cat([mag, recent.select(['tDown', 'tUp', 'nClear', 'nDown']), yr, nYears, recov, bestC.select(['cyr', 'crec', 'cna'])]);
-  return { cls, stats, trendClass, trendShares, trendP, medT, sigmaT, sigmaR: ee.Number(recent.get('sigmaR')), nBase: base.size(), nScan: scan.size(), scanStart };
+    .where(improving, 4)
+    .where(declining, 3)
+    .where(unconfirmed, 6)
+    .where(brk, 2)
+    .where(brk.and(recovering), 5)
+    .where(brk.and(recent), 1);
+  // Spot label: the class × 10 000 plus the year of the break, so a spot
+  // is one event: touching pixels of the same kind that broke in different
+  // years are separate spots, each dated by its own pixels.
+  const dated = cls.eq(1).or(cls.eq(2)).or(cls.eq(5));
+  cls = cls.multiply(10000).add(tBreak.floor().unmask(0).multiply(dated)).updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
+  const stats = ee.Image.cat([drop, tBreak, tPrev, recov, nPost, total, nYears]);
+  return { cls, stats, trendClass, trendShares, trendP, grid, scanStart, nL: days.nDays };
 }
 
 function runCondition() {
@@ -2176,37 +2019,30 @@ function runCondition() {
   const s = {
     years,
     trendIndex: document.getElementById('condTrendIndex').value,
-    dropIndex: document.getElementById('condDropIndex').value,
+    changeIndex: document.getElementById('condChangeIndex').value,
     lookback: Number(document.getElementById('condLookback').value),
-    floor: Number(document.getElementById('condFloor').value),
-    k: Number(document.getElementById('condK').value),
-    persist: Number(document.getElementById('condPersist').value),
     minHa: Number(document.getElementById('condMinHa').value),
     cloudPct: Number(cloudThresh.value),
     today: isoDate(new Date()),
-    relative: control ? true : document.getElementById('condRelativeChk').checked, // a control is always the reference
-    control: control ? { id: control.id, name: control.name } : null,
-    canopyK: Number(document.getElementById('condCanopyK').value),
-    canopyFloor: Number(document.getElementById('condCanopyFloor').value)
+    control: control ? { id: control.id, name: control.name } : null
   };
   hideConditionLayers();
   const runId = conditionRunId;
   conditionRunning = true;
   updateRunEnabled();
-  statusEl.textContent = 'Working out the trend and tracing spots for ' + area.name + (control ? ' against ' + control.name : '') + ' — usually under a minute, longer for big areas…';
+  statusEl.textContent = 'Working out the trend and tracing spots for ' + area.name + (control ? ' and its control, ' + control.name : '') + ' — a minute or two, longer for big areas…';
 
   const region = ee.Geometry(area.geojson.geometry);
   const ctrlRegion = control ? ee.Geometry(control.geojson.geometry) : null;
-  const proj = s2Projection(region, s.today, 60);
-  let trendRows = null, spotsRes = null, series = null, failed = null, ctrlRows = null, ctrlSeries = null;
+  let trendRows = null, spotsRes = null, series = null, failed = null, ctrlRows = null, ctrlSeries = null, ctrlKinds = null;
   const finish = () => {
     if (runId !== conditionRunId) return;
     if (failed) { conditionRunning = false; updateRunEnabled(); statusEl.textContent = 'Condition check failed: ' + failed; return; }
-    if (!trendRows || !spotsRes || !spotsRes.spots || !series || (control && (!ctrlRows || !ctrlSeries))) return;
+    if (!trendRows || !spotsRes || !spotsRes.spots || !series || (control && (!ctrlRows || !ctrlSeries || !ctrlKinds))) return;
     conditionRunning = false;
     updateRunEnabled();
     statusEl.textContent = '';
-    showConditionResults(area, s, trendRows, spotsRes, series, c, control ? { area: control, rows: ctrlRows, series: ctrlSeries } : null);
+    showConditionResults(area, s, trendRows, spotsRes, series, c, control ? { area: control, rows: ctrlRows, series: ctrlSeries, kinds: ctrlKinds } : null);
   };
 
   // Earth Engine refuses ("too many concurrent aggregations") when too many
@@ -2247,27 +2083,23 @@ function runCondition() {
     { label: 'Control yearly values', build: () => yearlyFc(ctrlRegion, control.id), done: (res) => { ctrlRows = parseYearly(res); } },
     { label: 'Control single images', build: () => imagesFc(ctrlRegion), done: (res) => { ctrlSeries = parseImages(res); } }
   ] : []).concat([
-    { label: 'Area-wide change', build: () => {
-        c = conditionImages(region, proj, s, ctrlRegion);
-        return ee.Dictionary({ medT: c.medT, sigmaT: c.sigmaT, sigmaR: c.sigmaR, nBase: c.nBase, nScan: c.nScan, scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares, trendP: c.trendP });
+    { label: 'Trend map', build: () => {
+        c = conditionImages(region, s);
+        return ee.Dictionary({ scanStart: c.scanStart.format('YYYY-MM-dd'), trendShares: c.trendShares, trendP: c.trendP, nL: c.nL });
       },
       done: (res) => { spotsRes = res; } },
     // Fetched on its own: a collection nested in a Dictionary comes back as
     // { type, columns } only, without its features.
-    { label: 'Tracing spots', build: () => {
-        const minPx = Math.max(1, Math.round(s.minHa * 100)); // 10 m pixels = 0.01 ha each
-        const vectors = c.cls.reduceToVectors({
-          geometry: region, crs: proj, scale: 10, geometryType: 'polygon', eightConnected: true,
-          labelProperty: 'cls', reducer: ee.Reducer.countEvery(), maxPixels: 1e9, tileScale: 4
-        }).filter(ee.Filter.gte('count', minPx)).sort('count', false).limit(COND_MAX_SPOTS);
-        return c.stats.reduceRegions({ collection: vectors, reducer: ee.Reducer.median(), crs: proj, scale: 10, tileScale: 4 })
-          .map(f => {
-            const g = f.geometry().transform('EPSG:4326', 1);
-            return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
-          });
-      },
+    { label: 'Tracing spots', build: () => traceSpots(c, region, s),
       done: (res) => { spotsRes = Object.assign({ spots: res }, spotsRes); } }
-  ]);
+  ]).concat(control ? [
+    // The control, analysed the same way, reported as area by kind.
+    { label: 'Control spots', build: () => {
+        const cc = conditionImages(ctrlRegion, s);
+        return traceSpots(cc, ctrlRegion, s).reduceColumns(ee.Reducer.sum().group({ groupField: 0, groupName: 'cls' }), ['cls', 'count']);
+      },
+      done: (res) => { ctrlKinds = res; } }
+  ] : []);
   const busy = (err) => /concurrent|too many|rate limit|quota|try again/i.test(String(err));
   const runStep = (i) => {
     if (runId !== conditionRunId) return;
@@ -2298,11 +2130,27 @@ function runCondition() {
 }
 document.getElementById('conditionRunBtn').addEventListener('click', runCondition);
 
+// Pixels of one class (and, for a disturbance, one break year) joined into
+// spots (eight-connected), at least the smallest spot, with each spot's
+// median statistics and the range of its pixels' break dates (each pixel
+// breaks when its own record departs, so a patch's dates spread).
+function traceSpots(c, region, s) {
+  const minPx = Math.max(1, Math.round(s.minHa / COND_PIXEL_HA));
+  const vectors = c.cls.reduceToVectors({
+    geometry: region, crs: c.grid, scale: COND_PIXEL_M, geometryType: 'polygon', eightConnected: true,
+    labelProperty: 'cls', reducer: ee.Reducer.countEvery(), maxPixels: 1e9, tileScale: 4
+  }).filter(ee.Filter.gte('count', minPx)).sort('count', false).limit(COND_MAX_SPOTS);
+  return c.stats.reduceRegions({ collection: vectors, reducer: ee.Reducer.median().combine(ee.Reducer.minMax(), '', true), crs: c.grid, scale: COND_PIXEL_M, tileScale: 4 })
+    .map(f => {
+      const g = f.geometry().transform('EPSG:4326', 1);
+      return ee.Feature(g.simplify(1), f.toDictionary()).set('centroid', g.centroid(1).coordinates());
+    });
+}
+
 function gradeOf(mag) {
   const g = CHANGE_GRADES.slice().reverse().find(gr => mag >= gr.lo);
   return g ? g.name : 'slight';
 }
-function isoFromMs(ms) { return ms ? new Date(ms).toISOString().slice(0, 10) : null; }
 
 // Whole-area trend, adjusted for the time of year (condition-writer.md).
 // Each clear image gives one area average (only images with at least half
@@ -2332,28 +2180,8 @@ function lag1Autocorr(monthly) {
   monthly.forEach(x => { if (dev.has(x.k + 1) && Math.floor((x.k + 1) / 12) === x.year) { cov += dev.get(x.k) * dev.get(x.k + 1); pairs++; } });
   return variance > 0 && pairs >= 6 ? (cov / pairs) / variance : 0;
 }
-// A whole-area drop the trend test can't see: a cyclone or storm knocks
-// the whole block down in one year and it partly grows back, which is no
-// steady trend (Mann-Kendall says "no clear trend"). The biggest fall from
-// an earlier year to a later one whose 95% bars don't overlap, so the gap
-// is bigger than both years' uncertainty. Non-overlapping bars is a
-// cautious test (stricter than p < 0.05 for the difference), which offsets
-// trying every pair of years.
-function wholeAreaStep(valid) {
-  let best = null;
-  for (let i = 0; i < valid.length - 1; i++) for (let j = i + 1; j < valid.length; j++) {
-    const a = valid[i], b = valid[j];
-    if (a.ci == null || b.ci == null || a.mean - a.ci <= b.mean + b.ci) continue;
-    if (!best || a.mean - b.mean > best.drop) best = { from: a.year, to: b.year, fromMean: a.mean, toMean: b.mean, drop: a.mean - b.mean };
-  }
-  if (!best) return null;
-  const last = valid[valid.length - 1];
-  best.lastYear = last.year;
-  best.regained = last.year > best.to ? +((last.mean - best.toMean) / best.drop).toFixed(2) : null;
-  return best;
-}
-// The whole-area verdict in a few words: a steady trend, else a drop.
-const trendWords = (t) => t.verdict === 'declined' || t.verdict === 'improved' ? t.verdict : t.step ? 'dropped in ' + t.step.to : t.verdict === 'no clear trend up or down' ? 'no clear trend' : t.verdict;
+// The whole-area verdict in a few words.
+const trendWords = (t) => t.verdict === 'declined' || t.verdict === 'improved' ? t.verdict : t.verdict === 'no clear trend up or down' ? 'no clear trend' : t.verdict;
 function conditionTrend(rows, series) {
   const pts = (series || []).filter(p => p.share >= COND_MIN_CLEAR_SHARE && p.v != null);
   const month = (p) => new Date(p.t).getUTCMonth();
@@ -2402,7 +2230,7 @@ function conditionTrend(rows, series) {
       if (win.length >= 5) moving.push({ t, v: median(win) });
     }
   }
-  const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null, step: wholeAreaStep(valid) };
+  const out = { valid, yearly, points: pts, moving, verdict: 'not enough clear years', p: null, slope: null, changeVsErrorBar: null };
   if (valid.length < 4) return out;
   const mk = mannKendall(valid.map(r => r.mean), valid.map(r => r.year));
   const slopes = [];
@@ -2423,44 +2251,63 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
   const trend = conditionTrend(trendRows, series);
   // The control's own whole-area trend, drawn alongside on the chart.
   if (ctrl) trend.control = Object.assign(conditionTrend(ctrl.rows, ctrl.series), { name: ctrl.area.name });
-  const counters = { S: 0, R: 0, C: 0, D: 0, G: 0 };
-  const features = (res.spots.features || []).map(f => {
+  const counters = { S: 0, R: 0, D: 0, G: 0 };
+  // Possible recent change not yet confirmed (class 6): area only.
+  const isUnconf = (f) => Math.floor(f.properties.cls / 10000) === 6;
+  const unconfirmedHa = +(res.spots.features || []).filter(isUnconf).reduce((a, f) => a + f.properties.count * COND_PIXEL_HA, 0).toFixed(2);
+  const features = (res.spots.features || []).filter(f => !isUnconf(f)).map(f => {
     const p = f.properties;
-    const kind = p.cls === 6 ? 'canopy_decline' : p.cls === 5 ? 'dropped_recovered' : p.cls <= 2 ? 'sudden_drop' : p.cls === 3 ? 'slow_decline' : 'gain';
-    const split = kind === 'canopy_decline' ? condCanopySplit(s.years, Math.round(p.cyr)) : null;
+    const k = Math.floor(p.cls / 10000); // the class; the rest of the label is the break year
+    const kind = k === 5 ? 'dropped_recovered' : k <= 2 ? 'sudden_drop' : k === 3 ? 'slow_decline' : 'gain';
     const dated = kind === 'sudden_drop' || kind === 'dropped_recovered';
-    const prefix = COND_PREFIX[kind];
-    const recent = p.cls === 1;
+    const recent = k === 1;
     const spot = {
       spot_id: null, kind, recent: kind === 'sudden_drop' ? recent : null,
-      severity: gradeOf(Math.abs(p.mag || 0)),
-      area_ha: +(p.count / 100).toFixed(2),
+      severity: gradeOf(Math.abs(dated ? p.drop_median : p.total_median) || 0),
+      area_ha: +(p.count * COND_PIXEL_HA).toFixed(2),
       lat: +p.centroid[1].toFixed(6), lon: +p.centroid[0].toFixed(6),
-      date_before: split ? split.label(split.before) : !dated ? null : recent ? isoFromMs(p.tUp) : String(Math.round(p.yr) - 1),
-      date_after: split ? split.label(split.after) : !dated ? null : recent ? isoFromMs(p.tDown) : String(Math.round(p.yr)),
-      recovered_share: kind === 'dropped_recovered' && p.recov != null ? +p.recov.toFixed(2)
-        : split && split.after[split.after.length - 1] < s.years[s.years.length - 1] && p.crec != null ? +p.crec.toFixed(2) : null,
-      change: +(kind === 'gain' ? 1 : -1) * Math.abs(p.mag || 0),
-      index: kind === 'canopy_decline' ? COND_CANOPY_INDEX : kind === 'sudden_drop' && recent ? s.dropIndex : s.trendIndex,
-      clear_images: recent ? p.nClear : null,
-      years_with_data: recent ? null : p.nYears,
-      low_confidence: recent ? (p.nDown < 2 || p.nClear < 3) : split ? (p.cna < 2 || p.nYears < 0.8 * s.years.length) : (p.nYears < 0.8 * s.years.length)
+      // Changed between the earliest of its pixels' last clear observations
+      // before their breaks and the latest of their breaks; the typical
+      // (median) break is kept too.
+      date_before: dated ? fracYearToIso(p.tPrev_min) : null,
+      date_after: dated ? fracYearToIso(p.tBreak_max) : null,
+      date_typical: dated ? fracYearToIso(p.tBreak_median) : null,
+      recovered_share: kind === 'dropped_recovered' && p.recov_median != null ? +p.recov_median.toFixed(2) : null,
+      change: +(dated ? -Math.abs(p.drop_median || 0) : (p.total_median || 0)).toFixed(3),
+      index: dated ? s.changeIndex : s.trendIndex,
+      clear_images: dated && p.nPost_median != null ? Math.round(p.nPost_median) : null, // clear observations after the break
+      years_with_data: dated ? null : p.nYears_median,
+      // A break followed by fewer than two of CCDC's six-observation
+      // confirmations, or a trend over fewer than four in five years.
+      low_confidence: dated ? (p.nPost_median == null || p.nPost_median < 2 * CCDC_PARAMS.minObservations) : (p.nYears_median < 0.8 * s.years.length)
     };
-    spot.change = +spot.change.toFixed(3);
-    return { spot, geometry: f.geometry, prefix };
+    return { spot, geometry: f.geometry, prefix: COND_PREFIX[kind] };
   });
   // Number within each kind, biggest first.
-  ['S', 'R', 'C', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
+  ['S', 'R', 'D', 'G'].forEach(pre => features.filter(x => x.prefix === pre)
     .sort((a, b) => b.spot.area_ha - a.spot.area_ha)
     .forEach(x => { x.spot.spot_id = pre + (++counters[pre]); }));
-  features.sort((a, b) => 'SRCDG'.indexOf(a.prefix) - 'SRCDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
+  features.sort((a, b) => 'SRDG'.indexOf(a.prefix) - 'SRDG'.indexOf(b.prefix) || b.spot.area_ha - a.spot.area_ha);
+  // The control, analysed the same way: area by kind.
+  const ctrlHa = {};
+  if (ctrl && ctrl.kinds) (ctrl.kinds.groups || []).forEach(g => {
+    const cl = Math.floor(g.cls / 10000);
+    if (cl === 6) return;
+    const k = cl === 5 ? 'dropped_recovered' : cl <= 2 ? 'sudden_drop' : cl === 3 ? 'slow_decline' : 'gain';
+    ctrlHa[k] = +((ctrlHa[k] || 0) + g.sum * COND_PIXEL_HA).toFixed(2);
+  });
 
   const tg = {}; ((res.trendShares && res.trendShares.groups) || []).forEach(g => { tg[g.tc] = g.sum; });
-  const denseHa = (tg[1] || 0) + (tg[2] || 0) + (tg[3] || 0);
-  const pctOf = (v) => denseHa ? Math.round(100 * (v || 0) / denseHa) : 0;
-  const canopyTrend = { denseHa: +denseHa.toFixed(1), improvingHa: +(tg[1] || 0).toFixed(1), stableHa: +(tg[2] || 0).toFixed(1), decliningHa: +(tg[3] || 0).toFixed(1),
+  const testedHa = (tg[1] || 0) + (tg[2] || 0) + (tg[3] || 0);
+  const pctOf = (v) => testedHa ? Math.round(100 * (v || 0) / testedHa) : 0;
+  // (denseHa keeps its old name for the export; it is now every pixel tested.)
+  const canopyTrend = { denseHa: +testedHa.toFixed(1), improvingHa: +(tg[1] || 0).toFixed(1), stableHa: +(tg[2] || 0).toFixed(1), decliningHa: +(tg[3] || 0).toFixed(1),
     improvingPct: pctOf(tg[1]), stablePct: pctOf(tg[2]), decliningPct: pctOf(tg[3]) };
-  lastCondition = { area, control: ctrl ? ctrl.area : null, s, trendRows, series, trend, spots: features, res, canopyTrend, runAt: new Date().toISOString() };
+  // Disturbed area by the year of its break.
+  const byYear = {};
+  features.filter(x => x.spot.date_after).forEach(x => { const y = x.spot.date_after.slice(0, 4); byYear[y] = +((byYear[y] || 0) + x.spot.area_ha).toFixed(2); });
+  lastCondition = { area, control: ctrl ? ctrl.area : null, ctrlHa: ctrl ? ctrlHa : null, s, trendRows, series, trend, spots: features, res, canopyTrend, byYear, unconfirmedHa,
+    grid: images && images.grid, runAt: new Date().toISOString() };
   if (images && images.trendClass) {
     images.trendClass.getMapId({ min: 1, max: 3, palette: [TREND_COLORS.improving, TREND_COLORS.stable, TREND_COLORS.declining].map(x => x.slice(1)) }, (m, err) => {
       if (err || !m || lastCondition.area !== area) return;
@@ -2490,40 +2337,34 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
   document.getElementById('condRunCards').style.display = '';
   expandResultsPane();
   const esc = (v) => String(v).replace(/</g, '&lt;');
-  document.getElementById('condTitle').textContent = area.name + (ctrl ? ' against ' + ctrl.area.name : '') + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
+  document.getElementById('condTitle').textContent = area.name + (ctrl ? ' and control ' + ctrl.area.name : '') + ', ' + s.years[0] + '–' + s.years[s.years.length - 1] + ' (' + s.trendIndex + ')';
   const sum = (kind) => features.filter(x => x.spot.kind === kind);
   const ha = (list) => list.reduce((a, x) => a + x.spot.area_ha, 0);
   const metric = (label, value) => '<div class="metric" title="' + label + ': ' + value + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   document.getElementById('condMetrics').innerHTML =
     metric('Whole area', trendWords(trend)) +
-    metric('Sudden drops', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
-    metric('Recovered', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
-    metric('Canopy decline', sum('canopy_decline').length + ' · ' + fmtHa(ha(sum('canopy_decline'))) + ' ha') +
-    metric('Slow decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
-    metric('Canopy trend', canopyTrend.improvingPct + '% ↑ · ' + canopyTrend.stablePct + '% → · ' + canopyTrend.decliningPct + '% ↓') +
-    metric('Growth', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
+    metric('Disturbance', sum('sudden_drop').length + ' · ' + fmtHa(ha(sum('sudden_drop'))) + ' ha') +
+    metric('Recovering', sum('dropped_recovered').length + ' · ' + fmtHa(ha(sum('dropped_recovered'))) + ' ha') +
+    metric('Steady decline', sum('slow_decline').length + ' · ' + fmtHa(ha(sum('slow_decline'))) + ' ha') +
+    metric('Pixel trends', canopyTrend.improvingPct + '% ↑ · ' + canopyTrend.stablePct + '% → · ' + canopyTrend.decliningPct + '% ↓') +
+    metric('Steady improvement', sum('gain').length + ' · ' + fmtHa(ha(sum('gain'))) + ' ha');
   document.getElementById('condTrendText').innerHTML = trend.p == null
     ? 'Too few years with clear images for a trend test.'
     : 'Adjusted for time of year, from ' + trend.points.length + ' clear images. Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
-      'Recent drops looked for from ' + res.scanStart + ' (' + res.nScan + ' clear-enough images, baseline ' + res.nBase + ').' +
-      (trend.step ? ' Biggest drop: ' + trend.step.fromMean.toFixed(3) + ' in ' + trend.step.from + ' to ' + trend.step.toMean.toFixed(3) + ' in ' + trend.step.to + ', beyond both years\' 95% bars' +
-        (trend.step.regained != null ? '; ' + Math.max(0, Math.round(trend.step.regained * 100)) + '% regained by ' + trend.step.lastYear : '') + '.' : '') +
-      // The spot tests measure each pixel against the rest of the area, so
-      // damage shared by the whole block (a cyclone) cancels out. Say so.
-      (trend.control ? ' Control (' + esc(trend.control.name) + ', dashed): ' + trendWords(trend.control) + (trend.control.step ? ', from ' + trend.control.step.fromMean.toFixed(3) + ' in ' + trend.control.step.from + ' to ' + trend.control.step.toMean.toFixed(3) + ' in ' + trend.control.step.to : '') + '. Spots are measured against the control.' : '') +
-      (s.relative && !s.control && (trend.step || res.medT <= -res.sigmaT)
-        ? ' <span style="color:var(--red);">The area as a whole dropped, and "allow for area-wide change" is ticked, so change shared by the whole area is cancelled out of the spots. Untick it and run again to map it.</span>' : '');
+      'Disturbance from ' + res.nL + ' Landsat days since 2013 (CCDC); recent means since ' + res.scanStart + '.' +
+      (Object.keys(byYear).length ? ' Disturbed area by year of the break: ' + Object.keys(byYear).sort().map(y => y + ' ' + fmtHa(byYear[y]) + ' ha').join(', ') + '.' : '') +
+      (unconfirmedHa ? ' Possible recent change, not yet confirmed (fewer than ' + CCDC_PARAMS.minObservations + ' clear images since it began): ' + fmtHa(unconfirmedHa) + ' ha; run the check again in a couple of months.' : '') +
+      (trend.control ? ' Control (' + esc(trend.control.name) + ', dashed): ' + trendWords(trend.control) + '; disturbed ' + fmtHa(ctrlHa.sudden_drop || 0) + ' ha, recovering ' + fmtHa(ctrlHa.dropped_recovered || 0) +
+        ' ha, steady decline ' + fmtHa(ctrlHa.slow_decline || 0) + ' ha, steady improvement ' + fmtHa(ctrlHa.gain || 0) + ' ha.' : '');
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
 
-  const when = (sp) => sp.kind === 'canopy_decline' ? 'from ' + sp.date_after.slice(0, 4) + ' (' + sp.date_after + ' against ' + sp.date_before + ')'
-    : sp.date_after == null ? s.years[0] + '–' + s.years[s.years.length - 1]
-    : sp.recent ? 'between ' + fmtDate(Date.parse(sp.date_before)) + ' and ' + fmtDate(Date.parse(sp.date_after))
-    : 'between ' + sp.date_before + ' and ' + sp.date_after;
+  const when = (sp) => sp.date_after == null ? s.years[0] + '–' + s.years[s.years.length - 1]
+    : 'between ' + fmtDate(Date.parse(sp.date_before)) + ' and ' + fmtDate(Date.parse(sp.date_after));
   const table = document.getElementById('condTable');
   table.innerHTML = '<tr><th>Chart</th><th>Spot</th><th>Kind</th><th>Size (ha)</th><th>When</th><th>Strength</th><th>Change</th><th></th></tr>' +
     (features.length ? features.map((x, i) => '<tr data-i="' + i + '" style="cursor:pointer;"><td><input type="checkbox" data-chart="' + x.spot.spot_id + '" style="accent-color:' + COND_COLORS[x.spot.kind] + ';"></td><td><strong>' + x.spot.spot_id + '</strong></td><td>' + COND_KIND_NAME[x.spot.kind] +
       '</td><td>' + fmtHa(x.spot.area_ha) + '</td><td>' + esc(when(x.spot)) + '</td><td>' + x.spot.severity + '</td><td>' + (x.spot.change > 0 ? '+' : '') + x.spot.change.toFixed(3) + ' ' + x.spot.index +
-      '</td><td>' + (x.spot.low_confidence ? '<span title="Few clear images behind this spot" style="color:var(--red);">low confidence</span>' : '') + '</td></tr>').join('')
+      '</td><td>' + (x.spot.low_confidence ? '<span title="Few clear observations behind this spot (after the break, or years for a trend)" style="color:var(--red);">low confidence</span>' : '') + '</td></tr>').join('')
       : '<tr><td colspan="8">No spots found with these settings.</td></tr>');
   table.querySelectorAll('input[data-chart]').forEach(cb => {
     cb.addEventListener('click', (e) => e.stopPropagation());
@@ -2679,7 +2520,7 @@ function loadJSZip() {
 }
 
 const csvCell = (v) => { if (v == null) return ''; const t = String(v); return /[,"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'change', 'recovered_share', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
+const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'date_typical', 'change', 'recovered_share', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
 
 function bboxOf(geojsonGeom) {
   let w = 180, s = 90, e = -180, n = -90;
@@ -2837,18 +2678,13 @@ function outlineOn(canvas, P, geom, color) {
 function chipPeriods(sp, c) {
   const y0 = c.s.years[0], y1 = c.s.years[c.s.years.length - 1];
   const year = (y) => ({ label: String(y), start: y + '-01-01', end: (y + 1) + '-01-01' });
-  if (sp.kind === 'sudden_drop' && sp.recent) {
-    const sStart = new Date(c.res.scanStart + 'T00:00:00Z'), bStart = new Date(sStart.getTime() - COND_BASELINE_DAYS * 864e5);
-    return [{ label: 'Before (' + isoDate(bStart) + ' to ' + c.res.scanStart + ')', start: isoDate(bStart), end: c.res.scanStart },
-      { label: 'After (' + c.res.scanStart + ' to ' + c.s.today + ')', start: c.res.scanStart, end: c.s.today }];
-  }
-  if (sp.kind === 'canopy_decline') {
-    const b = Number(sp.date_before.slice(-4)), a = Number(sp.date_after.slice(-4));
-    return a < y1 ? [year(b), year(a), year(y1)] : [year(b), year(a)];
-  }
   if (sp.kind === 'sudden_drop' || sp.kind === 'dropped_recovered') {
-    const a = Number(sp.date_before), b = Number(sp.date_after);
-    return b < y1 ? [year(a), year(b), year(y1)] : [year(a), year(b)];
+    // The six months either side of the break, then the last year (to show
+    // whether it has grown back), unless the break is in it.
+    const shift = (iso, days) => isoDate(new Date(Date.parse(iso + 'T00:00:00Z') + days * 864e5));
+    const before = { label: 'Before (' + shift(sp.date_before, -182) + ' to ' + sp.date_before + ')', start: shift(sp.date_before, -182), end: shift(sp.date_before, 1) };
+    const after = { label: 'After (' + sp.date_after + ' to ' + shift(sp.date_after, 182) + ')', start: sp.date_after, end: shift(sp.date_after, 183) };
+    return Number(sp.date_after.slice(0, 4)) < y1 ? [before, after, year(y1)] : [before, after];
   }
   return [year(y0), year(y1)];
 }
@@ -2953,12 +2789,24 @@ const imgSize = (url) => new Promise(resolve => { const i = new Image(); i.onloa
 const fmtLongDate = (iso) => { const d = new Date(iso + 'T00:00:00Z'); return d.getUTCDate() + ' ' + ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getUTCMonth()] + ' ' + d.getUTCFullYear(); };
 const REPORT_STRENGTH = { slight: 'slight', moderate: 'moderate', strong: 'strong', severe: 'strong' }; // older exports said "severe"
 const SPOT_MAY_BE = {
-  sudden_drop: 'clearance, a slip, windthrow or fire',
-  dropped_recovered: 'storm damage, a slip or windthrow that has since regrown',
-  canopy_decline: 'dieback after waterlogging, drought or disease',
+  sudden_drop: 'clearance, a slip, windthrow, storm damage, fire or dieback',
+  dropped_recovered: 'storm damage, a slip, windthrow or clearance that is now regrowing',
   slow_decline: 'dieback, browsing, drought stress or weed invasion',
   gain: 'canopy thickening: regeneration, recovery or maturing plantings'
 };
+// Short references for the report's methods appendix (full list:
+// docs/condition-check-methods.md).
+const COND_REFERENCES = [
+  'Arévalo, P., Bullock, E.L., Woodcock, C.E., Olofsson, P. (2020). A suite of tools for continuous land change monitoring in Google Earth Engine. Frontiers in Climate 2:576740.',
+  'Benjamini, Y., Hochberg, Y. (1995). Controlling the false discovery rate. Journal of the Royal Statistical Society B 57:289–300.',
+  'Claverie, M., Ju, J., Masek, J.G., et al. (2018). The Harmonized Landsat and Sentinel-2 surface reflectance data set. Remote Sensing of Environment 219:145–161.',
+  'Cohen, W.B., Healey, S.P., Yang, Z., et al. (2017). How similar are forest disturbance maps derived from different Landsat time series algorithms? Forests 8:98.',
+  'Hamed, K.H., Rao, A.R. (1998). A modified Mann-Kendall trend test for autocorrelated data. Journal of Hydrology 204:182–196.',
+  'Olofsson, P., Foody, G.M., Herold, M., et al. (2014). Good practices for estimating area and assessing accuracy of land change. Remote Sensing of Environment 148:42–57.',
+  'Pasquarella, V.J., Brown, C.F., Czerwinski, W., Rucklidge, W.J. (2023). Comprehensive quality assessment of optical satellite imagery using weakly supervised video learning. CVPR Workshops.',
+  'Sen, P.K. (1968). Estimates of the regression coefficient based on Kendall\'s tau. Journal of the American Statistical Association 63:1379–1389.',
+  'Zhu, Z., Woodcock, C.E. (2014). Continuous change detection and classification of land cover using all available Landsat data. Remote Sensing of Environment 144:152–171.'
+];
 
 async function conditionPdf(c, mapBlob, trendBlob, panels) {
   const JsPDF = await loadJsPDF();
@@ -3058,7 +2906,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   doc.setTextColor(0, 0, 0);
   const areaHa = (() => { try { return turf.area(c.area.geojson) / 10000; } catch (e) { return null; } })();
   para((c.area.source && c.area.source !== 'drawn' ? c.area.source + '. ' : '') + (areaHa ? ha(areaHa) + ' ha. ' : '') +
-    'Sentinel-2 satellite imagery, ' + y0 + ' to ' + y1 + ', with recent change looked for from ' + fmtLongDate(c.res.scanStart) + ' to ' + fmtLongDate(c.s.today) + '.', { size: 9.5, after: 6 });
+    'Landsat 8/9 (from 2013) and Sentinel-2 satellite imagery, reported for ' + y0 + ' to ' + fmtLongDate(c.s.today) + '; "recent" means since ' + fmtLongDate(c.res.scanStart) + '.', { size: 9.5, after: 6 });
 
   // ── At a glance ──
   heading('At a glance', 14);
@@ -3067,35 +2915,38 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   let trendSentence;
   if (t.verdict === 'declined' || t.verdict === 'improved') trendSentence = 'The vegetation in the area ' + t.verdict + ' between ' + y0 + ' and ' + y1 + '.';
   else trendSentence = 'There was no clear trend up or down in the area\'s vegetation between ' + y0 + ' and ' + y1 + '.';
-  if (t.control) trendSentence += ' The control area, ' + t.control.name + ', ' + (t.control.verdict === 'declined' || t.control.verdict === 'improved' ? t.control.verdict : t.control.step ? 'dropped in ' + t.control.step.to : 'showed no clear trend') + ' over the same years (dashed line in Figure 2), and spots were measured against it.';
-  if (t.step) trendSentence += ' It did drop in ' + t.step.to + ', from ' + t.step.fromMean.toFixed(2) + ' in ' + t.step.from + ' to ' + t.step.toMean.toFixed(2) + ' ' + c.s.trendIndex + ', more than either year\'s uncertainty' +
-    (t.step.regained != null ? ', and had regained ' + Math.max(0, Math.round(t.step.regained * 100)) + '% of that by ' + t.step.lastYear : '') + '.';
   if (valid.length) {
     const lowY = valid.reduce((a, r) => r.mean < a.mean ? r : a), highY = valid.reduce((a, r) => r.mean > a.mean ? r : a);
     trendSentence += ' The vegetation signal was lowest in ' + lowY.year + ' and highest in ' + highY.year + ' (Figure 2).';
   }
   para(trendSentence);
   const ctr = c.canopyTrend;
-  if (ctr && ctr.denseHa) para('Across the ' + ha(ctr.denseHa) + ' ha of dense canopy, ' + ctr.improvingPct + '% improved steadily between ' + y0 + ' and ' + y1 + ', ' + ctr.stablePct + '% showed no clear trend either way (which is not proof of no change) and ' + ctr.decliningPct + '% declined steadily.');
-  const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), cd = ofKind('canopy_decline'), dc = ofKind('slow_decline'), gn = ofKind('gain');
-  const visit = sd.length + cd.length + dc.length;
+  if (ctr && ctr.denseHa) para('Of the ' + ha(ctr.denseHa) + ' ha tested pixel by pixel, ' + ctr.improvingPct + '% improved steadily between ' + y0 + ' and ' + y1 + ', ' + ctr.stablePct + '% showed no clear trend either way (which is not proof of no change) and ' + ctr.decliningPct + '% declined steadily.');
+  const sd = ofKind('sudden_drop'), rc = ofKind('dropped_recovered'), dc = ofKind('slow_decline'), gn = ofKind('gain');
+  const visit = sd.length + dc.length;
   const left = c.hiddenKinds || [];
-  const KIND_WORDS = { sudden_drop: ['sudden drop', 'sudden drops'], dropped_recovered: ['dropped and recovered', 'dropped and recovered'], canopy_decline: ['canopy decline', 'canopy decline'], slow_decline: ['slow decline', 'slow decline'], gain: ['sustained growth patch', 'sustained growth patches'] };
+  const KIND_WORDS = { sudden_drop: ['disturbance', 'disturbances'], dropped_recovered: ['disturbance now recovering', 'disturbances now recovering'], slow_decline: ['steady decline patch', 'steady decline patches'], gain: ['steady improvement patch', 'steady improvement patches'] };
   const parts = COND_KINDS.filter(k => !left.includes(k)).map(k => { const l = ofKind(k); return l.length + ' ' + KIND_WORDS[k][l.length === 1 ? 0 : 1] + ' (' + ha(haSum(l)) + ' ha)'; });
   para(spots.length
     ? spots.length + ' spot' + (spots.length === 1 ? '' : 's') + ' of change were found inside the area, covering ' + ha(haSum(spots)) + ' ha in total: ' +
       (parts.length > 1 ? parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1] : parts[0]) + '.'
-    : 'No spots of change were found inside the area with the settings used (Appendix A).');
+    : 'No spots of change were found inside the area (Appendix A).');
+  const years = Object.keys(c.byYear || {}).sort();
+  if (years.length) para('Disturbed area by the year the change began: ' + years.map(yy => yy + ', ' + ha(c.byYear[yy]) + ' ha').join('; ') + '.');
+  if (c.control && c.ctrlHa) para('The control area, ' + c.control.name + ', analysed the same way, ' + (t.control && (t.control.verdict === 'declined' || t.control.verdict === 'improved') ? t.control.verdict : 'showed no clear trend') +
+    ' over the same years (dashed line in Figure 2). It had ' + ha(c.ctrlHa.sudden_drop || 0) + ' ha disturbed, ' + ha(c.ctrlHa.dropped_recovered || 0) + ' ha disturbed and recovering, ' +
+    ha(c.ctrlHa.slow_decline || 0) + ' ha in steady decline and ' + ha(c.ctrlHa.gain || 0) + ' ha in steady improvement.');
   if (left.length) para('Not included in this report: ' + left.map(k => KIND_WORDS[k][1]).join(', ') + '.', { size: 9, italic: true });
   para((visit
-    ? 'Recommended: visit the ' + visit + ' sudden-drop, canopy-decline and slow-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
+    ? 'Recommended: visit the ' + visit + ' disturbance and steady-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
     : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
-    (rc.length ? ' At the next visit, check what has grown back on the ' + rc.length + ' dropped-and-recovered spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
-    (gn.length ? ' Sustained growth patches need no visit.' : ''), { after: 6 });
+    (rc.length ? ' At the next visit, check what is growing back on the ' + rc.length + ' recovering spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
+    (gn.length ? ' Steady improvement patches need no visit.' : ''), { after: 6 });
+  para('These results have not been checked against ground truth for this area: how often a spot is a false alarm, and how much is missed, is not yet known (see section 4).', { size: 9, italic: true });
 
   // ── 1 The area ──
   heading('1  The area', 13);
-  await image(mapBlob, 120, 'Figure 1. ' + c.area.name + ' (white outline) and the spots found inside it. Spot outlines come from the Sentinel-2 analysis; the aerial photograph is background only and may be older or newer than the change. Imagery: Esri, Maxar, Earthstar Geographics.');
+  await image(mapBlob, 120, 'Figure 1. ' + c.area.name + ' (white outline) and the spots found inside it. Spot outlines come from the satellite analysis on a 30 m grid; the aerial photograph is background only and may be older or newer than the change. Imagery: Esri, Maxar, Earthstar Geographics.');
 
   // ── 2 The area as a whole ──
   heading('2  The area as a whole', 13);
@@ -3111,26 +2962,22 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
 
   // ── 3 Spots ──
   heading('3  What is happening inside the area', 13);
-  para('Each spot is a group of 10 m pixels that changed more than the area around them. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
+  para('Each spot is a group of 30 m pixels with the same result, found with published methods at their published settings (Appendix A). Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
     (panels && panels.length > 1 ? ' Satellite images of each spot before and after, in natural colour and infrared, are in Appendix B.' : ''));
-  const when = (sp) => sp.kind === 'canopy_decline' ? 'from ' + sp.date_after.slice(0, 4) + ' (' + sp.date_after + ' against ' + sp.date_before + ')'
-    : sp.date_after == null ? y0 + ' to ' + y1
-    : sp.recent ? 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after) : 'between ' + sp.date_before + ' and ' + sp.date_after;
-  const sections = [['3.1  Sudden drops: possible clearance or damage', 'sudden_drop', 'No sudden drops were found.'],
-    ['3.2  Dropped and recovered: possible storm or slip damage that has grown back', 'dropped_recovered', 'No spots dropped and then grew back.'],
-    ['3.3  Canopy decline: canopy losing leaf water, possible dieback', 'canopy_decline', 'No canopy decline was found.'],
-    ['3.4  Slow decline: possible poor forest health', 'slow_decline', 'No slow decline was found.'],
-    ['3.5  Sustained growth: canopy improving steadily', 'gain', 'No patches of sustained growth were found.']];
+  const when = (sp) => sp.date_after == null ? y0 + ' to ' + y1 : 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after);
+  const sections = [['Disturbance: the canopy signal fell, and has not recovered', 'sudden_drop', 'No disturbance was found.'],
+    ['Disturbed and recovering: the canopy signal fell and is rising again', 'dropped_recovered', 'No disturbance is recovering.'],
+    ['Steady decline: falling year on year', 'slow_decline', 'No steady decline was found.'],
+    ['Steady improvement: rising year on year', 'gain', 'No steady improvement was found.']];
   sections.filter(([, kind]) => !(c.hiddenKinds || []).includes(kind)).forEach(([title, kind, none], si) => {
-    heading('3.' + (si + 1) + '  ' + title.replace(/^3\.\d\s+/, ''), 11);
+    heading('3.' + (si + 1) + '  ' + title, 11);
     const list = ofKind(kind);
     if (!list.length) { para(none); return; }
-    if (si === 0) para('Table 1 lists the spots to visit (sudden drops and slow decline).', { size: 9, italic: true });
+    if (si === 0) para('Table 1 lists the spots to visit (disturbance and steady decline). "When": the change happened between these dates, from the earliest last clear image before any pixel in the spot changed to the latest change; each pixel changes when its own record departs, so the dates within a patch can spread over months.', { size: 9, italic: true });
     table([['Spot', 0.08], ['Size (ha)', 0.1], ['When', 0.26], ['Strength', 0.12], ['GPS (lat, long)', 0.2], ['What to check', 0.24]],
       list.map(sp => [sp.spot_id, ha(sp.area_ha), when(sp), REPORT_STRENGTH[sp.severity] + (sp.low_confidence ? ' (few clear images)' : ''),
         sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed'
-          : kind === 'dropped_recovered' ? 'May be ' + SPOT_MAY_BE[kind] + ' (' + Math.round((sp.recovered_share || 0) * 100) + '% regained); check what grew back'
-          : kind === 'canopy_decline' && sp.recovered_share != null ? 'May be ' + SPOT_MAY_BE[kind] + ' (' + Math.max(0, Math.round(sp.recovered_share * 100)) + '% regained since)'
+          : kind === 'dropped_recovered' ? 'May be ' + SPOT_MAY_BE[kind] + ' (about ' + Math.round((sp.recovered_share || 0) * 100) + '% regained); check what is growing back'
           : 'May be ' + SPOT_MAY_BE[kind]]));
   });
 
@@ -3139,37 +2986,40 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   const thinYears = valid.filter(r => r.n_clear != null && r.n_clear < 10).map(r => r.year);
   const patchyYears = t.yearly.filter(r => r.year < FIRST_GLOBAL_YEAR).map(r => r.year);
   [
+    'These results have not been checked against ground truth for this area. Change-detection methods agree on how much forest is unchanged but differ on which patches changed (Cohen et al. 2017), so how often a spot is a false alarm, and how much is missed, is not known until a validation sample has been labelled (Olofsson et al. 2014).',
     'The satellite sees a change in the vegetation signal, not its cause. Clearance, slips, windthrow, fire, dieback and browsing can look alike from space.',
-    'Spots smaller than ' + c.s.minHa + ' ha were not reported, so small clearings or single trees can be missed.',
-    'Recent drops were looked for over ' + c.s.lookback + ' days, using ' + c.res.nScan + ' clear-enough satellite images.' + (c.res.nScan < 4 ? ' That is few; a recent change may have been missed under cloud.' : ''),
-    thinYears.length ? 'In some years the typical point in the area was seen clearly fewer than ten times (' + thinYears.join(', ') + '), so their values are less certain.' : null,
-    patchyYears.length ? 'Sentinel-2 surface reflectance was only produced worldwide from December 2018, so ' + patchyYears.join(' and ') + ' can be missing or thin outside Europe.' : null,
+    'Pixels are 30 m, so single trees and patches smaller than about 0.1 ha cannot be mapped, and spots smaller than ' + c.s.minHa + ' ha were not reported.',
+    'A change is confirmed only after six clear Landsat images show it, so a change in the last two or three months may not show yet, and the most recent changes are the least certain.' +
+      (c.unconfirmedHa ? ' At this run, ' + ha(c.unconfirmedHa) + ' ha showed a possible recent change that was not yet confirmed; it is not shown as a spot.' : ''),
+    thinYears.length ? 'In some years the typical point in the area was seen clearly fewer than ten times by Sentinel-2 (' + thinYears.join(', ') + '), so the whole-area values for those years are less certain.' : null,
+    patchyYears.length ? 'Sentinel-2 surface reflectance was only produced worldwide from December 2018, so the whole-area trend for ' + patchyYears.join(' and ') + ' can be thin; the spots also use Landsat, which covers those years.' : null,
     'Spots at the edge of the area can include change just outside it.'
   ].filter(Boolean).forEach((s, i) => para((i + 1) + '.  ' + s));
 
   // ── Appendix A ──
   newPage();
   heading('Appendix A  Methods and settings', 14);
-  const refWord = c.control ? 'the control area\'s' : 'the area\'s';
-  para('Data: Sentinel-2 Level-2A surface reflectance (COPERNICUS/S2_SR_HARMONIZED), processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '. Scenes with more than ' + c.s.cloudPct + '% cloud over the whole tile were left out. Cloud and cloud shadow were masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023), and no-data, saturated and snow pixels with the Scene Classification band. Pixels are 10 m.', { size: 9.5 });
-  if (c.control) para('Control: every pixel was measured against a control area, ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha), not against the rest of the area. The medians and typical spreads below are the control\'s, so change shared with the control (weather, the season, a storm across both) cancels out, and the spots show where the area differs from it. The control\'s own whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
-  para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month (the median of that month across all years) was subtracted from each image, so the season, and an uneven spread of clear images through a year, do not move the yearly value. Each year is the average of its calendar months (each the average of its adjusted images), with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test on the yearly values, its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
-  para('Yearly values per pixel (used by slow decline, gains, dropped and recovered, canopy decline and the canopy trend): each month of each year was a median composite less that pixel\'s normal for the month (its median over ' + y0 + '–' + y1 + '), the year is the median of its months, and the pixel\'s average monthly normal was added back, so every month present counts the same. So a year whose clear images happened to fall mostly in winter does not read as a drop.', { size: 9.5 });
-  para('Recent sudden drops (' + c.s.dropIndex + '): each clear image from ' + fmtLongDate(c.res.scanStart) + ' was compared with the median of the ' + COND_BASELINE_DAYS + ' days before (' + c.res.nBase + ' images)' + (c.s.relative ? ', less ' + refWord + ' median change on that image' : ', measured from zero (area-wide change not allowed for)') + '. A pixel was flagged when it fell by at least ' + c.s.floor + ' and by more than ' + c.s.k + ' times ' + refWord + ' typical spread (' + (c.res.sigmaR || 0).toFixed(3) + '), and stayed down for at least ' + c.s.persist + ' clear image' + (c.s.persist === 1 ? '' : 's') + ' with none back up since.', { size: 9.5 });
-  para('Slow decline and gains (' + c.s.trendIndex + '): each pixel\'s Sen\'s slope across the yearly values, times the period, compared with ' + (c.s.relative ? refWord + ' median (' + (c.res.medT || 0).toFixed(3) + ')' : 'zero (area-wide change not allowed for; area median ' + (c.res.medT || 0).toFixed(3) + ')') + ' and typical spread (' + (c.res.sigmaT || 0).toFixed(3) + '): flagged beyond ' + c.s.k + ' times the spread and at least ' + CHANGE_MIN_ABS + '. A decline where one year\'s step was at least ' + Math.round(COND_PAST_STEP_SHARE * 100) + '% of it and at least ' + c.s.floor + ' is reported as a sudden drop between those two years.', { size: 9.5 });
-  para('Canopy decline (' + COND_CANOPY_INDEX + ', canopy moisture: near-infrared against shortwave infrared, which leaf water absorbs): each pixel\'s yearly median, in dense canopy only (NDVI ' + COND_DENSE_NDVI + ' or more in at least one year), ' + (c.s.relative ? 'measured against ' + refWord + ' median that year' : 'measured from zero') + ', was split at every year in turn: up to ' + COND_CANOPY_BEFORE + ' years before against the ' + COND_CANOPY_AFTER + ' years after (one at the end of the period). The split with the biggest drop against the typical spread of drops at that split dates the decline. Flagged when it fell by at least ' + c.s.canopyFloor + ' and by more than ' + c.s.canopyK + ' times that spread; each flagged patch then takes in the touching pixels that fell by at least ' + COND_CANOPY_GROW_FLOOR + ' and ' + COND_CANOPY_GROW_K + ' times the spread, so a spot covers the whole patch, not only its strongest core. It measures water in the leaves, not in the soil.', { size: 9.5 });
-  para('Dropped and recovered (' + c.s.trendIndex + '): the biggest one-year drop between yearly values (leaving out the step into ' + y1 + '), ' + (c.s.relative ? 'measured against ' + refWord + ' median change that year, ' : 'measured from zero, ') + 'flagged when at least ' + c.s.floor + ' and more than ' + c.s.k + ' times the typical spread of one-year changes, and when at least ' + Math.round(COND_RECOVER_SHARE * 100) + '% of the drop had grown back by ' + y1 + '. A drop still down is reported as a sudden drop instead.', { size: 9.5 });
-  para('Canopy trend and sustained growth (' + c.s.trendIndex + ', with ' + COND_CANOPY_INDEX + ' as a check): for each dense-canopy pixel, a Mann-Kendall test on its yearly values ' + y0 + '–' + y1 + ', measured from zero (not against the rest of the area). Improving steadily: a significant rise after a false-discovery-rate correction across all ' + 'tested pixels (Benjamini-Hochberg, q = ' + COND_FDR_Q + ', which gave a cut-off of p ≤ ' + (c.res.trendP == null ? 'n/a' : (+c.res.trendP).toPrecision(2)) + '), a rise of at least ' + COND_GROW_FLOOR + ' over the period (Sen\'s slope), and canopy moisture not falling significantly; declining steadily is the mirror image; the rest showed no clear trend (not the same as no change). Sustained growth spots are touching improving pixels of at least ' + c.s.minHa + ' ha. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
-  para('Spots: flagged pixels joined (including diagonally) into groups of at least ' + c.s.minHa + ' ha. Strength from the change in index units: slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5, after: 5 });
+  para('Every step follows a published method at its published settings; nothing was tuned to this area. Processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '.', { size: 9.5 });
+  para('Data: for disturbance and recovery, Landsat 8/9 from NASA\'s Harmonized Landsat Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m; Claverie et al. 2018), masked for cloud, cloud shadow, cloud edges and snow with its Fmask layer, one image per day (' + (c.res.nL || 'n/a') + ' days from April 2013; scenes more than ' + HLS_SCENE_CLOUD + '% cloudy skipped). For the steady trends and the whole-area trend, Sentinel-2 Level-2A surface reflectance (10 m), masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023) and the Scene Classification band. Sentinel-2 was kept out of the change detection: without NASA\'s view-angle correction, which Earth Engine does not host for Sentinel-2, it left a false step where it joins the Landsat record at the end of 2018.', { size: 9.5 });
+  para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), at its default settings: change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + CCDC_PARAMS.minObservations + ' observations to confirm a change; chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; minimum years scaler ' + CCDC_PARAMS.minNumOfYearsScaler + '; LASSO lambda ' + CCDC_PARAMS.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude); where a pixel had several, the biggest fall is reported. It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '.', { size: 9.5 });
+  para('Steady decline and improvement (' + c.s.trendIndex + '): each pixel\'s yearly values ' + y0 + '–' + y1 + ', allowing for the season (each month of each year a median composite less the pixel\'s normal for that month, the year the median of its months, with the average monthly normal added back). Theil-Sen slope (Sen 1968) and Mann-Kendall test on those values; the p cut-off set by a Benjamini-Hochberg false discovery rate across the area\'s pixels (q = ' + COND_FDR_Q + ', which gave p ≤ ' + (c.res.trendP == null ? 'n/a' : (+c.res.trendP).toPrecision(2)) + '; Benjamini & Hochberg 1995). A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
+  para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear Sentinel-2 image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month was subtracted from each image, so the season does not move the yearly value. Each year is the average of its calendar months, with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test with its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
+  if (c.control) para('Control: ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha) was analysed with the same methods and settings, and is set beside the area as a reference site (the Before-After-Control-Impact idea; Stewart-Oaten et al. 1986). Its whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
+  para('Reporting choices (not methods): pixels with the same result joined (including diagonally) into spots of at least ' + c.s.minHa + ' ha; strength is the size of the change in index units, slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5 });
+  para('Accuracy: not yet assessed for this area. inferrd. draws a stratified random sample and estimates user\'s and producer\'s accuracy and error-adjusted areas from labelled points with the estimators of Olofsson et al. (2014).', { size: 9.5, after: 5 });
+  heading('References', 11);
+  COND_REFERENCES.concat(c.control ? ['Stewart-Oaten, A., Murdoch, W.W., Parker, K.R. (1986). Environmental impact assessment: "pseudoreplication" in time? Ecology 67:929–940.'] : []).sort()
+    .forEach(r => para(r, { size: 8.5, after: 1.5 }));
+  y += 4;
   heading('Yearly values', 11);
   table([['Year', 0.08], ['Adjusted average', 0.15], ['95% interval', 0.13], ['Months used', 0.12], ['Composite average', 0.15], ['Between-pixel SD', 0.14], ['Scenes', 0.1], ['Clear looks', 0.13]],
     t.yearly.map(r => [r.year, r.mean == null ? 'none' : r.mean.toFixed(3), r.ci == null ? '' : '± ' + r.ci.toFixed(3), r.n_used, r.composite_mean == null ? '' : r.composite_mean.toFixed(3), r.std == null ? '' : r.std.toFixed(3), r.n_images, r.n_clear == null ? '' : r.n_clear]));
   para('Adjusted average and 95% interval: from single images, as above. Composite average and between-pixel SD: from each year\'s median composite; the SD shows how varied the area is from place to place, not uncertainty. Months used: calendar months with clear images, each the average of its images. Scenes: all images in the year that passed the whole-tile cloud filter, including ones cloudy over this area. Clear looks: how many clear views the typical point in the area had.', { size: 8.5, italic: true });
   if (spots.length) {
     heading('All spots', 11);
-    table([['Spot', 0.08], ['Kind', 0.15], ['Size (ha)', 0.1], ['When', 0.22], ['Change', 0.13], ['Images or years', 0.14], ['Confidence', 0.18]],
+    table([['Spot', 0.08], ['Kind', 0.17], ['Size (ha)', 0.1], ['When', 0.22], ['Change', 0.13], ['Evidence', 0.16], ['Confidence', 0.14]],
       spots.map(sp => [sp.spot_id, COND_KIND_NAME[sp.kind], ha(sp.area_ha), when(sp), (sp.change > 0 ? '+' : '') + sp.change.toFixed(3) + ' ' + sp.index,
-        sp.clear_images != null ? sp.clear_images + ' images' : sp.years_with_data + ' years', sp.low_confidence ? 'low' : 'normal']));
+        sp.clear_images != null ? sp.clear_images + ' images after' : sp.years_with_data + ' years', sp.low_confidence ? 'low' : 'normal']));
   }
   // ── Appendix B ──
   if (panels && panels.length) {
@@ -3221,31 +3071,35 @@ async function exportCondition() {
     const areaHa = (() => { try { return +(turf.area(c.area.geojson) / 10000).toFixed(2); } catch (e) { return null; } })();
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
+      methods: 'docs/condition-check-methods.md: CCDC (Zhu & Woodcock 2014) for disturbance and recovery; Mann-Kendall/Theil-Sen with Benjamini-Hochberg FDR for steady trends; published settings, not tuned',
+      validated: false,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
       control_area: c.control ? { name: c.control.name, area_ha: +(turf.area(c.control.geojson) / 10000).toFixed(2), source: c.control.source || 'drawn',
-        verdict: c.trend.control ? c.trend.control.verdict : null, biggest_drop: c.trend.control ? c.trend.control.step : null } : null,
-      measured_against: c.control ? 'control area' : c.s.relative ? 'rest of the area' : 'zero',
-      data: { collection: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A surface reflectance)', platform: 'Google Earth Engine', cloud_mask: 'Cloud Score+ (GOOGLE/CLOUD_SCORE_PLUS/V1/S2_HARMONIZED) cs_cdf >= ' + CS_CLEAR + '; SCL no-data, saturated/defective and snow removed', max_scene_cloud_pct: c.s.cloudPct, pixel_m: 10, map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today },
+        verdict: c.trend.control ? c.trend.control.verdict : null, spots_area_ha: c.ctrlHa } : null,
+      data: {
+        change_detection: 'NASA/HLS/HLSL30/v002 (Landsat 8/9, HLS v2.0, NBAR), 30 m, one image per day', landsat_days: c.res.nL, from: HLS_START, scene_cloud_skip_pct: HLS_SCENE_CLOUD,
+        steady_trends_and_whole_area: 'COPERNICUS/S2_SR_HARMONIZED (Sentinel-2 Level-2A), 10 m, max scene cloud ' + c.s.cloudPct + '%',
+        platform: 'Google Earth Engine', pixel_m: COND_PIXEL_M,
+        cloud_mask: 'Landsat: HLS Fmask (cloud, adjacent, shadow, snow). Sentinel-2: Cloud Score+ cs_cdf >= ' + CS_CLEAR + '; SCL no-data, saturated/defective and snow removed',
+        map_imagery: 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + c.s.today
+      },
       settings: {
-        years: [c.s.years[0], c.s.years[c.s.years.length - 1]], season: 'whole year', trend_index: c.s.trendIndex, drop_index: c.s.dropIndex,
-        recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, baseline_days_before: COND_BASELINE_DAYS,
-        drop_floor: c.s.floor, slow_floor: CHANGE_MIN_ABS, spread_multiplier: c.s.k, stay_down_images: c.s.persist, min_spot_ha: c.s.minHa,
-        past_drop_share: COND_PAST_STEP_SHARE, recovered_share_needed: COND_RECOVER_SHARE,
-        canopy_trend: Object.assign({ index: c.s.trendIndex, check_index: COND_CANOPY_INDEX, test: 'Mann-Kendall per pixel, Benjamini-Hochberg false discovery rate', fdr_q: COND_FDR_Q, p_cutoff: c.res.trendP, moisture_veto_z: COND_MK_Z, min_rise: COND_GROW_FLOOR, relative_to_area: false }, c.canopyTrend || {}),
-        canopy: { index: COND_CANOPY_INDEX, method: 'yearly median vs area, best split year; cores grown into touching pixels', grow_spread_multiplier: COND_CANOPY_GROW_K, grow_floor: COND_CANOPY_GROW_FLOOR, years_before: COND_CANOPY_BEFORE, years_after: COND_CANOPY_AFTER, dense_ndvi: COND_DENSE_NDVI, spread_multiplier: c.s.canopyK, floor: c.s.canopyFloor }, area_wide_change_allowed_for: c.s.relative,
+        years: [c.s.years[0], c.s.years[c.s.years.length - 1]], trend_index: c.s.trendIndex, change_index: c.s.changeIndex,
+        recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, min_spot_ha: c.s.minHa,
+        ccdc: CCDC_PARAMS,
+        canopy_trend: Object.assign({ index: c.s.trendIndex, test: 'Mann-Kendall and Theil-Sen per pixel on seasonally adjusted yearly values, Benjamini-Hochberg false discovery rate', fdr_q: COND_FDR_Q, p_cutoff: c.res.trendP }, c.canopyTrend || {}),
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },
       trend: {
         method: 'yearly mean of per-image area averages, each less the normal for its calendar month; 95% t interval', min_clear_share: COND_MIN_CLEAR_SHARE, images_used: c.trend.points.length,
-        verdict: c.trend.verdict, biggest_drop: c.trend.step, change_vs_error_bar: c.trend.changeVsErrorBar, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
+        verdict: c.trend.verdict, change_vs_error_bar: c.trend.changeVsErrorBar, test: 'Mann-Kendall', p_value: c.trend.p, sens_slope_per_year: c.trend.slope,
         years_used: c.trend.valid.length, years_requested: c.s.years.length
       },
-      recent_scan: { clear_images: c.res.nScan, baseline_images: c.res.nBase, typical_spread: c.res.sigmaR },
-      slow_change: { area_median_change: c.res.medT, typical_spread: c.res.sigmaT },
+      disturbed_by_year_ha: c.byYear || {},
+      possible_recent_change_unconfirmed_ha: c.unconfirmedHa || 0,
       spots: {
         sudden_drop: { count: count('sudden_drop').length, area_ha: haSum(count('sudden_drop')) },
         dropped_recovered: { count: count('dropped_recovered').length, area_ha: haSum(count('dropped_recovered')) },
-        canopy_decline: { count: count('canopy_decline').length, area_ha: haSum(count('canopy_decline')) },
         slow_decline: { count: count('slow_decline').length, area_ha: haSum(count('slow_decline')) },
         gain: { count: count('gain').length, area_ha: haSum(count('gain')) },
         capped_at: spots.length >= COND_MAX_SPOTS ? COND_MAX_SPOTS : null
@@ -3341,28 +3195,30 @@ async function drawValidationSample() {
   btn.disabled = true;
   try {
     const region = ee.Geometry(c.area.geojson.geometry);
-    const proj = s2Projection(region, c.s.today, 60);
-    const grid = proj.atScale(10);
+    const proj = c.grid; // the 30 m grid the spots were mapped on
+    const grid = proj.atScale(COND_PIXEL_M);
     // Stratum numbers are positions in VAL_STRATA + 1; no_spot fills the rest.
     const noneVal = VAL_STRATA.length;
     const spotImg = c.spots.length
-      ? ee.FeatureCollection(c.spots.map(x => ee.Feature(ee.Geometry(x.geometry), { s: VAL_STRATA.indexOf(x.spot.kind) + 1 }))).reduceToImage(['s'], ee.Reducer.first())
+      // paint, not reduceToImage: reduceToImage rasterised the outlines
+      // too coarsely (8.97 ha for 3.87 ha of spots on a 15 ha test).
+      ? ee.Image(0).paint(ee.FeatureCollection(c.spots.map(x => ee.Feature(ee.Geometry(x.geometry), { s: VAL_STRATA.indexOf(x.spot.kind) + 1 }))), 's').selfMask()
       : ee.Image().int();
     const strata = spotImg.unmask(noneVal).rename('stratum').toInt().reproject(grid).clip(region);
     const wait = (ms) => { status.textContent = 'Earth Engine is busy — trying again in ' + Math.round(ms / 1000) + ' s…'; };
     status.textContent = 'Measuring the mapped area of each stratum…';
     // Weighted counts: edge pixels count by the share inside the area.
-    const hist = await eeEvaluate(strata.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry: region, crs: proj, scale: 10, maxPixels: 1e10, tileScale: 4 }).get('stratum'), wait);
+    const hist = await eeEvaluate(strata.reduceRegion({ reducer: ee.Reducer.frequencyHistogram(), geometry: region, crs: proj, scale: COND_PIXEL_M, maxPixels: 1e10, tileScale: 4 }).get('stratum'), wait);
     if (lastCondition !== c) return;
     status.textContent = 'Drawing ' + (nSpot * COND_KINDS.length + nNone) + ' points at most…';
     const fc = strata.stratifiedSample({
-      numPoints: 0, classBand: 'stratum', region, projection: proj, scale: 10, seed, dropNulls: true, tileScale: 4, geometries: true,
+      numPoints: 0, classBand: 'stratum', region, projection: proj, scale: COND_PIXEL_M, seed, dropNulls: true, tileScale: 4, geometries: true,
       classValues: VAL_STRATA.map((k, i) => i + 1), classPoints: VAL_STRATA.map(k => k === 'no_spot' ? nNone : nSpot)
     }).map(f => ee.Feature(null, { s: f.get('stratum'), xy: f.geometry().transform('EPSG:4326', 1).coordinates() }));
     const res = await eeEvaluate(fc, wait);
     if (lastCondition !== c) return;
     const strataInfo = {};
-    VAL_STRATA.forEach((k, i) => { strataInfo[k] = { ha: +(((hist || {})[String(i + 1)] || 0) / 100).toFixed(2), n: 0 }; }); // 10 m pixels = 0.01 ha
+    VAL_STRATA.forEach((k, i) => { strataInfo[k] = { ha: +(((hist || {})[String(i + 1)] || 0) * COND_PIXEL_HA).toFixed(2), n: 0 }; });
     // Random order and neutral ids, so whoever labels a point isn't told
     // what the map called it: a label made blind can't be swayed by the map.
     const points = seededShuffle(res.features.map(f => ({ stratum: VAL_STRATA[f.properties.s - 1], lon: +f.properties.xy[0].toFixed(6), lat: +f.properties.xy[1].toFixed(6) })), seed)

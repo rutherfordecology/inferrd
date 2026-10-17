@@ -110,43 +110,55 @@ there for at least two images in a row, and the first one after. A dip
 that recovers on the very next image is called out as likely cloud shadow
 or haze rather than change. The per-image series exports as CSV.
 
-### Condition check: yearly values per pixel
+### Condition check
 
-The condition check's per-pixel yearly values (behind slow decline,
-gains, older sudden drops, dropped and recovered, canopy decline and the
-canopy trend map) allow for the season. Each month of each year is a
-median composite less that pixel's normal for the month (its median over
-the period), the year is the median of its months, and the average monthly
-normal is added back, so every month present counts the same. A plain yearly median depends on how many
-clear images fell in winter, which for seasonal vegetation can fake a
-drop.
+The condition check follows published methods at their published
+settings; the full specification, with references, is in
+[docs/condition-check-methods.md](docs/condition-check-methods.md).
 
-### Condition check against a control area
+- **Disturbance and recovery:** CCDC (Zhu & Woodcock 2014; Earth Engine
+  tools by Arévalo et al. 2020) at Earth Engine's default settings, on every
+  clear Landsat 8/9 image since April 2013 from NASA's Harmonized Landsat
+  Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m). A
+  *disturbance* is a confirmed break (six clear images in a row departing
+  from the fitted model) in the reporting period where NBR (or NDMI) fell;
+  it is *recovering* when the fitted line after the break rises. A
+  departure still being confirmed at the end of the record is reported as
+  "possible recent change, not yet confirmed", in hectares, not as a spot.
+- **Steady decline or improvement:** Mann-Kendall and Theil-Sen on each
+  10 m Sentinel-2 pixel's yearly values, allowing for the season (each
+  month of each year is a median composite less the pixel's normal for that
+  month; the year is the median of its months), with a Benjamini-Hochberg
+  false discovery rate correction.
+- **Whole-area trend:** unchanged (seasonally adjusted Sentinel-2 area
+  averages, Mann-Kendall with the Hamed & Rao 1998 variance, Sen's slope).
+- **Spots:** touching 30 m pixels of the same kind (and, for a disturbance,
+  the same break year), at least the smallest-spot size. A disturbance spot
+  is dated by the window its pixels changed in: from the earliest last clear
+  image before any of them changed to the latest change, with the median as
+  `date_typical`.
+- **Control area:** with two or more areas drawn, pick the area to check
+  and a control. The control is analysed the same way and set beside the
+  area as a reference site: its whole-area trend is the dashed line on the
+  chart, and the area of each kind it has is given alongside.
 
-With two or more areas drawn, the condition check settings offer **Area to
-check** and **Control**. With a control, every "typical" value behind the
-spot tests (the medians and robust spreads) comes from the control instead
-of the rest of the checked area. So change the two share, such as weather,
-season or a cyclone across both, cancels out, and the spots show where the
-area differs from the control: a fenced covenant against nearby unfenced
-bush, say (a reference-area design). "Allow for area-wide change" is always
-on with a control. The control's own whole-area trend is drawn as a dashed
-line on the whole-area chart, Spots over time charts each spot against the
-control, and the report and `summary.json` (`control_area`,
-`measured_against`) name it. Pick a control of the same vegetation, close
-by and not much smaller. Without a control, a block-wide event is measured
-against itself and cancels out unless "allow for area-wide change" is
-unticked; the results warn when that may be happening.
+Sentinel-2 is kept out of the change detection on purpose. Earth Engine
+doesn't host HLS's Sentinel-2 product, and Sentinel-2 put on the Landsat
+scale with HLS's bandpass coefficients alone, without the view-angle
+correction, left a false step where it joins the Landsat record at the end
+of 2018 (on 5-04-185, 162 pixels "broke" in 2019 with both satellites, 4
+with Landsat alone).
 
 ### Checking the condition-check spots (validation sample)
 
 After a condition check, the **Validation sample** card draws a stratified
-random sample of 10 m pixels to measure how often the spots are wrong and
+random sample of 30 m pixels to measure how often the spots are wrong and
 how much they miss, following Olofsson et al. (2014, *Remote Sensing of
 Environment* 148:42–57). The strata are the map's own classes: one per spot
-type (`sudden_drop`, `dropped_recovered`, `canopy_decline`, `slow_decline`,
-`gain`) and `no_spot` for everything else in the area. The spots as
-reported (after the smallest-spot filter) are put back on the 10 m grid,
+type (`sudden_drop` for a disturbance, `dropped_recovered` for one that
+is recovering, `slow_decline`, `gain`) and `no_spot` for everything else in
+the area. The spots as reported (after the smallest-spot filter) are put
+back on the 30 m grid,
 each stratum's mapped area is measured, and Earth Engine's
 `stratifiedSample` picks the points (50 per spot type and 100 outside spots
 by default; a stratum smaller than that gives every pixel). The seed is
@@ -158,7 +170,7 @@ It downloads as CSV or GeoJSON with `point_id`, `stratum`, `lat`, `lon`,
 random order with neutral ids, and shown on the map without their type, so
 they can be labelled blind from aerial photos or a site visit.
 `reference_label` takes the stratum codes (or the spot type names, the map
-letters S/R/C/D/G, or `none` for no spot); blank or `unsure` leaves a point
+letters S/R/D/G, or `none` for no spot); blank or `unsure` leaves a point
 out.
 
 **Load labelled validation sample…** (under Run condition check) reads the
@@ -252,23 +264,24 @@ trend analysis works identically regardless of which one is selected.
   to 28 March 2017, and ESA only produced it worldwide from December 2018:
   outside Europe, 2017 and most of 2018 are missing or thin. The selectors
   still offer 2017 but default to 2019, and results flag earlier years.
-- **The condition-check spot rules have not been validated.** The
-  canopy-decline thresholds were tuned on two dieback patches at
-  Riverside Road. Nobody has yet checked a random sample of mapped and
-  unmapped pixels against field visits or aerial photos (the standard
-  set out in Olofsson et al. 2014, *Remote Sensing of Environment*
-  148:42–57), so the spots' error rates are unknown. The Validation
-  sample card now draws and scores such a sample (see above), but until
-  one has been labelled, a spot is a place to look, not a finding. With
+- **The condition check has not been validated here.** Its methods are
+  published (CCDC, Mann-Kendall/Theil-Sen), but change-detection methods
+  agree on how much forest is unchanged and differ on which patches changed
+  (Cohen et al. 2017, *Forests* 8:98), so the evidence for this map is its
+  measured accuracy. Nobody has yet checked a random sample of mapped and
+  unmapped pixels against field visits or aerial photos (Olofsson et al.
+  2014, *Remote Sensing of Environment* 148:42–57), so the spots' error
+  rates are unknown. The Validation sample card draws and scores such a
+  sample (see above), but until one has been labelled, a spot is a place to
+  look, not a finding. With
   50 points a spot type, user's accuracy comes with an interval of
   roughly ±8–14 percentage points; producer's accuracy for rare types is
   far less certain, because a few misses in the large no-spot stratum
   stand for a lot of area.
-- The canopy-decline test tries every split year and keeps the biggest
-  drop, which makes chance drops likelier to pass than its spread
-  multiplier suggests. It is left as tuned because changing it without
-  validation data would only swap one unchecked rule for another.
-- The per-pixel canopy trend uses a false discovery rate correction, but
+- Spots are mapped on 30 m Landsat pixels: single trees and patches under
+  about 0.1 ha can't be mapped, and a change needs six clear Landsat images
+  (two or three months) before it is confirmed.
+- The per-pixel steady-trend test uses a false discovery rate correction, but
   not the serial-correlation correction the whole-area trend gets
   (that would need per-pixel autocorrelation, which Earth Engine can't
   estimate cheaply from ~8 yearly values anyway).

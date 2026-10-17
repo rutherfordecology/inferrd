@@ -1,5 +1,56 @@
 # Changelog
 
+## v0.32.0 — 2026-10-17
+
+**The condition check is rebuilt on published methods** at their
+published settings, specified with references in
+`docs/condition-check-methods.md`. Nothing is tuned to particular sites.
+The home-made spot rules (area-relative spread tests, the best-split
+canopy-decline rule and its thresholds tuned on Riverside Road) are gone.
+
+- **Disturbance and recovery: CCDC** (Zhu & Woodcock 2014; Arévalo et al.
+  2020) at Earth Engine's defaults, on every clear Landsat 8/9 image since
+  April 2013 (NASA HLS L30 v2.0, view-angle normalised, 30 m, one image
+  per day). A disturbance is a confirmed break in the period where NBR (or
+  NDMI, a new setting) fell; it is recovering when the fitted line after
+  the break rises, with the share regained. On 5-04-052 CCDC dated the
+  cyclone damage to between 31 August and 13 December 2023 (2.6 ha) and
+  July–October 2024 (1.3 ha), all recovering.
+- **Possible recent change, not yet confirmed:** a departure at the end of
+  the record that CCDC has not confirmed (fewer than six clear images) is
+  given in hectares, never as a spot.
+- **Steady decline or improvement:** Mann-Kendall and Theil-Sen on each
+  10 m Sentinel-2 pixel's seasonally adjusted yearly values, with a
+  Benjamini-Hochberg false discovery rate correction (the floor, the
+  moisture veto and the dense-canopy gate are gone).
+- **Spot kinds** keep their codes for the report workflow: `sudden_drop`
+  (Disturbance), `dropped_recovered` (Disturbed, recovering), `slow_decline`
+  (Steady decline), `gain` (Steady improvement). `canopy_decline` is
+  retired. Spots are 30 m pixels (0.09 ha); a disturbance spot is one break
+  year, dated by the window its pixels changed in (`date_before` to
+  `date_after`, with `date_typical`, a new column).
+- **Settings** are now the period, trend index, the index disturbance is
+  measured on, the recent window and the smallest spot (default 0.27 ha).
+  The spread slider, floors, "allow for area-wide change" and canopy
+  settings are gone.
+- **Control area:** analysed the same way and set beside the area (area of
+  each kind, and its trend dashed on the chart), instead of supplying the
+  spread the area was measured against.
+- **Report and summary.json** describe the new methods with references,
+  state that results are unvalidated until a validation sample is labelled,
+  and add `validated`, `disturbed_by_year_ha`,
+  `possible_recent_change_unconfirmed_ha` and the CCDC settings; the old
+  rule settings are gone.
+- **Validation sample** works on the 30 m grid, and its strata now come
+  from the spot outlines painted onto the grid: `reduceToImage` had
+  rasterised them too coarsely (8.97 ha of strata for 3.87 ha of spots on
+  a 15 ha test), which inflated earlier samples' stratum areas.
+- Tested: Sentinel-2 was meant to join Landsat in CCDC, adjusted with HLS's
+  bandpass coefficients, but without HLS's view-angle correction (not in
+  Earth Engine) it left a false step at the end of 2018: 162 pixels "broke"
+  in 2019 on 5-04-185, against 4 with Landsat alone. So CCDC runs on
+  Landsat, as published. Runs took 50–60 s for 15–105 ha.
+
 ## v0.31.2 — 2026-10-17
 
 Fixes found on a small area in forest where one dieback patch (C1) was a
