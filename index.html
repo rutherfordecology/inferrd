@@ -685,7 +685,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
               <button class="dl-btn" id="spotChartClear" type="button">Clear</button>
             </span>
           </div>
-          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the whole area (or the control, when there is one), image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. The bars above the chart show what each spot's flag compared: hollow = the years before, solid (and the light shading) = the years after, dashed = the year a dropped-and-recovered spot had grown back by, or the whole period for slow decline and growth. Click spots on the map, or tick them in the table, to add or remove them.</div>
+          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the whole area (or the control, when there is one), image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. The bars above the chart show what each spot's flag compared: hollow = the years before, solid (and the light shading) = the years after, dashed = the year a dropped-and-recovered spot had grown back by, or the whole period for slow decline and growth. Click spots on the map, or tick them in the table, to add or remove them; the chart switches to the index the spot was tested on (NDMI for canopy decline).</div>
           <div id="spotChartChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
           <canvas id="spotChartCanvas" style="display:block;width:100%;"></canvas>
           <div class="field-hint live-hint" id="spotChartStatus"></div>
@@ -828,7 +828,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.31.0';
+const APP_VERSION = 'v0.31.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1864,7 +1864,8 @@ function drawSpotChart() {
   document.getElementById('spotChartChips').innerHTML = lines.map(l =>
     '<span style="display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:12px;padding:2px 8px;font-size:11px;">' +
       '<svg width="22" height="6"><line x1="0" y1="3" x2="22" y2="3" stroke="' + l.color + '" stroke-width="2.2" stroke-dasharray="' + l.dash.join(' ') + '"/></svg>' +
-      '<strong>' + l.sp.id + '</strong> ' + COND_KIND_NAME[l.sp.kind].toLowerCase() + ' <span style="color:var(--text3);">' + l.pts.length + ' images</span>' +
+      '<strong>' + l.sp.id + '</strong> ' + COND_KIND_NAME[l.sp.kind].toLowerCase() + ' <span style="color:var(--text3);">' + l.pts.length + ' images' +
+        (l.sp.index && l.sp.index !== index ? '</span> <span style="color:var(--red);" title="The flag of this spot was tested on ' + l.sp.index + ', not the ' + index + ' charted">tested on ' + l.sp.index : '') + '</span>' +
       '<button type="button" data-rm="' + l.sp.id + '" title="Remove" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:0 0 0 2px;">✕</button></span>').join(' ');
   document.querySelectorAll('#spotChartChips button[data-rm]').forEach(b => b.addEventListener('click', () => toggleSpotChart(b.dataset.rm)));
 }
@@ -1876,7 +1877,12 @@ function toggleSpotChart(id) {
   else {
     const x = lastCondition.spots.find(f => f.spot.spot_id === id);
     if (!x) return;
-    spotSel.push({ id, kind: x.spot.kind, geometry: x.geometry });
+    spotSel.push({ id, kind: x.spot.kind, index: x.spot.index, geometry: x.geometry });
+    // Chart a newly added spot on the index its flag was tested on (NDMI
+    // for canopy decline, the drop index for a recent drop, the trend index
+    // otherwise), so the chart shows what the test saw. Still changeable.
+    const sel = document.getElementById('spotChartIndex');
+    if (x.spot.index && [...sel.options].some(o => o.value === x.spot.index)) sel.value = x.spot.index;
   }
   document.querySelectorAll('#condTable input[data-chart]').forEach(cb => { cb.checked = spotSel.some(x => x.id === cb.dataset.chart); });
   loadSpotChart();

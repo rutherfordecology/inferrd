@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.31.1 — 2026-10-17
+
+- **Spots over time charts a spot on the index it was tested on.** Adding
+  a spot switches the chart to that spot's test index: NDMI for canopy
+  decline, the drop index (NBR by default) for a recent sudden drop, the
+  trend index (EVI by default) otherwise. It can still be changed by hand,
+  and a spot charted on another index says "tested on …" in red. A canopy
+  decline spot charted on EVI showed its drop in a different year from its
+  flag, which tested canopy moisture.
+
 ## v0.31.0 — 2026-10-17
 
 - **Per-pixel yearly values allow for the season.** Each year was the
