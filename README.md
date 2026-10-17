@@ -113,7 +113,9 @@ or haze rather than change. The per-image series exports as CSV.
 ### Condition check
 
 The condition check follows published methods at their published
-settings; the full specification, with references, is in
+settings, and its report is titled "Satellite vegetation change
+screening": it screens the satellite vegetation signal, not ecological
+condition. The full specification, with references, is in
 [docs/condition-check-methods.md](docs/condition-check-methods.md).
 
 - **Disturbance and recovery:** CCDC (Zhu & Woodcock 2014; Earth Engine
@@ -122,7 +124,10 @@ settings; the full specification, with references, is in
   Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m). A
   *disturbance* is a confirmed break (six clear images in a row departing
   from the fitted model) in the reporting period where NBR (or NDMI) fell;
-  it is *recovering* when the fitted line after the break rises. A
+  it is *recovering* when the fitted line after the break rises. Each
+  disturbance carries the index level before the break, just after it and
+  now (on CCDC's fitted lines), and the recovery share is worked out from
+  those, as a share of the signal, not of the vegetation. A
   departure still being confirmed at the end of the record is reported as
   "possible recent change, not yet confirmed", in hectares, not as a spot.
 - **Steady decline or improvement:** Mann-Kendall and Theil-Sen on each

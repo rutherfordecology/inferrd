@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.32.1 — 2026-10-17
+
+From an outside review of the Riverside Road (WR63) PDF.
+
+- **Retitled "Satellite vegetation change screening"**, with a line under
+  At a glance that it screens the satellite vegetation signal, not
+  ecological condition: it does not show what the vegetation is, whether it
+  is indigenous, or whether the area's values are being kept.
+- **Before, after and now for every disturbance.** Each disturbance spot
+  now carries the change index's level on CCDC's fitted lines (trend part,
+  no seasonal swing): the earlier line at the break, the new line at the
+  break, and the new line at its latest image. They are in the report's
+  tables ("Signal: before → after → now") and `spots.csv`
+  (`index_before`, `index_after`, `index_now`). The recovery share is now
+  (now − after) / (before − after) of those levels, so share and values
+  always agree (on WR63: R1 0.68 → 0.43 → 0.63, 70%).
+- **Recovery is worded as the signal, not the vegetation:** "the signal is
+  about 70% back to its earlier level; that is not proof of what is
+  growing back", with a note that different vegetation can give the same
+  value.
+- **30 m and 10 m in the main text:** Section 3 says disturbance is found
+  at 30 m on Landsat and steady trends at 10 m on Sentinel-2, mapped onto
+  the 30 m grid, and that neither shows single trees.
+- Fixed: the recommendation named "the 1 disturbance and steady-decline
+  spot" when there was no steady decline; it now names the spots and their
+  kinds. Fixed: Appendix A printed "which gave p ≤ 0" when no pixel passed
+  the false discovery rate test; it now says no pixel passed.
+
 ## v0.32.0 — 2026-10-17
 
 **The condition check is rebuilt on published methods** at their

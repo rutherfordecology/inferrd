@@ -771,7 +771,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.32.0';
+const APP_VERSION = 'v0.32.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1932,11 +1932,23 @@ function conditionImages(region, s) {
   const postSlope = ccd.select(s.changeIndex + '_coefs').arrayGet(j.addBands(ee.Image.constant(1).toInt())).divide(10000).updateMask(hasPost);
   const postEnd = ccd.select('tEnd').arrayGet(j).updateMask(hasPost);
   const nPost = ccd.select('numObs').arrayGet(j).updateMask(hasPost).rename('nPost');
+  // The index level either side of the break and now, from CCDC's fitted
+  // lines (intercept + slope × time; the seasonal terms left out, so these
+  // are the line's level, not one season's value): before = the earlier
+  // line at the break, after = the new line at the break, now = the new
+  // line at its latest image.
+  const coefs = ccd.select(s.changeIndex + '_coefs');
+  const cf = (seg, k) => coefs.arrayGet(seg.addBands(ee.Image.constant(k).toInt())).divide(10000);
+  const level = (seg, t) => cf(seg, 0).add(cf(seg, 1).multiply(t));
+  const vBefore = level(i, tBreak).rename('vBefore');
+  const vAfter = level(j, tBreak).updateMask(hasPost).rename('vAfter');
+  const vNow = level(j, postEnd).updateMask(hasPost).rename('vNow');
   // Recovering: the fitted line after the break rises. The share regained
-  // by the end of that line is reported alongside (cf. Kennedy et al.
-  // 2012's relative recovery indicator).
+  // is (now − after) / (before − after), on those levels (cf. Kennedy et
+  // al. 2012's relative recovery indicator). It is a share of the
+  // satellite signal, not of canopy or of indigenous vegetation.
   const recovering = postSlope.gt(0).unmask(0);
-  const recov = postSlope.multiply(postEnd.subtract(tBreak)).divide(drop.max(1e-6)).max(0).min(1).rename('recov');
+  const recov = vNow.subtract(vAfter).divide(vBefore.subtract(vAfter).max(1e-6)).max(0).min(1).rename('recov');
   const recent = tBreak.gte(ee.Image.constant(fy(scanStart))).unmask(0);
 
   // ── Steady decline or improvement: Mann-Kendall and Theil-Sen ──
@@ -1999,7 +2011,7 @@ function conditionImages(region, s) {
   // years are separate spots, each dated by its own pixels.
   const dated = cls.eq(1).or(cls.eq(2)).or(cls.eq(5));
   cls = cls.multiply(10000).add(tBreak.floor().unmask(0).multiply(dated)).updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
-  const stats = ee.Image.cat([drop, tBreak, tPrev, recov, nPost, total, nYears]);
+  const stats = ee.Image.cat([drop, tBreak, tPrev, recov, nPost, total, nYears, vBefore, vAfter, vNow]);
   return { cls, stats, trendClass, trendShares, trendP, grid, scanStart, nL: days.nDays };
 }
 
@@ -2273,6 +2285,10 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
       date_after: dated ? fracYearToIso(p.tBreak_max) : null,
       date_typical: dated ? fracYearToIso(p.tBreak_median) : null,
       recovered_share: kind === 'dropped_recovered' && p.recov_median != null ? +p.recov_median.toFixed(2) : null,
+      // The fitted index level before the change, just after it, and now.
+      index_before: dated && p.vBefore_median != null ? +p.vBefore_median.toFixed(3) : null,
+      index_after: dated && p.vAfter_median != null ? +p.vAfter_median.toFixed(3) : null,
+      index_now: dated && p.vNow_median != null ? +p.vNow_median.toFixed(3) : null,
       change: +(dated ? -Math.abs(p.drop_median || 0) : (p.total_median || 0)).toFixed(3),
       index: dated ? s.changeIndex : s.trendIndex,
       clear_images: dated && p.nPost_median != null ? Math.round(p.nPost_median) : null, // clear observations after the break
@@ -2520,7 +2536,7 @@ function loadJSZip() {
 }
 
 const csvCell = (v) => { if (v == null) return ''; const t = String(v); return /[,"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'date_typical', 'change', 'recovered_share', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
+const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'date_typical', 'change', 'recovered_share', 'index_before', 'index_after', 'index_now', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
 
 function bboxOf(geojsonGeom) {
   let w = 180, s = 90, e = -180, n = -90;
@@ -2883,7 +2899,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   // ── Title ──
   // One line if it fits (shrinking to 16 pt at most); otherwise two lines
   // split where they come out most even, never a stub second line.
-  const title = 'Vegetation condition check: ' + c.area.name;
+  const title = 'Satellite vegetation change screening: ' + c.area.name;
   doc.setFont('helvetica', 'bold'); doc.setTextColor(...GREEN);
   let tSize = 20, tLines = [title];
   while (tSize > 16 && doc.setFontSize(tSize).getTextWidth(title) > TW) tSize--;
@@ -2937,12 +2953,16 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     ' over the same years (dashed line in Figure 2). It had ' + ha(c.ctrlHa.sudden_drop || 0) + ' ha disturbed, ' + ha(c.ctrlHa.dropped_recovered || 0) + ' ha disturbed and recovering, ' +
     ha(c.ctrlHa.slow_decline || 0) + ' ha in steady decline and ' + ha(c.ctrlHa.gain || 0) + ' ha in steady improvement.');
   if (left.length) para('Not included in this report: ' + left.map(k => KIND_WORDS[k][1]).join(', ') + '.', { size: 9, italic: true });
+  // Name the spots to visit and their kinds: "the 1 disturbance and
+  // steady-decline spot" read as if a steady-decline spot existed.
+  const ids = (list) => list.map(x => x.spot_id).join(', ');
+  const visitWords = [sd.length ? ids(sd) + ' (disturbance)' : null, dc.length ? ids(dc) + ' (steady decline)' : null].filter(Boolean).join(' and ');
   para((visit
-    ? 'Recommended: visit the ' + visit + ' disturbance and steady-decline spot' + (visit === 1 ? '' : 's') + ' (Table 1) to see what caused the change.'
+    ? 'Recommended: visit spot' + (visit === 1 ? ' ' : 's ') + visitWords + ' (Table 1) to see what caused the change.'
     : 'Recommended: no urgent site visit is needed on this evidence. Run the check again in a year, or sooner after a storm.') +
     (rc.length ? ' At the next visit, check what is growing back on the ' + rc.length + ' recovering spot' + (rc.length === 1 ? '' : 's') + ': native regrowth, weeds or pasture.' : '') +
     (gn.length ? ' Steady improvement patches need no visit.' : ''), { after: 6 });
-  para('These results have not been checked against ground truth for this area: how often a spot is a false alarm, and how much is missed, is not yet known (see section 4).', { size: 9, italic: true });
+  para('This is a screening of the satellite vegetation signal, not an assessment of ecological condition: it shows where and when the canopy signal changed, not what the vegetation is, whether it is indigenous, or whether the area\'s values are being maintained. The results have not been checked against ground truth for this area, so how often a spot is a false alarm, and how much is missed, is not yet known (see section 4).', { size: 9, italic: true });
 
   // ── 1 The area ──
   heading('1  The area', 13);
@@ -2962,7 +2982,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
 
   // ── 3 Spots ──
   heading('3  What is happening inside the area', 13);
-  para('Each spot is a group of 30 m pixels with the same result, found with published methods at their published settings (Appendix A). Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
+  para('Each spot is a group of 30 m pixels (0.09 ha each) with the same result, found with published methods at their published settings (Appendix A). Disturbance is found on Landsat images at 30 m; steady decline and improvement on Sentinel-2 images at 10 m, mapped onto the same 30 m grid. Neither shows single trees, and spot outlines are only as precise as a 30 m pixel. Strength is how big the change was: slight, moderate or strong. A spot is a place to check on the ground, not proof of what happened.' +
     (panels && panels.length > 1 ? ' Satellite images of each spot before and after, in natural colour and infrared, are in Appendix B.' : ''));
   const when = (sp) => sp.date_after == null ? y0 + ' to ' + y1 : 'between ' + fmtLongDate(sp.date_before) + ' and ' + fmtLongDate(sp.date_after);
   const sections = [['Disturbance: the canopy signal fell, and has not recovered', 'sudden_drop', 'No disturbance was found.'],
@@ -2974,11 +2994,19 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
     const list = ofKind(kind);
     if (!list.length) { para(none); return; }
     if (si === 0) para('Table 1 lists the spots to visit (disturbance and steady decline). "When": the change happened between these dates, from the earliest last clear image before any pixel in the spot changed to the latest change; each pixel changes when its own record departs, so the dates within a patch can spread over months.', { size: 9, italic: true });
-    table([['Spot', 0.08], ['Size (ha)', 0.1], ['When', 0.26], ['Strength', 0.12], ['GPS (lat, long)', 0.2], ['What to check', 0.24]],
-      list.map(sp => [sp.spot_id, ha(sp.area_ha), when(sp), REPORT_STRENGTH[sp.severity] + (sp.low_confidence ? ' (few clear images)' : ''),
-        sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed'
-          : kind === 'dropped_recovered' ? 'May be ' + SPOT_MAY_BE[kind] + ' (about ' + Math.round((sp.recovered_share || 0) * 100) + '% regained); check what is growing back'
-          : 'May be ' + SPOT_MAY_BE[kind]]));
+    const dated = kind === 'sudden_drop' || kind === 'dropped_recovered';
+    const f3 = (v) => v == null ? '?' : v.toFixed(2);
+    // Signal: the fitted index level before the change, just after it, and now.
+    const signal = (sp) => sp.index_before == null ? '' : sp.index + ' ' + f3(sp.index_before) + ' → ' + f3(sp.index_after) + ' → ' + f3(sp.index_now);
+    table(dated
+      ? [['Spot', 0.07], ['Size (ha)', 0.08], ['When', 0.2], ['Strength', 0.1], ['Signal: before → after → now', 0.17], ['GPS (lat, long)', 0.16], ['What to check', 0.22]]
+      : [['Spot', 0.08], ['Size (ha)', 0.1], ['When', 0.26], ['Strength', 0.12], ['GPS (lat, long)', 0.2], ['What to check', 0.24]],
+      list.map(sp => [sp.spot_id, ha(sp.area_ha), when(sp), REPORT_STRENGTH[sp.severity] + (sp.low_confidence ? ' (few clear images)' : '')]
+        .concat(dated ? [signal(sp)] : [])
+        .concat([sp.lat.toFixed(5) + ', ' + sp.lon.toFixed(5), kind === 'gain' ? 'No visit needed'
+          : kind === 'dropped_recovered' ? 'May be ' + SPOT_MAY_BE[kind] + '. The signal is about ' + Math.round((sp.recovered_share || 0) * 100) + '% back to its earlier level; that is not proof of what is growing back: check for native regrowth, weeds or pasture'
+          : 'May be ' + SPOT_MAY_BE[kind]])));
+    if (dated) para('Signal: the ' + c.s.changeIndex + ' level of the line CCDC fitted before the change, just after it, and now (its trend part, without the seasonal swing). A share "back to its earlier level" is (now − after) / (before − after) of that signal; different vegetation can give the same value, so it does not show that the canopy, or the indigenous vegetation, has recovered.', { size: 8.5, italic: true });
   });
 
   // ── 4 What this can't tell you ──
@@ -3002,7 +3030,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   para('Every step follows a published method at its published settings; nothing was tuned to this area. Processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '.', { size: 9.5 });
   para('Data: for disturbance and recovery, Landsat 8/9 from NASA\'s Harmonized Landsat Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m; Claverie et al. 2018), masked for cloud, cloud shadow, cloud edges and snow with its Fmask layer, one image per day (' + (c.res.nL || 'n/a') + ' days from April 2013; scenes more than ' + HLS_SCENE_CLOUD + '% cloudy skipped). For the steady trends and the whole-area trend, Sentinel-2 Level-2A surface reflectance (10 m), masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023) and the Scene Classification band. Sentinel-2 was kept out of the change detection: without NASA\'s view-angle correction, which Earth Engine does not host for Sentinel-2, it left a false step where it joins the Landsat record at the end of 2018.', { size: 9.5 });
   para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), at its default settings: change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + CCDC_PARAMS.minObservations + ' observations to confirm a change; chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; minimum years scaler ' + CCDC_PARAMS.minNumOfYearsScaler + '; LASSO lambda ' + CCDC_PARAMS.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude); where a pixel had several, the biggest fall is reported. It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '.', { size: 9.5 });
-  para('Steady decline and improvement (' + c.s.trendIndex + '): each pixel\'s yearly values ' + y0 + '–' + y1 + ', allowing for the season (each month of each year a median composite less the pixel\'s normal for that month, the year the median of its months, with the average monthly normal added back). Theil-Sen slope (Sen 1968) and Mann-Kendall test on those values; the p cut-off set by a Benjamini-Hochberg false discovery rate across the area\'s pixels (q = ' + COND_FDR_Q + ', which gave p ≤ ' + (c.res.trendP == null ? 'n/a' : (+c.res.trendP).toPrecision(2)) + '; Benjamini & Hochberg 1995). A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
+  para('Steady decline and improvement (' + c.s.trendIndex + '): each pixel\'s yearly values ' + y0 + '–' + y1 + ', allowing for the season (each month of each year a median composite less the pixel\'s normal for that month, the year the median of its months, with the average monthly normal added back). Theil-Sen slope (Sen 1968) and Mann-Kendall test on those values; the p cut-off set by a Benjamini-Hochberg false discovery rate across the area\'s pixels (q = ' + COND_FDR_Q + '; Benjamini & Hochberg 1995): ' + (c.res.trendP == null ? 'the cut-off could not be worked out' : +c.res.trendP > 0 ? 'the cut-off was p ≤ ' + (+c.res.trendP).toPrecision(2) : 'no pixel passed, so none is called steady decline or improvement') + '. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear Sentinel-2 image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month was subtracted from each image, so the season does not move the yearly value. Each year is the average of its calendar months, with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test with its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   if (c.control) para('Control: ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha) was analysed with the same methods and settings, and is set beside the area as a reference site (the Before-After-Control-Impact idea; Stewart-Oaten et al. 1986). Its whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
   para('Reporting choices (not methods): pixels with the same result joined (including diagonally) into spots of at least ' + c.s.minHa + ' ha; strength is the size of the change in index units, slight 0.05 to 0.15, moderate 0.15 to 0.3, strong over 0.3.', { size: 9.5 });

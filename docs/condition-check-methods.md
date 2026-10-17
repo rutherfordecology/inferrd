@@ -1,6 +1,6 @@
 # Condition check: methods specification
 
-Status: **implemented in inferrd v0.32.0** (signed off 17 October 2026;
+Status: **implemented in inferrd v0.32.0** (v0.32.1 adds the before, after and now levels) (signed off 17 October 2026;
 the changes found necessary in testing are marked "As built"). This
 replaces the condition check's home-made spot rules with published
 methods run at their published settings, plus an accuracy assessment, so
@@ -84,9 +84,16 @@ change.
   reported. No magnitude threshold is tuned; the slight / moderate / strong
   grades are descriptive bands of the magnitude, stated as such.
 - **Recovering:** a disturbance whose post-break segment trends back up
-  (positive slope). The share regained by the end of that segment is
-  reported as a recovery ratio, in the spirit of Kennedy et al. (2012)'s
-  relative recovery indicator.
+  (positive slope). The share regained is reported as a recovery ratio, in
+  the spirit of Kennedy et al. (2012)'s relative recovery indicator.
+- **Before, after and now (v0.32.1):** for every disturbance, the change
+  index's level on CCDC's fitted lines, from their intercept and slope (the
+  seasonal terms left out): the earlier line at the break (before), the new
+  line at the break (after), and the new line at its latest image (now).
+  The recovery ratio is (now − after) / (before − after), so the share and
+  the three values always agree. It is a share of the satellite signal, not
+  of canopy or of indigenous vegetation: different vegetation can give the
+  same value.
 - **Recent change:** a confirmed break after the start of the "recent"
   window is a recent disturbance. **As built:** at the end of the record
   Earth Engine also reports a departure that is still being confirmed
