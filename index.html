@@ -685,7 +685,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
               <button class="dl-btn" id="spotChartClear" type="button">Clear</button>
             </span>
           </div>
-          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the whole area (or the control, when there is one), image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. The bars above the chart show what each spot's flag compared: hollow = the years before, solid (and the light shading) = the years after, dashed = the year a dropped-and-recovered spot had grown back by, or the whole period for slow decline and growth. Click spots on the map, or tick them in the table, to add or remove them; the chart switches to the index the spot was tested on (NDMI for canopy decline).</div>
+          <div class="field-hint" style="margin:-4px 0 6px;">Each spot minus the median of the whole area (or of the control, when there is one), image by image (faint dots), with a 6-month moving median. Above zero: greener or wetter than the area; below: less. The bars above the chart show what each spot's flag compared: hollow = the years before, solid (and the light shading) = the years after, dashed = the year a dropped-and-recovered spot had grown back by, or the whole period for slow decline and growth. Click spots on the map, or tick them in the table, to add or remove them; the chart switches to the index the spot was tested on (NDMI for canopy decline).</div>
           <div id="spotChartChips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;"></div>
           <canvas id="spotChartCanvas" style="display:block;width:100%;"></canvas>
           <div class="field-hint live-hint" id="spotChartStatus"></div>
@@ -828,7 +828,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.31.1';
+const APP_VERSION = 'v0.31.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1714,13 +1714,18 @@ let spotRunId = 0;
 
 function spotChartIndex() { return document.getElementById('spotChartIndex').value; }
 
-function perImageMeans(geom, index, s, minShare) {
+// One value per clear image of a geometry: its mean (a spot), or with
+// useMedian its median (the whole area or control, the reference the spot
+// tests use). A mean reference moved with any big patch inside it: a
+// patch a third of the area that dried out made every other spot look as
+// if it had suddenly got wetter.
+function perImageMeans(geom, index, s, minShare, useMedian) {
   const region = ee.Geometry(geom);
   const col = condCollection(region, s.years[0] + '-01-01', s.today, s.cloudPct, index);
   const nAll = ee.Image(1).clip(region).reduceRegion({ reducer: ee.Reducer.count(), geometry: region, scale: 10, maxPixels: 1e9, bestEffort: true }).values().get(0);
   const fc = col.map(img => {
-    const st = img.reduceRegion({ reducer: ee.Reducer.mean().combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 10, maxPixels: 1e9, bestEffort: true, tileScale: 2 });
-    return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(index + '_mean'), share: ee.Number(st.get(index + '_count')).divide(nAll) });
+    const st = img.reduceRegion({ reducer: (useMedian ? ee.Reducer.median() : ee.Reducer.mean()).combine({ reducer2: ee.Reducer.count(), sharedInputs: true }), geometry: region, scale: 10, maxPixels: 1e9, bestEffort: true, tileScale: 2 });
+    return ee.Feature(null, { t: img.get('system:time_start'), v: st.get(index + (useMedian ? '_median' : '_mean')), share: ee.Number(st.get(index + '_count')).divide(nAll) });
   }).filter(ee.Filter.notNull(['v']));
   return new Promise((resolve, reject) => fc.evaluate((r, e) => {
     if (e) return reject(new Error(e));
@@ -1746,7 +1751,7 @@ async function loadSpotChart() {
   const runId = ++spotRunId;
   const status = document.getElementById('spotChartStatus');
   try {
-    if (!areaCache.has(index)) { status.textContent = c.control ? 'Fetching the control…' : 'Fetching the whole area…'; areaCache.set(index, await perImageMeans((c.control || c.area).geojson.geometry, index, c.s, AREA_MIN_CLEAR)); }
+    if (!areaCache.has(index)) { status.textContent = c.control ? 'Fetching the control…' : 'Fetching the whole area…'; areaCache.set(index, await perImageMeans((c.control || c.area).geojson.geometry, index, c.s, AREA_MIN_CLEAR, true)); }
     for (const sp of spotSel) {
       const key = index + '|' + sp.id;
       if (!spotCache.has(key)) { status.textContent = 'Fetching ' + sp.id + '…'; spotCache.set(key, await perImageMeans(sp.geometry, index, c.s, SPOT_MIN_CLEAR)); }
@@ -1825,7 +1830,7 @@ function drawSpotChart() {
     const xa = Math.round(X(Date.UTC(y, 0, 1))) + 0.5; ctx.beginPath(); ctx.moveTo(xa, T0); ctx.lineTo(xa, H - B0); ctx.stroke();
     if (Date.UTC(y, 6, 1) < tEnd) ctx.fillText(String(y), X(Date.UTC(y, 6, 1)), H - B0 + 10);
   }
-  ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText(index + ': spot minus ' + (lastCondition.control ? 'control' : 'whole area'), 0, 0); ctx.restore();
+  ctx.save(); ctx.translate(16, (H - B0 + T0) / 2); ctx.rotate(-Math.PI / 2); ctx.textBaseline = 'middle'; ctx.fillText(index + ': spot minus ' + (lastCondition.control ? 'control' : 'area') + ' median', 0, 0); ctx.restore();
   // The "after" side of each flag, lightly shaded behind the lines, and
   // the flag bars above the plot: hollow = before, solid = after, dashed
   // outline = the year it had grown back by, solid tick = a recent drop.
@@ -2025,21 +2030,40 @@ function conditionImages(region, proj, s, ctrl) {
     return (s.relative ? v.subtract(eeAreaMedian(v, ref, proj)) : v).toFloat().rename('r');
   });
   const cLast = cRel[cRel.length - 1];
-  const cSplits = [];
+  const splitParts = [];
   for (let i = 1; i < cRel.length; i++) {
     const before = ee.ImageCollection(cRel.slice(Math.max(0, i - COND_CANOPY_BEFORE), i)).mean();
     const afterList = cRel.slice(i, Math.min(cRel.length, i + COND_CANOPY_AFTER));
     const after = ee.ImageCollection(afterList).mean();
     const drop = before.subtract(after).rename('drop');
-    const spread = eeAreaMedian(drop.subtract(eeAreaMedian(drop, ref, proj)).abs(), ref, proj).multiply(1.4826).max(1e-6);
-    cSplits.push(drop.divide(spread).rename('z')
+    splitParts.push({ i, after, afterList, drop, spread: eeAreaMedian(drop.subtract(eeAreaMedian(drop, ref, proj)).abs(), ref, proj).multiply(1.4826) });
+  }
+  // One yardstick for every split: the typical (median) spread of drops
+  // across the splits. A split's own spread is widened by any event big
+  // enough to cover much of the area, so the event's own split was the one
+  // it was least likely to pass (a patch a third of the area failed at
+  // its real year and passed two years later).
+  const spreadAll = ee.Number(ee.List(splitParts.map(p => p.spread)).reduce(ee.Reducer.median())).max(1e-6);
+  const cSplits = [];
+  splitParts.forEach(({ i, after, afterList, drop }) => {
+    cSplits.push(drop.divide(spreadAll).rename('z')
       .addBands(drop)
       .addBands(cLast.subtract(after).divide(drop.max(1e-6)).rename('crec')) // share regained by the last year
       .addBands(ee.Image.constant(s.years[i]).rename('cyr'))
       .addBands(ee.Image.constant(afterList.length).rename('cna'))
       .toFloat());
-  }
-  const bestC = ee.ImageCollection(cSplits).qualityMosaic('z');
+  });
+  // Which split dates the decline: among the splits where the pixel passes
+  // the test, the one with the biggest drop in index units (then splits
+  // that pass only the looser growing test, then the rest by drop). Taking
+  // the biggest drop against the spread (z) dated a patch that lost its
+  // leaf water in late 2021 to 2024 on a small area where the patch was a
+  // third of it: at the 2022 split its own pixels widened the spread, so a
+  // later, quieter split with a smaller drop scored higher.
+  const bestC = ee.ImageCollection(cSplits.map(c => c.addBands(
+    c.select('z').gte(s.canopyK).and(c.select('drop').gte(s.canopyFloor)).multiply(1000)
+      .add(c.select('z').gte(Math.min(COND_CANOPY_GROW_K, s.canopyK)).and(c.select('drop').gte(Math.min(COND_CANOPY_GROW_FLOOR, s.canopyFloor))).multiply(100))
+      .add(c.select('drop')).rename('pick').toFloat()))).qualityMosaic('pick');
   // Connected-pixel steps must run on the 10 m grid, or Earth Engine
   // works them out at a far finer scale and runs out of memory.
   const grid = proj.atScale(10);

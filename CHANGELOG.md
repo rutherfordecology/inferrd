@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.31.2 — 2026-10-17
+
+Fixes found on a small area in forest where one dieback patch (C1) was a
+third of the area: its leaf water fell sharply in late 2021, but it was
+dated "from 2024", and two other spots seemed to get wetter at that moment.
+
+- **Canopy decline is measured against one yardstick.** Each split year's
+  drop was compared with the spread of drops at that split, which an event
+  covering much of the area widens, so the event's own year was the one it
+  was least likely to pass. Every split now uses the typical (median)
+  spread across splits. C1 grew from 3.4 to 5.5 ha.
+- **Canopy decline is dated by its biggest drop.** Among the split years
+  where a pixel passes, the one with the biggest drop in index units dates
+  it (it was the biggest drop against the spread). C1 now reads "from 2022
+  (2022–2023 against 2019–2021)".
+- **Spots over time measures against the area's median**, as the spot
+  tests do, not its mean. A big patch inside the area dragged the mean,
+  making every other spot look as if it had suddenly gone up.
+
 ## v0.31.1 — 2026-10-17
 
 - **Spots over time charts a spot on the index it was tested on.** Adding
