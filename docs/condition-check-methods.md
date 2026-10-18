@@ -109,6 +109,23 @@ which was used.
   (change probability under 1, e.g. 1/6 after one odd image). These are
   reported as "possible recent change, not yet confirmed", in hectares,
   never as spots.
+- **When it changed (v0.34.0): dated on Sentinel-2.** CCDC decides which
+  pixels are disturbed, but not when the fall happened. It keeps refitting
+  its model as images arrive, so a fall spread over months is partly
+  absorbed, and a spot whose signal has swung as low before looks normal
+  at first: the break is confirmed late. On 5-05-112, S1 fell from about
+  November 2025 to March 2026 and CCDC broke in August 2026. So each
+  disturbance spot is dated on its own Sentinel-2 series: the spot's mean
+  change index on every clear image (at least 80% of the spot clear), less
+  the area's median that day (the control's, with a control), from 18
+  months before the CCDC break to 6 months after. The series is smoothed
+  with a ±45-day median, and the biggest fall within a year that ends by
+  60 days after the break is the change. Its dates are the last clear
+  image still within a quarter of the fall of the earlier level, and the
+  first of two in a row within a quarter of the new level. With fewer than
+  8 clear images, or a fall under 0.05, CCDC's dates are kept.
+  `spots.csv` gives `dated_on`, the CCDC break dates (`ccdc_break_from`,
+  `ccdc_break_to`) and the Sentinel-2 fall (`s2_fall`).
 
 **As built: spots and dates.** A spot is touching pixels of the same kind
 and, for a disturbance, the same break year, so one spot is one event.

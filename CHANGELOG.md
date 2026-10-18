@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.34.0 — 2026-10-19
+
+- **Disturbances (S and R) dated on Sentinel-2.** CCDC confirms a break
+  only once the signal has stayed off its model, so a fall over a few
+  months could break long after it began: on 5-05-112, S1 fell from about
+  November 2025 to March 2026 but was dated August 2026. CCDC still
+  decides which pixels are disturbed; each spot is now dated by the
+  biggest fall in its own Sentinel-2 series (spot mean less the area or
+  control median, ±45-day median smoothing) from 18 months before the
+  break to 6 months after. The table, report, report images, Spots over
+  time chart and `spots.csv` use these dates. Where a spot has too few
+  clear images or no fall of 0.05, CCDC's dates are kept. New `spots.csv`
+  columns: `dated_on`, `ccdc_break_from`, `ccdc_break_to`, `s2_fall`. One
+  more Earth Engine request per run.
+- **Index comparison chart:** a "Y-axis starts at 0" box, thinner lines
+  and error bars, and smaller points.
+
 ## v0.33.0 — 2026-10-19
 
 - **Break detection setting for disturbance (S) and recovering (R)
