@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.33.0 — 2026-10-19
+
+- **Break detection setting for disturbance (S) and recovering (R)
+  spots.** Dead canopy trees seen on the ground were not being picked up.
+  *Sensitive*, now the default, confirms a CCDC break on 4 clear images in
+  a row at a 95% chi-square probability, not the published 6 at 99%, so
+  smaller or patchier falls in the canopy signal break. *Standard* keeps
+  the published settings. The report's Appendix A, the "possible recent
+  change" count, the low-confidence flag and the export's metadata
+  (`ccdc`, `break_detection`) follow whichever was used.
+
 ## v0.32.1 — 2026-10-17
 
 From an outside review of the Riverside Road (WR63) PDF.

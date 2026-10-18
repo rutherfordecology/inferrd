@@ -453,7 +453,17 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </select>
         </div>
       </div>
-      <div class="field-hint">Published methods at their published settings (details in About and in the report's Appendix A). Disturbance and recovery: CCDC (Zhu &amp; Woodcock 2014) on every clear Landsat 8/9 image since 2013 (NASA's Harmonized Landsat Sentinel-2 Landsat product), on its 30 m grid (0.09 ha pixels). A disturbance is a break in the period where the chosen index falls; it is recovering when the fitted line after the break rises. Steady decline or improvement: Mann-Kendall and Theil-Sen on each 10 m Sentinel-2 pixel's yearly values, allowing for the season, with a false discovery rate correction. Nothing is tuned to particular sites. The smallest spot only decides what is reported. Single trees and patches under about 0.1 ha are below what 30 m pixels can map, and every result is unvalidated until a validation sample has been labelled.</div>
+      <div class="field half">
+        <div>
+          <label for="condBreakSens">Break detection</label>
+          <select id="condBreakSens">
+            <option value="sensitive" selected>Sensitive</option>
+            <option value="standard">Standard (published)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-hint">Sensitive confirms a break on 4 clear images in a row at a 95% chi-square probability, so smaller or patchier drops in the canopy signal (such as scattered dead canopy trees) are picked up, with more false alarms. Standard uses CCDC's published 6 images at 99%.</div>
+      <div class="field-hint">Published methods at their published settings, apart from break detection when Sensitive is picked (details in About and in the report's Appendix A). Disturbance and recovery: CCDC (Zhu &amp; Woodcock 2014) on every clear Landsat 8/9 image since 2013 (NASA's Harmonized Landsat Sentinel-2 Landsat product), on its 30 m grid (0.09 ha pixels). A disturbance is a break in the period where the chosen index falls; it is recovering when the fitted line after the break rises. Steady decline or improvement: Mann-Kendall and Theil-Sen on each 10 m Sentinel-2 pixel's yearly values, allowing for the season, with a false discovery rate correction. Nothing is tuned to particular sites. The smallest spot only decides what is reported. Single trees and patches under about 0.1 ha are below what 30 m pixels can map, and every result is unvalidated until a validation sample has been labelled.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
@@ -771,7 +781,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.32.1';
+const APP_VERSION = 'v0.33.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1533,6 +1543,11 @@ const HLS_SCENE_CLOUD = 80;
 // so every band (indices too) is scaled that way before fitting.
 const CCDC_PARAMS = { breakpointBands: ['green', 'red', 'nir', 'swir1', 'swir2'], tmaskBands: ['green', 'swir2'], minObservations: 6,
   chiSquareProbability: 0.99, minNumOfYearsScaler: 1.33, dateFormat: 1, lambda: 20, maxIterations: 25000 };
+// "Sensitive" break detection: fewer images to confirm a break and a lower
+// chi-square probability, so smaller or patchier falls (scattered dead
+// canopy trees in a 30 m pixel) break too. Everything else as published.
+const CCDC_SENSITIVE = { minObservations: 4, chiSquareProbability: 0.95 };
+const ccdcParams = (sens) => Object.assign({}, CCDC_PARAMS, sens === 'sensitive' ? CCDC_SENSITIVE : {});
 // An index from the HLS bands (reflectance 0–1).
 function hlsIndex(img, name) {
   if (name === 'NDVI') return img.normalizedDifference(['nir', 'red']).rename(name);
@@ -1905,7 +1920,7 @@ function conditionImages(region, s) {
   // ── Disturbance and recovery: CCDC ──
   const ccdIn = daily.map(img => img.addBands(hlsIndex(img, 'NBR')).addBands(hlsIndex(img, 'NDMI')).multiply(10000).toFloat()
     .set('system:time_start', img.get('system:time_start')));
-  const ccd = ee.Algorithms.TemporalSegmentation.Ccdc(Object.assign({ collection: ccdIn }, CCDC_PARAMS));
+  const ccd = ee.Algorithms.TemporalSegmentation.Ccdc(Object.assign({ collection: ccdIn }, s.ccdc));
   const tB = ccd.select('tBreak'), magAll = ccd.select(s.changeIndex + '_magnitude').divide(10000);
   const segIdx = tB.multiply(0).add(1).arrayAccum(0, ee.Reducer.sum()).subtract(1); // 0, 1, 2… per segment
   // Confirmed breaks (change probability 1: minObservations clear images
@@ -2034,10 +2049,12 @@ function runCondition() {
     changeIndex: document.getElementById('condChangeIndex').value,
     lookback: Number(document.getElementById('condLookback').value),
     minHa: Number(document.getElementById('condMinHa').value),
+    breakSens: document.getElementById('condBreakSens').value,
     cloudPct: Number(cloudThresh.value),
     today: isoDate(new Date()),
     control: control ? { id: control.id, name: control.name } : null
   };
+  s.ccdc = ccdcParams(s.breakSens);
   hideConditionLayers();
   const runId = conditionRunId;
   conditionRunning = true;
@@ -2295,7 +2312,7 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
       years_with_data: dated ? null : p.nYears_median,
       // A break followed by fewer than two of CCDC's six-observation
       // confirmations, or a trend over fewer than four in five years.
-      low_confidence: dated ? (p.nPost_median == null || p.nPost_median < 2 * CCDC_PARAMS.minObservations) : (p.nYears_median < 0.8 * s.years.length)
+      low_confidence: dated ? (p.nPost_median == null || p.nPost_median < 2 * s.ccdc.minObservations) : (p.nYears_median < 0.8 * s.years.length)
     };
     return { spot, geometry: f.geometry, prefix: COND_PREFIX[kind] };
   });
@@ -2369,7 +2386,7 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
     : 'Adjusted for time of year, from ' + trend.points.length + ' clear images. Mann-Kendall p = ' + trend.p.toFixed(3) + ', Sen\'s slope ' + (trend.slope >= 0 ? '+' : '') + trend.slope.toFixed(4) + ' ' + s.trendIndex + ' per year. ' +
       'Disturbance from ' + res.nL + ' Landsat days since 2013 (CCDC); recent means since ' + res.scanStart + '.' +
       (Object.keys(byYear).length ? ' Disturbed area by year of the break: ' + Object.keys(byYear).sort().map(y => y + ' ' + fmtHa(byYear[y]) + ' ha').join(', ') + '.' : '') +
-      (unconfirmedHa ? ' Possible recent change, not yet confirmed (fewer than ' + CCDC_PARAMS.minObservations + ' clear images since it began): ' + fmtHa(unconfirmedHa) + ' ha; run the check again in a couple of months.' : '') +
+      (unconfirmedHa ? ' Possible recent change, not yet confirmed (fewer than ' + s.ccdc.minObservations + ' clear images since it began): ' + fmtHa(unconfirmedHa) + ' ha; run the check again in a couple of months.' : '') +
       (trend.control ? ' Control (' + esc(trend.control.name) + ', dashed): ' + trendWords(trend.control) + '; disturbed ' + fmtHa(ctrlHa.sudden_drop || 0) + ' ha, recovering ' + fmtHa(ctrlHa.dropped_recovered || 0) +
         ' ha, steady decline ' + fmtHa(ctrlHa.slow_decline || 0) + ' ha, steady improvement ' + fmtHa(ctrlHa.gain || 0) + ' ha.' : '');
   drawConditionChart(document.getElementById('condTrendCanvas'), trend, s);
@@ -3027,9 +3044,10 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   // ── Appendix A ──
   newPage();
   heading('Appendix A  Methods and settings', 14);
-  para('Every step follows a published method at its published settings; nothing was tuned to this area. Processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '.', { size: 9.5 });
+  const cc = c.s.ccdc || CCDC_PARAMS, ccSens = c.s.breakSens === 'sensitive';
+  para('Every step follows a published method at its published settings' + (ccSens ? ', apart from the CCDC break detection, set to Sensitive (below)' : '') + '; nothing was tuned to this area. Processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '.', { size: 9.5 });
   para('Data: for disturbance and recovery, Landsat 8/9 from NASA\'s Harmonized Landsat Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m; Claverie et al. 2018), masked for cloud, cloud shadow, cloud edges and snow with its Fmask layer, one image per day (' + (c.res.nL || 'n/a') + ' days from April 2013; scenes more than ' + HLS_SCENE_CLOUD + '% cloudy skipped). For the steady trends and the whole-area trend, Sentinel-2 Level-2A surface reflectance (10 m), masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023) and the Scene Classification band. Sentinel-2 was kept out of the change detection: without NASA\'s view-angle correction, which Earth Engine does not host for Sentinel-2, it left a false step where it joins the Landsat record at the end of 2018.', { size: 9.5 });
-  para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), at its default settings: change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + CCDC_PARAMS.minObservations + ' observations to confirm a change; chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; minimum years scaler ' + CCDC_PARAMS.minNumOfYearsScaler + '; LASSO lambda ' + CCDC_PARAMS.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude); where a pixel had several, the biggest fall is reported. It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '.', { size: 9.5 });
+  para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), ' + (ccSens ? 'at its default settings except break detection, set to Sensitive to pick up smaller or patchier falls (the defaults are ' + CCDC_PARAMS.minObservations + ' observations and chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; Sensitive finds more change and more false alarms)' : 'at its default settings') + ': change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + cc.minObservations + ' observations to confirm a change; chi-square probability ' + cc.chiSquareProbability + '; minimum years scaler ' + cc.minNumOfYearsScaler + '; LASSO lambda ' + cc.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude); where a pixel had several, the biggest fall is reported. It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '.', { size: 9.5 });
   para('Steady decline and improvement (' + c.s.trendIndex + '): each pixel\'s yearly values ' + y0 + '–' + y1 + ', allowing for the season (each month of each year a median composite less the pixel\'s normal for that month, the year the median of its months, with the average monthly normal added back). Theil-Sen slope (Sen 1968) and Mann-Kendall test on those values; the p cut-off set by a Benjamini-Hochberg false discovery rate across the area\'s pixels (q = ' + COND_FDR_Q + '; Benjamini & Hochberg 1995): ' + (c.res.trendP == null ? 'the cut-off could not be worked out' : +c.res.trendP > 0 ? 'the cut-off was p ≤ ' + (+c.res.trendP).toPrecision(2) : 'no pixel passed, so none is called steady decline or improvement') + '. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear Sentinel-2 image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month was subtracted from each image, so the season does not move the yearly value. Each year is the average of its calendar months, with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test with its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   if (c.control) para('Control: ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha) was analysed with the same methods and settings, and is set beside the area as a reference site (the Before-After-Control-Impact idea; Stewart-Oaten et al. 1986). Its whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
@@ -3114,7 +3132,7 @@ async function exportCondition() {
       settings: {
         years: [c.s.years[0], c.s.years[c.s.years.length - 1]], trend_index: c.s.trendIndex, change_index: c.s.changeIndex,
         recent_lookback_days: c.s.lookback, recent_from: c.res.scanStart, recent_to: c.s.today, min_spot_ha: c.s.minHa,
-        ccdc: CCDC_PARAMS,
+        ccdc: c.s.ccdc || CCDC_PARAMS, break_detection: c.s.breakSens || 'standard',
         canopy_trend: Object.assign({ index: c.s.trendIndex, test: 'Mann-Kendall and Theil-Sen per pixel on seasonally adjusted yearly values, Benjamini-Hochberg false discovery rate', fdr_q: COND_FDR_Q, p_cutoff: c.res.trendP }, c.canopyTrend || {}),
         severity_thresholds: CHANGE_GRADES.map(g => ({ name: g.name, from: g.lo, to: g.hi }))
       },

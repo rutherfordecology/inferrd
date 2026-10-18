@@ -75,6 +75,15 @@ change.
 | lambda (LASSO) | 20, with reflectance scaled 0–10 000 as the default assumes |
 | maxIterations | 25 000 |
 
+**Break detection: Sensitive (the app's default).** A user setting. With
+*Sensitive*, a break is confirmed on 4 clear observations in a row
+(minObservations 4) at a chi-square probability of 0.95; every other
+setting stays as above. It is there because scattered dead canopy trees
+lower a 30 m pixel's signal only a little, and the published 6 at 0.99
+missed them. It finds smaller or patchier falls, and more false alarms.
+*Standard* is the published 6 at 0.99. The report and `spots.csv` say
+which was used.
+
 **What is reported, per pixel.**
 
 - **Disturbance:** a *confirmed* break (CCDC change probability 1, i.e.
