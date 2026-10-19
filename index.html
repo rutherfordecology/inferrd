@@ -463,7 +463,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         </div>
       </div>
       <div class="field-hint">Sensitive confirms a break on 4 clear images in a row at a 95% chi-square probability, so smaller or patchier drops in the canopy signal (such as scattered dead canopy trees) are picked up, with more false alarms. Standard uses CCDC's published 6 images at 99%.</div>
-      <div class="field-hint">Published methods at their published settings, apart from break detection when Sensitive is picked (details in About and in the report's Appendix A). Disturbance and recovery: CCDC (Zhu &amp; Woodcock 2014) on every clear Landsat 8/9 image since 2013 (NASA's Harmonized Landsat Sentinel-2 Landsat product), on its 30 m grid (0.09 ha pixels). A disturbance is a break in the period where the chosen index falls; it is recovering when the fitted line after the break rises. Steady decline or improvement: Mann-Kendall and Theil-Sen on each 10 m Sentinel-2 pixel's yearly values, allowing for the season, with a false discovery rate correction. Nothing is tuned to particular sites. The smallest spot only decides what is reported. Single trees and patches under about 0.1 ha are below what 30 m pixels can map, and every result is unvalidated until a validation sample has been labelled.</div>
+      <div class="field-hint">Published methods at their published settings, apart from break detection when Sensitive is picked (details in About and in the report's Appendix A). Disturbance and recovery: CCDC (Zhu &amp; Woodcock 2014) on every clear Landsat 8/9 image since 2013 (NASA's Harmonized Landsat Sentinel-2 Landsat product), on its 30 m grid (0.09 ha pixels). A disturbance is a break in the period where the chosen index and its fitted line fall (by at least 0.05); it is recovering when the fitted line after the break rises. Falls CCDC misses (it is blind for a year or more after each break) are caught on Sentinel-2: a pixel whose yearly value, against the area's median, fell by 0.1 or more from one year to the next and stayed down the year after. Steady decline or improvement: Mann-Kendall and Theil-Sen on each 10 m Sentinel-2 pixel's yearly values, allowing for the season, with a false discovery rate correction. Nothing is tuned to particular sites. The smallest spot only decides what is reported. Single trees and patches under about 0.1 ha are below what 30 m pixels can map, and every result is unvalidated until a validation sample has been labelled.</div>
       <button class="run-btn" id="conditionRunBtn" type="button" disabled>Run condition check</button>
       <div id="conditionLegend" style="display:none;flex-direction:column;gap:2px;margin-top:8px;font-size:11px;color:var(--text2);"></div>
       <div class="field-hint live-hint" id="conditionStatus"></div>
@@ -786,7 +786,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.34.0';
+const APP_VERSION = 'v0.35.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1928,15 +1928,26 @@ function conditionImages(region, s) {
   const segIdx = tB.multiply(0).add(1).arrayAccum(0, ee.Reducer.sum()).subtract(1); // 0, 1, 2… per segment
   // Confirmed breaks (change probability 1: minObservations clear images
   // in a row departed from the model) in the period where the index fell;
-  // the biggest fall is reported. At the end of the record Earth Engine
+  // the biggest fall of the fitted line is reported. At the end of the record Earth Engine
   // also reports a departure still being confirmed (probability under 1,
   // e.g. 1/6 after one odd image): that is a possible recent change, kept
   // apart (class 6) and never a spot.
   const cp = ccd.select('changeProb');
-  const cand = tB.gte(s.years[0]).and(tB.lte(ee.Image.constant(fy(today)))).and(magAll.lt(0)).and(cp.gte(1));
+  // The fall in the fitted line at each break: the segment's line at its
+  // break less the next segment's line there (trend part, no seasonal
+  // swing). A break counts only where that fell by COND_MIN_LEVEL_FALL:
+  // on Area 1 (Tairāwhiti) six spots "broke" on one run of odd Landsat
+  // images ending 26 December 2019 while their fitted lines rose
+  // (S1 0.545 → 0.611).
+  const coefsAll = ccd.select(s.changeIndex + '_coefs');
+  const c0 = coefsAll.arraySlice(1, 0, 1).arrayProject([0]), c1 = coefsAll.arraySlice(1, 1, 2).arrayProject([0]);
+  const nextSeg = (a) => a.arraySlice(0, 1).arrayCat(a.arraySlice(0, -1), 0); // segment k+1 at k (the last repeats)
+  const levelFall = c0.add(c1.multiply(tB)).subtract(nextSeg(c0).add(nextSeg(c1).multiply(tB))).divide(10000);
+  const cand = tB.gte(s.years[0]).and(tB.lte(ee.Image.constant(fy(today)))).and(magAll.lt(0)).and(cp.gte(1))
+    .and(levelFall.gte(COND_MIN_LEVEL_FALL));
   const lastSeg = tB.arrayLength(0).subtract(1).max(0).toInt();
   const unconfirmed = cp.arrayGet(lastSeg).gt(0).and(cp.arrayGet(lastSeg).lt(1)).and(magAll.arrayGet(lastSeg).lt(0)).unmask(0);
-  const order = segIdx.arrayMask(cand).arraySort(magAll.arrayMask(cand));
+  const order = segIdx.arrayMask(cand).arraySort(levelFall.arrayMask(cand).multiply(-1));
   const hasBreak = order.arrayLength(0).gt(0);
   const i = order.arraySlice(0, 0, 1).arrayFlatten([['i']]).updateMask(hasBreak).toInt();
   const nSeg = tB.arrayLength(0);
@@ -2017,19 +2028,70 @@ function conditionImages(region, s) {
     reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'tc' }), geometry: region, crs: proj10, scale: 20, maxPixels: 1e9, tileScale: 16 }); // shares need not be 10 m
 
   const brk = hasBreak.unmask(0);
+
+  // ── Drops CCDC missed: Sentinel-2, year on year ──
+  // After a break CCDC needs 1.33 years and 12 clear images to fit a new
+  // line before it can see another change, and with ~30 clear Landsat days
+  // a year here that can take years: on Area 1, S1's pixels fell ~0.35 in
+  // January 2023 with no break. So each 30 m pixel is also checked on
+  // Sentinel-2: its change index for each year, allowing for the season
+  // (as for the steady trends, from the first reporting year to the
+  // current part year), averaged from 10 m, less the area's median that
+  // year (so a dry year that lowers everything is not a drop). A pixel CCDC
+  // has not flagged is a disturbance where that fell by S2_YEAR_MIN_DROP
+  // from one year to the next and the year after was still at least half
+  // the fall down; the biggest such fall counts. It is recovering where the
+  // latest year has regained at least a quarter of the fall.
+  const lastY = Math.min(new Date(s.today + 'T00:00:00Z').getUTCFullYear(), y1 + 1);
+  const s2Years = [];
+  for (let y = y0; y <= lastY; y++) s2Years.push(y);
+  const chgVals = condCollection(region, y0 + '-01-01', s.today, s.cloudPct, s.changeIndex).map(img => img.toFloat());
+  const chgMonth = (col) => ee.Image(ee.Algorithms.If(col.size().gt(0), col.median(), eeMaskedConst([s.changeIndex])));
+  const chgClim = months.map(m => chgMonth(chgVals.filter(ee.Filter.calendarRange(m, m, 'month'))));
+  const chgClimMean = ee.ImageCollection(chgClim).mean();
+  const grid30 = grid.atScale(COND_PIXEL_M);
+  const yAbs = s2Years.map(y => {
+    const inYear = chgVals.filterDate(y + '-01-01', (y + 1) + '-01-01');
+    return ee.ImageCollection(months.map((m, k) => chgMonth(inYear.filter(ee.Filter.calendarRange(m, m, 'month'))).subtract(chgClim[k])))
+      .median().add(chgClimMean).rename('v').toFloat()
+      .setDefaultProjection(proj10).reduceResolution({ reducer: ee.Reducer.mean(), maxPixels: 64 }).reproject(grid30);
+  });
+  const yRel = yAbs.map(v => {
+    const m = v.reduceRegion({ reducer: ee.Reducer.median(), geometry: region, crs: grid, scale: COND_PIXEL_M, maxPixels: 1e9, bestEffort: true }).get('v');
+    return v.subtract(ee.Image(ee.Number(ee.Algorithms.If(m, m, 0))));
+  });
+  let s2Drop = ee.Image(0), s2Year = ee.Image(0), s2RelB = ee.Image(0), s2RelA = ee.Image(0), s2AbsB = ee.Image(0), s2AbsA = ee.Image(0);
+  for (let q = 1; q + 1 < s2Years.length; q++) {
+    const fall = yRel[q - 1].subtract(yRel[q]);
+    const better = fall.gte(S2_YEAR_MIN_DROP).and(yRel[q + 1].lte(yRel[q - 1].subtract(fall.multiply(0.5)))).and(fall.gt(s2Drop)).unmask(0);
+    s2Drop = s2Drop.where(better, fall); s2Year = s2Year.where(better, s2Years[q]);
+    s2RelB = s2RelB.where(better, yRel[q - 1]); s2RelA = s2RelA.where(better, yRel[q]);
+    s2AbsB = s2AbsB.where(better, yAbs[q - 1]); s2AbsA = s2AbsA.where(better, yAbs[q]);
+  }
+  const s2Only = s2Drop.gt(0).and(brk.not());
+  const relNow = yRel[yRel.length - 1].unmask(s2RelA), absNow = yAbs[yAbs.length - 1].unmask(s2AbsA);
+  const s2Recov = relNow.subtract(s2RelA).divide(s2RelB.subtract(s2RelA).max(1e-6)).max(0).min(1);
+  // A CCDC value, or the Sentinel-2 one where only Sentinel-2 found a drop.
+  const pick = (ccdcImg, s2Img, name) => ccdcImg.unmask(0).where(s2Only, s2Img).updateMask(ccdcImg.mask().or(s2Only)).rename(name);
+  const tBreakF = pick(tBreak, s2Year.add(0.999), 'tBreak');
+
   let cls = ee.Image(0)
     .where(improving, 4)
     .where(declining, 3)
     .where(unconfirmed, 6)
     .where(brk, 2)
     .where(brk.and(recovering), 5)
-    .where(brk.and(recent), 1);
+    .where(brk.and(recent), 1)
+    .where(s2Only, 2)
+    .where(s2Only.and(s2Recov.gte(0.25)), 5);
   // Spot label: the class × 10 000 plus the year of the break, so a spot
   // is one event: touching pixels of the same kind that broke in different
   // years are separate spots, each dated by its own pixels.
   const dated = cls.eq(1).or(cls.eq(2)).or(cls.eq(5));
-  cls = cls.multiply(10000).add(tBreak.floor().unmask(0).multiply(dated)).updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
-  const stats = ee.Image.cat([drop, tBreak, tPrev, recov, nPost, total, nYears, vBefore, vAfter, vNow]);
+  cls = cls.multiply(10000).add(tBreakF.floor().unmask(0).multiply(dated)).updateMask(cls.gt(0)).toInt().rename('cls').clip(region);
+  const stats = ee.Image.cat([pick(drop, s2Drop, 'drop'), tBreakF, pick(tPrev, s2Year.subtract(1), 'tPrev'), pick(recov, s2Recov, 'recov'),
+    nPost.updateMask(s2Only.not()), total, nYears, pick(vBefore, s2AbsB, 'vBefore'), pick(vAfter, s2AbsA, 'vAfter'), pick(vNow, absNow, 'vNow'),
+    s2Only.rename('byS2')]);
   return { cls, stats, trendClass, trendShares, trendP, grid, scanStart, nL: days.nDays };
 }
 
@@ -2175,6 +2237,10 @@ document.getElementById('conditionRunBtn').addEventListener('click', runConditio
 // on every clear image, less the area's (or the control's) median that day,
 // from 18 months before its break to 6 months after.
 const S2_DATE_BEFORE_Y = 1.5, S2_DATE_AFTER_Y = 0.5;
+// A CCDC break counts where its fitted line fell by this much; Sentinel-2's
+// yearly check flags a fall of this much against the area (see
+// conditionImages).
+const COND_MIN_LEVEL_FALL = 0.05, S2_YEAR_MIN_DROP = 0.1;
 const S2_DATE_SMOOTH_D = 45, S2_DATE_MAX_FALL_D = 365, S2_DATE_MIN_DROP = 0.05;
 const condDatedClass = (cls) => { const k = Math.floor(cls / 10000); return k === 1 || k === 2 || k === 5; };
 function s2DropSeries(spotFeatures, region, refGeom, s) {
@@ -2385,9 +2451,10 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
       date_before: dated ? fracYearToIso(p.tPrev_min) : null,
       date_after: dated ? fracYearToIso(p.tBreak_max) : null,
       date_typical: dated ? fracYearToIso(p.tBreak_median) : null,
-      dated_on: dated ? 'CCDC break (Landsat)' : null,
-      ccdc_break_from: dated ? fracYearToIso(p.tPrev_min) : null,
-      ccdc_break_to: dated ? fracYearToIso(p.tBreak_max) : null,
+      detected_by: dated ? (p.byS2_median >= 0.5 ? 'Sentinel-2 yearly drop' : 'CCDC break (Landsat)') : null,
+      dated_on: dated ? (p.byS2_median >= 0.5 ? 'Sentinel-2 year' : 'CCDC break (Landsat)') : null,
+      ccdc_break_from: dated && !(p.byS2_median >= 0.5) ? fracYearToIso(p.tPrev_min) : null,
+      ccdc_break_to: dated && !(p.byS2_median >= 0.5) ? fracYearToIso(p.tBreak_max) : null,
       s2_fall: null,
       recovered_share: kind === 'dropped_recovered' && p.recov_median != null ? +p.recov_median.toFixed(2) : null,
       // The fitted index level before the change, just after it, and now.
@@ -2400,7 +2467,9 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
       years_with_data: dated ? null : p.nYears_median,
       // A break followed by fewer than two of CCDC's six-observation
       // confirmations, or a trend over fewer than four in five years.
-      low_confidence: dated ? (p.nPost_median == null || p.nPost_median < 2 * s.ccdc.minObservations) : (p.nYears_median < 0.8 * s.years.length)
+      // Sentinel-2's check: confirmed only by the current part year.
+      low_confidence: dated ? (p.byS2_median >= 0.5 ? Math.floor(p.tBreak_median) + 1 >= new Date(s.today + 'T00:00:00Z').getUTCFullYear()
+        : (p.nPost_median == null || p.nPost_median < 2 * s.ccdc.minObservations)) : (p.nYears_median < 0.8 * s.years.length)
     };
     if (dated) {
       const m = s2ByK.get(allSpots.indexOf(f));
@@ -2651,7 +2720,7 @@ function loadJSZip() {
 }
 
 const csvCell = (v) => { if (v == null) return ''; const t = String(v); return /[,"\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'date_typical', 'dated_on', 'ccdc_break_from', 'ccdc_break_to', 's2_fall', 'change', 'recovered_share', 'index_before', 'index_after', 'index_now', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
+const SPOT_FIELDS = ['spot_id', 'kind', 'recent', 'severity', 'area_ha', 'lat', 'lon', 'date_before', 'date_after', 'date_typical', 'detected_by', 'dated_on', 'ccdc_break_from', 'ccdc_break_to', 's2_fall', 'change', 'recovered_share', 'index_before', 'index_after', 'index_now', 'index', 'clear_images', 'years_with_data', 'low_confidence'];
 
 function bboxOf(geojsonGeom) {
   let w = 180, s = 90, e = -180, n = -90;
@@ -3145,7 +3214,7 @@ async function conditionPdf(c, mapBlob, trendBlob, panels) {
   const cc = c.s.ccdc || CCDC_PARAMS, ccSens = c.s.breakSens === 'sensitive';
   para('Every step follows a published method at its published settings' + (ccSens ? ', apart from the CCDC break detection, set to Sensitive (below)' : '') + '; nothing was tuned to this area. Processed in Google Earth Engine by inferrd. ' + APP_VERSION + ' on ' + fmtLongDate(c.s.today) + '.', { size: 9.5 });
   para('Data: for disturbance and recovery, Landsat 8/9 from NASA\'s Harmonized Landsat Sentinel-2 product (HLS L30 v2.0, view-angle normalised, 30 m; Claverie et al. 2018), masked for cloud, cloud shadow, cloud edges and snow with its Fmask layer, one image per day (' + (c.res.nL || 'n/a') + ' days from April 2013; scenes more than ' + HLS_SCENE_CLOUD + '% cloudy skipped). For the steady trends and the whole-area trend, Sentinel-2 Level-2A surface reflectance (10 m), masked with Google\'s Cloud Score+ (cs_cdf of at least ' + CS_CLEAR + '; Pasquarella et al. 2023) and the Scene Classification band. Sentinel-2 was kept out of the change detection: without NASA\'s view-angle correction, which Earth Engine does not host for Sentinel-2, it left a false step where it joins the Landsat record at the end of 2018.', { size: 9.5 });
-  para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), ' + (ccSens ? 'at its default settings except break detection, set to Sensitive to pick up smaller or patchier falls (the defaults are ' + CCDC_PARAMS.minObservations + ' observations and chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; Sensitive finds more change and more false alarms)' : 'at its default settings') + ': change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + cc.minObservations + ' observations to confirm a change; chi-square probability ' + cc.chiSquareProbability + '; minimum years scaler ' + cc.minNumOfYearsScaler + '; LASSO lambda ' + cc.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude); where a pixel had several, the biggest fall is reported. It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '. CCDC confirms a break only once the signal has stayed off its model, so a fall spread over months can break well after it began; each disturbance is therefore dated on Sentinel-2: the spot\'s mean ' + c.s.changeIndex + ' on every clear image (at least ' + Math.round(SPOT_MIN_CLEAR * 100) + '% of the spot clear) less the ' + (c.control ? 'control' : 'area') + '\'s median that day, from ' + (S2_DATE_BEFORE_Y * 12) + ' months before the break to ' + (S2_DATE_AFTER_Y * 12) + ' months after, smoothed with a ±' + S2_DATE_SMOOTH_D + '-day median. The biggest fall within a year, ending by 60 days after the break, is the change; its dates are the last clear image still within a quarter of the fall of the earlier level and the first of two in a row within a quarter of the new one. Where there were fewer than 8 images or the fall was under ' + S2_DATE_MIN_DROP + ', CCDC\'s dates are kept (dated_on in spots.csv says which).', { size: 9.5 });
+  para('Disturbance and recovery: Continuous Change Detection and Classification (CCDC; Zhu & Woodcock 2014) in Earth Engine (Arévalo et al. 2020), ' + (ccSens ? 'at its default settings except break detection, set to Sensitive to pick up smaller or patchier falls (the defaults are ' + CCDC_PARAMS.minObservations + ' observations and chi-square probability ' + CCDC_PARAMS.chiSquareProbability + '; Sensitive finds more change and more false alarms)' : 'at its default settings') + ': change detected on green, red, NIR, SWIR1 and SWIR2; outliers screened on green and SWIR2; ' + cc.minObservations + ' observations to confirm a change; chi-square probability ' + cc.chiSquareProbability + '; minimum years scaler ' + cc.minNumOfYearsScaler + '; LASSO lambda ' + cc.lambda + ' on reflectance scaled 0–10 000. A disturbance is a break between ' + y0 + ' and ' + fmtLongDate(c.s.today) + ' where ' + c.s.changeIndex + ' fell across the break (CCDC\'s change magnitude) and its fitted line (trend part) fell by at least ' + COND_MIN_LEVEL_FALL + '; where a pixel had several, the biggest fall of the fitted line is reported. Sentinel-2 check for falls CCDC missed (after a break CCDC needs 1.33 years and 12 clear images before it can see another): each 30 m pixel\'s yearly ' + c.s.changeIndex + ' on Sentinel-2, allowing for the season as for the steady trends and averaged from 10 m, less the area\'s median that year; a pixel CCDC had not flagged is a disturbance where that fell by ' + S2_YEAR_MIN_DROP + ' or more from one year to the next and the following year was still at least half the fall down (the biggest such fall counts), and recovering where the latest year had regained at least a quarter of it (detected_by in spots.csv). It is recovering when the fitted line after the break rises; the share regained is that line\'s rise to its end against the size of the fall. "Recent" means the break came after ' + fmtLongDate(c.res.scanStart) + '. CCDC confirms a break only once the signal has stayed off its model, so a fall spread over months can break well after it began; each disturbance is therefore dated on Sentinel-2: the spot\'s mean ' + c.s.changeIndex + ' on every clear image (at least ' + Math.round(SPOT_MIN_CLEAR * 100) + '% of the spot clear) less the ' + (c.control ? 'control' : 'area') + '\'s median that day, from ' + (S2_DATE_BEFORE_Y * 12) + ' months before the break to ' + (S2_DATE_AFTER_Y * 12) + ' months after, smoothed with a ±' + S2_DATE_SMOOTH_D + '-day median. The biggest fall within a year, ending by 60 days after the break, is the change; its dates are the last clear image still within a quarter of the fall of the earlier level and the first of two in a row within a quarter of the new one. Where there were fewer than 8 images or the fall was under ' + S2_DATE_MIN_DROP + ', CCDC\'s dates are kept (dated_on in spots.csv says which).', { size: 9.5 });
   para('Steady decline and improvement (' + c.s.trendIndex + '): each pixel\'s yearly values ' + y0 + '–' + y1 + ', allowing for the season (each month of each year a median composite less the pixel\'s normal for that month, the year the median of its months, with the average monthly normal added back). Theil-Sen slope (Sen 1968) and Mann-Kendall test on those values; the p cut-off set by a Benjamini-Hochberg false discovery rate across the area\'s pixels (q = ' + COND_FDR_Q + '; Benjamini & Hochberg 1995): ' + (c.res.trendP == null ? 'the cut-off could not be worked out' : +c.res.trendP > 0 ? 'the cut-off was p ≤ ' + (+c.res.trendP).toPrecision(2) : 'no pixel passed, so none is called steady decline or improvement') + '. A run of favourable years lifts the whole region, so compare with the whole-area trend before reading this as a management effect.', { size: 9.5 });
   para('Whole-area trend: the average ' + c.s.trendIndex + ' over the area on every clear Sentinel-2 image from ' + y0 + ' to ' + y1 + ' with at least ' + Math.round(COND_MIN_CLEAR_SHARE * 100) + '% of the area clear (' + t.points.length + ' images). The normal value for each calendar month was subtracted from each image, so the season does not move the yearly value. Each year is the average of its calendar months, with a 95% confidence interval (t distribution) whose sample size is cut for the correlation between neighbouring months (effective n = n(1 − r)/(1 + r)). Mann-Kendall test with its variance corrected for serial correlation (Hamed & Rao 1998), p = ' + (t.p == null ? 'n/a' : t.p.toFixed(3)) + '; Sen\'s slope ' + (t.slope == null ? 'n/a' : (t.slope >= 0 ? '+' : '') + t.slope.toFixed(4)) + ' per year; change over the period ' + (t.changeVsErrorBar == null ? 'n/a' : t.changeVsErrorBar + ' times') + ' the typical 95% interval. The area is called declined or improved only when p < 0.05 and that ratio is above 1.', { size: 9.5 });
   if (c.control) para('Control: ' + c.control.name + ' (' + ha(turf.area(c.control.geojson) / 10000) + ' ha) was analysed with the same methods and settings, and is set beside the area as a reference site (the Before-After-Control-Impact idea; Stewart-Oaten et al. 1986). Its whole-area trend is the dashed line in Figure 2.', { size: 9.5 });
@@ -3215,7 +3284,7 @@ async function exportCondition() {
     const areaHa = (() => { try { return +(turf.area(c.area.geojson) / 10000).toFixed(2); } catch (e) { return null; } })();
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
-      methods: 'docs/condition-check-methods.md: CCDC (Zhu & Woodcock 2014) for disturbance and recovery; Mann-Kendall/Theil-Sen with Benjamini-Hochberg FDR for steady trends; published settings, not tuned',
+      methods: 'docs/condition-check-methods.md: CCDC (Zhu & Woodcock 2014) for disturbance and recovery, with a Sentinel-2 year-on-year check for falls CCDC missed; Mann-Kendall/Theil-Sen with Benjamini-Hochberg FDR for steady trends; published settings, not tuned',
       validated: false,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
       control_area: c.control ? { name: c.control.name, area_ha: +(turf.area(c.control.geojson) / 10000).toFixed(2), source: c.control.source || 'drawn',

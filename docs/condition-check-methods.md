@@ -109,6 +109,28 @@ which was used.
   (change probability under 1, e.g. 1/6 after one odd image). These are
   reported as "possible recent change, not yet confirmed", in hectares,
   never as spots.
+- **Only real falls count (v0.35.0).** A break is a disturbance only
+  where CCDC's fitted line (trend part) fell by at least 0.05 across it:
+  the earlier segment's line at the break less the next segment's line
+  there. Of several, the biggest such fall counts. On Area 1 (Tairāwhiti),
+  six spots "broke" on one run of odd Landsat images ending 26 December
+  2019 while their fitted lines rose (S1 0.545 → 0.611).
+- **Falls CCDC missed: Sentinel-2, year on year (v0.35.0).** After a break,
+  CCDC needs 1.33 years and 12 clear images to fit a new line before it
+  can see another change; with ~30 clear Landsat days a year that can take
+  years, and on Area 1 S1's pixels fell ~0.35 in January 2023 with no
+  break. So each 30 m pixel is also checked on Sentinel-2: its change
+  index each year, allowing for the season as for the steady trends (from
+  the first reporting year to the current part year), averaged from 10 m,
+  less the area's median that year. A pixel CCDC has not flagged is a
+  disturbance where that fell by 0.1 or more from one year to the next and
+  the following year was still at least half the fall down; the biggest
+  such fall counts. It is recovering where the latest year has regained at
+  least a quarter of the fall. Its before, after and now values are those
+  yearly values. A drop confirmed only by the current part year is marked
+  low confidence. `spots.csv` says which method found each spot
+  (`detected_by`). The 0.1 and 0.05 are stated thresholds, not published
+  settings.
 - **When it changed (v0.34.0): dated on Sentinel-2.** CCDC decides which
   pixels are disturbed, but not when the fall happened. It keeps refitting
   its model as images arrive, so a fall spread over months is partly

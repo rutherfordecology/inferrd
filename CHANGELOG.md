@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.35.0 — 2026-10-19
+
+From Area 1 (Tairāwhiti), where S1–S4 were dated 2019 and the big drops
+next to them were missed.
+
+- **False disturbances removed.** A CCDC break now counts only where the
+  fitted line actually fell, by at least 0.05. S1–S4 had all "broken" on
+  one run of odd Landsat images ending 26 December 2019 while their fitted
+  lines rose (S1 0.545 → 0.611).
+- **Falls CCDC missed are caught on Sentinel-2.** After each break CCDC is
+  blind until it has refitted (1.33 years and 12 clear images, which can
+  take years here), so S1's pixels fell ~0.35 in January 2023 with no
+  break. Every 30 m pixel is now also checked on Sentinel-2's seasonally
+  adjusted yearly values against the area median: a fall of 0.1 or more
+  from one year to the next that is still at least half down the year
+  after is a disturbance (recovering if the latest year has regained a
+  quarter). These join the S and R spots, are dated on Sentinel-2 as
+  before, and are marked in `spots.csv` (`detected_by`). Runs take longer.
+
 ## v0.34.0 — 2026-10-19
 
 - **Disturbances (S and R) dated on Sentinel-2.** CCDC confirms a break
