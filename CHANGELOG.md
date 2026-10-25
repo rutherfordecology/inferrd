@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.38.0 — 2026-10-26
+
+- **Zoom to 22** (was 19). Past 19 the satellite basemap is its zoom-19
+  imagery enlarged, so it gets blurry; Earth Engine layers enlarge past 20.
+- **Sharp LiDAR cells close up.** Small areas are drawn at up to 3 image
+  pixels per 1 m cell, and from zoom 19 the image isn't smoothed, so each
+  cell shows as a crisp square at its true slight tilt to the map.
+
 ## v0.37.0 — 2026-10-26
 
 - **Colour choices for vegetation height** (LiDAR tab, under Layer):

@@ -901,7 +901,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.37.0';
+const APP_VERSION = 'v0.38.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1026,10 +1026,13 @@ function setStatus(kind, msg) {
    Map + polygon drawing (Leaflet + Leaflet.draw, Esri World Imagery —
    same satellite basemap geemap.Map.add_basemap('SATELLITE') uses).
    --------------------------------------------------------------------- */
-const map = L.map('map', { zoomControl: true }).setView([-41.0, 173.0], 6);
+// Zoom goes to 22 for close-up LiDAR: past 19 the basemap's own tiles are
+// enlarged (blurrier), and the Earth Engine layers' past 20.
+const map = L.map('map', { zoomControl: true, maxZoom: 22 }).setView([-41.0, 173.0], 6);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
   attribution: 'Esri, Maxar, Earthstar Geographics',
-  maxZoom: 19
+  maxNativeZoom: 19,
+  maxZoom: 22
 }).addTo(map);
 
 const drawnItems = new L.FeatureGroup();
@@ -1288,7 +1291,7 @@ function showIndexLayers() {
           lastErr = err;
           console.warn('[inferrd map preview] getMapId failed:', err);
         } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
-          const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxZoom: 20 });
+          const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxNativeZoom: 20, maxZoom: 22 });
           layer.addTo(map);
           indexMapLayers.push(layer);
           drawnItems.bringToFront();
@@ -1552,7 +1555,7 @@ function showChangeLayers() {
             renderSummaries();
             return;
           }
-          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.9, maxZoom: 20 });
+          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.9, maxNativeZoom: 20, maxZoom: 22 });
           layer.addTo(map);
           changeLayers.push(layer);
           drawnItems.bringToFront();
@@ -2627,7 +2630,7 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
   if (images && images.trendClass) {
     images.trendClass.getMapId({ min: 1, max: 3, palette: [TREND_COLORS.improving, TREND_COLORS.stable, TREND_COLORS.declining].map(x => x.slice(1)) }, (m, err) => {
       if (err || !m || lastCondition.area !== area) return;
-      condKindLayers.trend_map = L.tileLayer(m.urlFormat, { opacity: 0.6, maxZoom: 20 });
+      condKindLayers.trend_map = L.tileLayer(m.urlFormat, { opacity: 0.6, maxNativeZoom: 20, maxZoom: 22 });
       if (condIsShown('trend_map')) { condKindLayers.trend_map.addTo(map); drawnItems.bringToFront(); }
     });
   }
@@ -4756,7 +4759,11 @@ function renderLidarLayer() {
   const [w, s, e, nn] = turf.bbox(d.geojson);
   const crs = L.CRS.EPSG3857;
   const p0 = crs.project(L.latLng(s, w)), p1 = crs.project(L.latLng(nn, e));
-  const OW = Math.max(1, g.W), OH = Math.max(1, Math.round(OW * (p1.y - p0.y) / (p1.x - p0.x)));
+  // Up to 3 output pixels per cell (within ~9 million pixels), so that
+  // zoomed right in each cell is drawn as its own square, at its true
+  // slight tilt from NZTM to the map, rather than one pixel each.
+  const ss = Math.max(1, Math.min(3, Math.floor(Math.sqrt(9e6 / (g.W * g.H)))));
+  const OW = Math.max(1, g.W * ss), OH = Math.max(1, Math.round(OW * (p1.y - p0.y) / (p1.x - p0.x)));
   // NZTM of every 16th output pixel, filled in between by interpolation:
   // the warp is smooth enough over an area that this is exact to well
   // under a cell.
@@ -4790,12 +4797,20 @@ function renderLidarLayer() {
     const url = URL.createObjectURL(blob);
     const bounds = L.latLngBounds([s, w], [nn, e]);
     if (lidarOverlay) { lidarOverlay.setUrl(url); lidarOverlay.setBounds(bounds); }
-    else lidarOverlay = L.imageOverlay(url, bounds, { pane: 'lidarPane', opacity: lidarOpacity(), interactive: false }).addTo(map);
+    else { lidarOverlay = L.imageOverlay(url, bounds, { pane: 'lidarPane', opacity: lidarOpacity(), interactive: false }).addTo(map); lidarSharpen(); }
     if (lidarOverlayUrl) setTimeout(URL.revokeObjectURL.bind(URL, lidarOverlayUrl), 1000);
     lidarOverlayUrl = url;
   }, 'image/png');
   renderLidarLegend();
 }
+
+// From zoom 19 the browser stops smoothing the LiDAR image, so the 1 m
+// cells keep hard edges; further out, smoothing keeps it from shimmering.
+function lidarSharpen() {
+  const el = lidarOverlay && lidarOverlay.getElement();
+  if (el) el.style.imageRendering = map.getZoom() >= 19 ? 'pixelated' : '';
+}
+map.on('zoomend', lidarSharpen);
 
 function lidarOpacity() { return Number(document.getElementById('lidarOpacity').value) / 100; }
 document.getElementById('lidarOpacity').addEventListener('input', () => {
