@@ -53,7 +53,9 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lidar-legend .ticks span { white-space: nowrap; }
 .field input[type=range] { appearance: auto; border: none; padding: 0; background: none; }
 .lidar-legend .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); margin-top: 2px; }
-.lidar-hist-bar { fill: #3f7d4f; }
+/* Height-class table and histogram side by side, stacking when narrow. */
+.lidar-pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 1rem; margin-bottom: 1rem; align-items: start; }
+.lidar-pair > .table-card, .lidar-pair > .chart-card { margin-bottom: 0; min-width: 0; }
 
 .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 52px); overflow: hidden; }
 .sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
@@ -581,16 +583,18 @@ table.stats-table tr:last-child td { border-bottom: none; }
         </div>
         <div id="lidarContent" style="display:none">
           <div class="metrics" id="lidarMetrics"></div>
-          <div class="table-card">
-            <div class="table-card-head">
-              <div class="card-title">Vegetation height classes</div>
-              <button class="dl-btn" id="lidarCsvBtn" type="button">Download CSV</button>
+          <div class="lidar-pair">
+            <div class="table-card">
+              <div class="table-card-head">
+                <div class="card-title">Vegetation height classes</div>
+                <button class="dl-btn" id="lidarCsvBtn" type="button">Download CSV</button>
+              </div>
+              <table class="stats-table" id="lidarClassTable"></table>
             </div>
-            <table class="stats-table" id="lidarClassTable"></table>
-          </div>
-          <div class="chart-card">
-            <div class="card-title">Spread of heights (share of the area in each 1 m band)</div>
-            <div id="lidarHist"></div>
+            <div class="chart-card">
+              <div class="card-title">Spread of heights (share of the area in each 1 m band)</div>
+              <div id="lidarHist"></div>
+            </div>
           </div>
           <div class="interp-card">
             <div class="card-title">Reading this</div>
@@ -901,7 +905,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.38.2';
+const APP_VERSION = 'v0.38.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */

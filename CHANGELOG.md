@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.38.3 — 2026-10-26
+
+- **LiDAR results: height-class table and histogram side by side** in one
+  row (they stack when the results pane is narrow), so the histogram no
+  longer stretches across the whole pane with oversized labels.
+
 ## v0.38.2 — 2026-10-26
 
 - **Gold instead of green for area outlines.** The green one (Areas 2,
