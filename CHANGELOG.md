@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.40.1 — 2026-10-26
+
+- **Less text on screen.** Instruction boxes now just say to draw one or
+  more areas; the access-key note, LiDAR layer descriptions, survey
+  buttons (which only mention a missing surface model or partial cover),
+  legends, chart title, messages and empty-results text are cut to what
+  isn't obvious from the controls. The fuller explanations stay in About
+  and the folded "Explanation" notes.
+
 ## v0.40.0 — 2026-10-26
 
 - **LiDAR: several areas at once.** The LiDAR tab lists every drawn area
