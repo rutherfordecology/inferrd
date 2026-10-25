@@ -497,7 +497,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="instruction-box">Draw an area on the map (polygon or rectangle tool, top-left), or pick one you've already drawn. LiDAR covers most of New Zealand and needs no access key.</div>
         <div class="field">
           <label>Area</label>
-          <select id="lidarAreaSel"></select>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <select id="lidarAreaSel" style="flex:1;min-width:0;"></select>
+            <span class="area-remove" id="lidarAreaRemove" title="Remove this area" role="button" tabindex="0" style="font-size:16px;">✕</span>
+          </div>
         </div>
       </div>
 
@@ -885,7 +888,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.36.0';
+const APP_VERSION = 'v0.36.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4517,6 +4520,7 @@ function lidarAreasChanged() {
   sel.innerHTML = areas.length ? areas.map(a => '<option value="' + a.id + '"' + (a.id === lidarAreaId ? ' selected' : '') + '>' + a.name.replace(/</g, '&lt;') + '</option>').join('')
     : '<option value="">No areas drawn yet</option>';
   sel.disabled = !areas.length;
+  document.getElementById('lidarAreaRemove').style.display = areas.length ? '' : 'none';
   const area = areas.find(a => a.id === lidarAreaId);
   // Loaded LiDAR for an area that's gone or been reshaped no longer fits.
   if (lidarData && (!area || lidarData.areaId !== area.id || lidarData.geojson !== area.geojson)) clearLidar();
@@ -4527,6 +4531,11 @@ document.getElementById('lidarAreaSel').addEventListener('change', (e) => {
   lidarAreaId = Number(e.target.value);
   lidarAreasChanged();
 });
+// Removes the picked area from the map and from both tabs, as the ✕ in
+// the Infrared tab's area list does.
+const lidarAreaRemoveEl = document.getElementById('lidarAreaRemove');
+lidarAreaRemoveEl.addEventListener('click', () => { if (lidarAreaId !== null) removeArea(lidarAreaId); });
+lidarAreaRemoveEl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); lidarAreaRemoveEl.click(); } });
 
 function clearLidar() {
   lidarRunId++;

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.36.1 — 2026-10-26
+
+- **LiDAR tab: ✕ beside the area picker** removes that area (from the map
+  and both tabs) along with its loaded LiDAR, so you can draw a new one
+  without going back to the Infrared tab.
+
 ## v0.36.0 — 2026-10-26
 
 - **New LiDAR tab.** The header now has two tabs, **Infrared** (everything
