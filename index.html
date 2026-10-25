@@ -901,7 +901,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.38.1';
+const APP_VERSION = 'v0.38.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1045,6 +1045,12 @@ map.createPane('areaCentreLine');
 map.getPane('areaCentreLine').style.zIndex = 450;
 map.getPane('areaCentreLine').style.pointerEvents = 'none';
 const areaCentreLines = L.layerGroup().addTo(map);
+// And a white edge just under each outline (above the LiDAR image, below
+// the outlines), so even a dark outline shows against dark forest.
+map.createPane('areaHalo');
+map.getPane('areaHalo').style.zIndex = 390;
+map.getPane('areaHalo').style.pointerEvents = 'none';
+const areaHalos = L.layerGroup().addTo(map);
 const drawControl = new L.Control.Draw({
   draw: { polygon: { allowIntersection: false, showArea: true }, polyline: false, circle: false, circlemarker: false, marker: false, rectangle: true },
   edit: { featureGroup: drawnItems, remove: false }
@@ -1093,7 +1099,9 @@ function expandResultsPane() {
 // Multiple areas can be drawn at once — each gets a name, a colour (used
 // both on the map and as its chart line), and its own geometry. Drawing
 // more than one is what makes the comparison view kick in later.
-const AREA_COLORS = ['#b5451a', '#2c5f8a', '#3f7d4f', '#7b4fa0', '#a0522d', '#c9184a'];
+// Gold, not green, third: a green outline vanished against forest and
+// against the LiDAR vegetation-height colours.
+const AREA_COLORS = ['#b5451a', '#2c5f8a', '#c28a00', '#7b4fa0', '#a0522d', '#c9184a'];
 // Fixed per-index colours (drawn from the same palette as AREA_COLORS) so an
 // index's line/legend colour means the same thing across every chart it
 // appears on, rather than depending on selection order.
@@ -1141,6 +1149,7 @@ function removeArea(id) {
   if (idx === -1) return;
   drawnItems.removeLayer(areas[idx].layer);
   areaCentreLines.removeLayer(areas[idx].centre);
+  areaHalos.removeLayer(areas[idx].halo);
   areas.splice(idx, 1);
   pruneResultsForArea(id);
   renderAreaList();
@@ -4264,7 +4273,9 @@ function addArea(layer, name, meta) {
   drawnItems.addLayer(layer);
   const centre = L.polygon(layer.getLatLngs(), { pane: 'areaCentreLine', color: '#000', weight: 1, opacity: 1, fill: false, interactive: false });
   areaCentreLines.addLayer(centre);
-  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, centre: centre, geojson: layer.toGeoJSON(),
+  const halo = L.polygon(layer.getLatLngs(), { pane: 'areaHalo', color: '#fff', weight: 7, opacity: 0.85, fill: false, interactive: false });
+  areaHalos.addLayer(halo);
+  areas.push({ id: nextAreaNum, name: name || 'Area ' + nextAreaNum, color: color, layer: layer, centre: centre, halo: halo, geojson: layer.toGeoJSON(),
     source: meta && meta.source, properties: meta && meta.properties });
   nextAreaNum++;
   renderAreaList();
@@ -4310,7 +4321,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
 });
 // The black centre line follows the shape while it is being reshaped, and
 // snaps back with it when an edit is cancelled.
-function syncAreaCentreLines() { areas.forEach(a => a.centre.setLatLngs(a.layer.getLatLngs())); }
+function syncAreaCentreLines() { areas.forEach(a => { a.centre.setLatLngs(a.layer.getLatLngs()); a.halo.setLatLngs(a.layer.getLatLngs()); }); }
 [L.Draw.Event.EDITVERTEX, L.Draw.Event.EDITMOVE, L.Draw.Event.EDITRESIZE, L.Draw.Event.EDITSTOP].forEach(ev => map.on(ev, syncAreaCentreLines));
 
 /* ---------------------------------------------------------------------

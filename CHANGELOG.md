@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.38.2 — 2026-10-26
+
+- **Gold instead of green for area outlines.** The green one (Areas 2,
+  8, 14 …) disappeared against forest and the
+  LiDAR vegetation-height colours. Its chart lines are gold too.
+- **White edge under every area outline**, so the darker outlines (blue,
+  purple, brown) show against forest too.
+
 ## v0.38.1 — 2026-10-26
 
 - **Tallest** added to the LiDAR stats row: the single highest cell of
