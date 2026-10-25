@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.41.0 — 2026-10-26
+
+- **"↓ KML" on every area**, in both tabs, as in occurd.: downloads that
+  area's boundary (all its parts and holes) as a KML named after it and
+  the time. Works for drawn areas and for ones added from a covenant or
+  layer feature, such as a catchment.
+
 ## v0.40.5 — 2026-10-26
 
 - **Spread of heights goes past 40 m when the trees do.** The lumped

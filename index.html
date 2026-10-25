@@ -922,7 +922,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.40.5';
+const APP_VERSION = 'v0.41.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1140,12 +1140,14 @@ function renderAreaList() {
     '<div class="area-item" data-id="' + a.id + '">' +
       '<span class="area-swatch" style="background:' + a.color + '"></span>' +
       '<span class="area-name" contenteditable="true" spellcheck="false">' + a.name.replace(/</g, '&lt;') + '</span>' +
+      kmlBtnHtml +
       '<span class="area-remove" title="Remove">✕</span>' +
     '</div>'
   )).join('');
   list.querySelectorAll('.area-item').forEach(el => {
     const id = Number(el.dataset.id);
     el.querySelector('.area-remove').addEventListener('click', () => removeArea(id));
+    el.querySelector('.area-kml').addEventListener('click', () => downloadAreaKml(areas.find(a => a.id === id)));
     const nameEl = el.querySelector('.area-name');
     nameEl.addEventListener('blur', () => {
       const area = areas.find(a => a.id === id);
@@ -1166,6 +1168,23 @@ function renderAreaList() {
   renderCondAreaPicks();
   updateRunEnabled();
 }
+
+// "↓ KML" on an area, as in occurd.: its boundary (all its parts and
+// holes) as a KML file named after the area and the time.
+function downloadAreaKml(area) {
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const g = area.geojson.geometry, polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  const ring = r => r.map(([x, y]) => (+x).toFixed(7) + ',' + (+y).toFixed(7) + ',0').join(' ');
+  const poly = p => '      <Polygon>\n        <outerBoundaryIs><LinearRing><coordinates>' + ring(p[0]) + '</coordinates></LinearRing></outerBoundaryIs>\n' +
+    p.slice(1).map(h => '        <innerBoundaryIs><LinearRing><coordinates>' + ring(h) + '</coordinates></LinearRing></innerBoundaryIs>\n').join('') + '      </Polygon>\n';
+  const kml = '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2">\n<Document>\n  <name>' + esc(area.name) + '</name>\n' +
+    '  <Placemark>\n    <name>' + esc(area.name) + '</name>\n    <MultiGeometry>\n' + polys.map(poly).join('') + '    </MultiGeometry>\n  </Placemark>\n</Document>\n</kml>\n';
+  const d = new Date(), p2 = n => String(n).padStart(2, '0');
+  const stamp = d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '_' + p2(d.getHours()) + p2(d.getMinutes());
+  const base = area.name.replace(/[^A-Za-z0-9 _+-]/g, '').trim().replace(/\s+/g, '_') || 'area';
+  downloadText(base + '_' + stamp + '.kml', kml, 'application/vnd.google-earth.kml+xml');
+}
+const kmlBtnHtml = '<button class="area-kml" type="button" title="Download this area as KML" style="background:none;border:none;padding:0 2px;cursor:pointer;font-size:11px;font-weight:600;font-family:var(--font-sans);color:var(--orange-dark);white-space:nowrap;">↓ KML</button>';
 
 function removeArea(id) {
   const idx = areas.findIndex(a => a.id === id);
@@ -4696,10 +4715,11 @@ function renderLidarAreaList() {
   list.innerHTML = areas.map(a => '<div class="area-item" data-id="' + a.id + '">' +
     '<span class="area-swatch" style="background:' + a.color + '"></span>' +
     '<span class="area-name" style="cursor:pointer;" title="Zoom to this area">' + escHtml(a.name) + '</span>' +
-    '<span class="area-remove" title="Remove">✕</span></div>').join('');
+    kmlBtnHtml + '<span class="area-remove" title="Remove">✕</span></div>').join('');
   list.querySelectorAll('.area-item').forEach(el => {
     const a = areas.find(x => x.id === Number(el.dataset.id));
     el.querySelector('.area-remove').addEventListener('click', () => removeArea(a.id));
+    el.querySelector('.area-kml').addEventListener('click', () => downloadAreaKml(a));
     el.querySelector('.area-name').addEventListener('click', () => map.fitBounds(a.layer.getBounds(), { padding: [30, 30], maxZoom: 18 }));
   });
 }
