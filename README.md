@@ -217,6 +217,13 @@ tab is used).
 - **Results:** area, LiDAR cover, ground range, mean height, 95th-percentile
   height, share over 5 m, area per height class (CSV) and a histogram of
   heights in 1 m bands. Clicking the map gives the values at that point.
+- **Several areas:** all drawn areas load together on one grid size (the
+  finest keeping them all under the cell budget). Two or more get a
+  comparison table, side-by-side class shares and one line per area on the
+  height chart.
+- **Over time:** with "Compare surveys over time", 2 or 3 surveys are read
+  for each area on the same grid, so latest minus earliest vegetation
+  height is cell by cell: a change table and a Height change layer.
 
 Heights are as flown, include buildings and wires, and are smoothed by the
 1 m grid. Data © Toitū Te Whenua LINZ, CC BY 4.0.

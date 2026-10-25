@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.40.0 — 2026-10-26
+
+- **LiDAR: several areas at once.** The LiDAR tab lists every drawn area
+  (✕ to remove, click a name to zoom to it) and loads them all together,
+  on one grid size so their figures compare. With two or more, the results
+  show an "Areas compared" table (size, cover, ground, mean height, canopy
+  top, tallest, over 5 m), the height classes as each area's share side by
+  side, and each area's spread of heights as a line on one chart. Clicking
+  the map gives the heights for the area under the click.
+- **LiDAR: compare surveys over time.** Tick "Compare surveys over time"
+  and pick 2 or 3 surveys: each area is read from every one on the same
+  grid. A "Change from … to …" table gives mean height, canopy top and
+  share over 5 m in the earliest and latest survey, and the area that
+  dropped 5 m or more or grew 2 m or more. A new **Height change** layer
+  maps latest less earliest (red where it dropped, blue where it grew;
+  under 0.5 m either way grey), and "Show on map" picks which survey the
+  other layers show. The point popup gives each survey's height and the
+  change. Works with several areas too (each survey dashed differently).
+- **"Leave out 0–1 m"** on the spread-of-heights chart: drops the ground
+  and grass band, which otherwise flattens everything else, and shows the
+  rest as a share of what's over 1 m.
+- **Drawn rectangles become ordinary polygons**, so their corners can be
+  dragged one at a time.
+- **Draw to select: one click to drop the drawn shape.** After a shape
+  picks up covenants or layer areas, a button under the message removes
+  the shape and keeps what it picked up.
+
 ## v0.39.1 — 2026-10-26
 
 - Covenants added by draw to select from the Layers panel are named
