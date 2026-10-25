@@ -851,6 +851,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <h3>Reference layers</h3>
+    <p><strong>Draw to select:</strong> with the QEII layer on, or the Layers panel open, drawing a shape also adds each covenant it overlaps, and each area of the ticked layers lying within it, as its own area. Your drawn shape is kept.</p>
     <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
 
     <h3>Your data, your account</h3>
@@ -905,7 +906,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.38.3';
+const APP_VERSION = 'v0.39.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4288,7 +4289,44 @@ function addArea(layer, name, meta) {
 map.on(L.Draw.Event.CREATED, (e) => {
   if (window.LMeasure && LMeasure.isMeasuring()) return; // a measurement from occurd.'s measure.js, not an area
   addArea(e.layer);
+  addAreasUnder(areas[areas.length - 1]);
 });
+
+// Draw to select, as in occurd.: a drawn shape also adds, each as its own
+// area, the QEII covenants it overlaps (QEII layer on) and the areas of the
+// ticked reference layers lying within it (Layers panel open; layers.js
+// counts an area as within when 90% of it is). The drawn shape is kept.
+const LAYER_SELECT_MAX = 40;
+let qeiiFeaturesUnder = () => []; // set by the QEII layer below
+async function addAreasUnder(drawn) {
+  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : setStatus)(kind, msg);
+  const found = qeiiFeaturesUnder(drawn.geojson).map(f => ({
+    geometry: f.geometry, name: f.properties.CovNumber ? 'Covenant ' + f.properties.CovNumber : 'QEII covenant',
+    meta: { source: 'QEII National Trust covenant', properties: f.properties }
+  }));
+  if (window._layersFeaturesUnder) {
+    const g = drawn.geojson.geometry, ll = r => r.slice(0, -1).map(([x, y]) => [y, x]);
+    try {
+      const { count, items } = await window._layersFeaturesUnder(ll(g.coordinates[0]), g.coordinates.slice(1).map(ll), LAYER_SELECT_MAX);
+      if (count && !items.length) say('warning', count + ' areas in the ticked layers lie within this shape, more than ' + LAYER_SELECT_MAX + ' to add at once. Untick some layers or draw a smaller shape.');
+      items.forEach(it => found.push({ geometry: it.feature.geometry, name: String(it.label).split(' | ')[0], meta: { source: it.layerName, properties: it.feature.properties } }));
+    } catch (err) { console.warn('[inferrd] layers draw-to-select failed', err); }
+  }
+  // A covenant can come from both the QEII layer and the Layers panel.
+  const seen = new Set();
+  const add = found.filter(f => {
+    if (!f.geometry || !/Polygon/.test(f.geometry.type)) return false;
+    const c = turf.centroid(f.geometry).geometry.coordinates, key = Math.round(turf.area(f.geometry)) + ':' + c[0].toFixed(4) + ',' + c[1].toFixed(4);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (!add.length || !areas.includes(drawn)) return;
+  add.forEach(f => addArea(L.polygon(L.GeoJSON.coordsToLatLngs(f.geometry.coordinates, f.geometry.type === 'Polygon' ? 1 : 2)), f.name, f.meta));
+  const names = add.map(f => f.name);
+  say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' within your shape: ' + names.slice(0, 6).join(', ') +
+    (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '. Your drawn shape is kept; remove it with ✕ if you only want these.');
+}
 
 // "Analyse this area" on a QEII covenant or reference-layer popup: the
 // feature's own boundary becomes an area, exactly as if it had been drawn.
@@ -6514,6 +6552,18 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   function clearQeii() {
     if (qeiiLayer) { map.removeLayer(qeiiLayer); qeiiLayer = null; }
   }
+
+  // Covenants on the map that touch a drawn shape (any overlap, as occurd.
+  // does for covenants), for draw to select.
+  qeiiFeaturesUnder = (drawnGeojson) => {
+    if (!qeiiActive || !qeiiLayer) return [];
+    const out = [];
+    qeiiLayer.eachLayer(l => {
+      const f = l.feature;
+      try { if (f && f.geometry && turf.booleanIntersects(drawnGeojson, f)) out.push(f); } catch (e) {}
+    });
+    return out;
+  };
 
   async function fetchQeii() {
     if (!qeiiActive || qeiiLoading) return;

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.39.0 — 2026-10-26
+
+- **Draw to select, as in occurd.** Drawing a shape (polygon or rectangle)
+  now also adds, each as its own area:
+  - every QEII covenant it overlaps, when the QEII layer is on;
+  - every area of the ticked reference layers that lies within it (90% or
+    more inside), when the Layers panel is open, at full detail. QEII
+    covenants ticked there are included.
+  Your drawn shape is kept, so remove it with ✕ if you only want the
+  covenants. Up to 40 layer areas at once; a covenant on both the QEII
+  layer and the Layers panel is added once. Works in both tabs.
+
 ## v0.38.3 — 2026-10-26
 
 - **LiDAR results: height-class table and histogram side by side** in one
