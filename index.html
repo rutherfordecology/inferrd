@@ -901,7 +901,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.38.0';
+const APP_VERSION = 'v0.38.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4942,7 +4942,7 @@ document.getElementById('lidarRunBtn').addEventListener('click', lidarLoad);
 
 function lidarStats() {
   const d = lidarData, g = d.grid, cellHa = g.res * g.res / 10000;
-  let inside = 0, withDem = 0, withH = 0, spikes = 0, zMin = Infinity, zMax = -Infinity, zSum = 0, hSum = 0;
+  let inside = 0, withDem = 0, withH = 0, spikes = 0, zMin = Infinity, zMax = -Infinity, zSum = 0, hSum = 0, hMax = -Infinity, hMaxI = -1;
   const classN = LIDAR_CLASSES.map(() => 0);
   const fine = new Uint32Array(LIDAR_SPIKE_M * 10 + 1); // 0.1 m bins, for percentiles
   for (let i = 0; i < d.mask.length; i++) {
@@ -4954,11 +4954,12 @@ function lidarStats() {
     const h = d.height[i];
     if (h !== h) { if (z === z && d.dsm[i] === d.dsm[i]) spikes++; continue; }
     withH++; hSum += h;
+    if (h > hMax) { hMax = h; hMaxI = i; }
     classN[LIDAR_CLASSES.findIndex(c => h >= c.lo && h < c.hi)]++;
     fine[Math.min(fine.length - 1, Math.floor(h * 10))]++;
   }
   const pct = (p) => { let acc = 0; const target = p * withH; for (let k = 0; k < fine.length; k++) { acc += fine[k]; if (acc >= target) return k / 10; } return NaN; };
-  return { cellHa, inside, withDem, withH, spikes, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, p50: pct(0.5), p95: pct(0.95), classN, fine };
+  return { cellHa, inside, withDem, withH, spikes, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, hMax, hMaxI, p50: pct(0.5), p95: pct(0.95), classN, fine };
 }
 
 // Emergents cut-off. from: the height where pink starts (the slider's, or
@@ -4994,9 +4995,21 @@ function renderLidarResults() {
     metric('Ground', st.withDem ? Math.round(st.zMin) + '–' + Math.round(st.zMax) + ' m' : '–'),
     d.height ? metric('Mean height', f1(st.hMean) + ' m') : '',
     d.height ? metric('Canopy top (95th pct)', f1(st.p95) + ' m') : '',
+    d.height && st.hMaxI >= 0 ? metric('Tallest', '<a href="#" id="lidarTallestLink" title="Show it on the map" style="color:inherit;">' + f1(st.hMax) + ' m</a>') : '',
     d.height ? metric('Over 5 m tall', pc(tall, st.withH)) : '',
     metric('Grid', d.grid.res + ' m')
   ].join('');
+  // The tallest cell can be a real emergent or a mast, wire or stray
+  // return, so its number takes you there to look.
+  const tallestLink = document.getElementById('lidarTallestLink');
+  if (tallestLink) tallestLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    const g = d.grid, c = st.hMaxI % g.W, r = Math.floor(st.hMaxI / g.W);
+    const [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [g.x0 + (c + 0.5) * g.res, g.y1 - (r + 0.5) * g.res]);
+    const ll = L.latLng(lat, lon);
+    map.setView(ll, Math.max(map.getZoom(), 19));
+    map.fire('click', { latlng: ll });
+  });
 
   const table = document.getElementById('lidarClassTable');
   const csvBtn = document.getElementById('lidarCsvBtn');

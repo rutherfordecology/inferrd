@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.38.1 — 2026-10-26
+
+- **Tallest** added to the LiDAR stats row: the single highest cell of
+  vegetation height (cells over 100 m are still dropped as noise). Click
+  the number to zoom to it and see its heights, since it can be a mast,
+  wire or stray return as easily as an emergent tree.
+
 ## v0.38.0 — 2026-10-26
 
 - **Zoom to 22** (was 19). Past 19 the satellite basemap is its zoom-19
