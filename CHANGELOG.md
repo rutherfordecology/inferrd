@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.37.0 — 2026-10-26
+
+- **Colour choices for vegetation height** (LiDAR tab, under Layer):
+  Greens, Viridis (purple to yellow), Rainbow (most contrast), Height
+  classes (one colour per class, as in the table) and Emergents. The legend,
+  the height-class swatches and the histogram follow the choice, and it's
+  remembered on this device.
+- **Emergents** paints everything over a cut-off height pink and the rest
+  in muted greens, so trees standing above the canopy show up. The cut-off
+  starts at the tallest 10% of the cover over 2 m; a slider sets your own
+  height (2–60 m), which then holds for every area. The legend gives the
+  area in pink and its share of the cover over 2 m.
+- A tile read that comes back short is retried once instead of failing
+  the whole load.
+- Sliders (opacity, cloud %) show their track again.
+
 ## v0.36.1 — 2026-10-26
 
 - **LiDAR tab: ✕ beside the area picker** removes that area (from the map

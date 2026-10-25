@@ -210,6 +210,10 @@ tab is used).
 - **Layers:** vegetation height (DSM − DEM from the same survey, negatives
   set to 0, over 100 m dropped as noise), DEM hillshade, DSM hillshade and
   coloured elevation (Horn hillshade, light from the north-west at 45°).
+  Vegetation height has five colour schemes: Greens, Viridis, Rainbow,
+  Height classes (one colour per table class) and Emergents (everything
+  over a cut-off in pink; the cut-off starts at the tallest 10% of cover
+  over 2 m and a slider sets it in metres).
 - **Results:** area, LiDAR cover, ground range, mean height, 95th-percentile
   height, share over 5 m, area per height class (CSV) and a histogram of
   heights in 1 m bands. Clicking the map gives the values at that point.

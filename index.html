@@ -50,6 +50,8 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 #lidarPanel { display: flex; flex-direction: column; flex: 1; }
 .lidar-legend { margin-top: 8px; }
 .lidar-legend .ramp { height: 10px; border-radius: 2px; }
+.lidar-legend .ticks span { white-space: nowrap; }
+.field input[type=range] { appearance: auto; border: none; padding: 0; background: none; }
 .lidar-legend .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); margin-top: 2px; }
 .lidar-hist-bar { fill: #3f7d4f; }
 
@@ -537,6 +539,17 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <span class="range-val" id="lidarOpacityVal">100%</span>
           </div>
         </div>
+        <div class="field" id="lidarSchemeField" style="margin-top:0.2rem;">
+          <label>Colours</label>
+          <select id="lidarScheme"></select>
+        </div>
+        <div class="field" id="lidarEmergentField" style="display:none;">
+          <label>Pink: everything taller than</label>
+          <div class="range-row">
+            <input type="range" id="lidarEmergentM" min="2" max="60" step="0.5" value="20">
+            <span class="range-val" id="lidarEmergentMVal" style="min-width:44px;">auto</span>
+          </div>
+        </div>
         <div class="lidar-legend" id="lidarLegend"></div>
         <button class="run-btn" id="lidarRunBtn" type="button" disabled>Load LiDAR</button>
         <div class="status-bar" id="lidarStatus"></div>
@@ -888,7 +901,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.36.1';
+const APP_VERSION = 'v0.37.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4333,7 +4346,24 @@ const LIDAR_CLASSES = [
   { lo: 25, hi: Infinity, label: '25 m and over', desc: 'Tall forest, emergent trees', color: '#00301a' }
 ];
 const LIDAR_HEIGHT_RAMP = [[0, '#ece6d2'], [2, '#d9ef8b'], [5, '#91cf60'], [12, '#1a9850'], [25, '#006837'], [40, '#00301a']];
-const LIDAR_ELEV_RAMP = [[0, '#3a7d44'], [0.25, '#a3c46c'], [0.5, '#f0e08a'], [0.75, '#c99a5b'], [0.9, '#8c5a3c'], [1, '#f5f0ea']];
+// Colour schemes for the vegetation height layer, picked under Layer.
+// Under 0.5 m is always grey, so the ground shows through.
+// "Emergents" stretches a muted ramp up to a cut-off height and paints
+// everything taller one loud colour, so trees standing above the canopy
+// show up. The cut-off starts at the tallest 10% of the cover over 2 m;
+// once the slider is moved, its height is used for every area.
+const LIDAR_SCHEMES = {
+  greens: { name: 'Greens', ramp: LIDAR_HEIGHT_RAMP },
+  viridis: { name: 'Viridis: purple to yellow', ramp: [[0, '#440154'], [10, '#3b528b'], [20, '#21918c'], [30, '#5ec962'], [40, '#fde725']] },
+  rainbow: { name: 'Rainbow: most contrast', ramp: [[0, '#30123b'], [5, '#4686fb'], [10, '#1ae4b6'], [15, '#a2fc3c'], [20, '#faba39'], [30, '#e4460a'], [40, '#7a0403']] },
+  classes: { name: 'Height classes: one colour each', steps: ['#fee391', '#fe9929', '#78c679', '#238443', '#2c7fb8'] }, // 0.5–2, 2–5, 5–12, 12–25, 25+ m
+  emergent: { name: 'Emergents: tallest trees stand out', ramp: [[0, '#e3dfcc'], [0.5, '#9aae85'], [1, '#2f4a32']], top: '#ff1f9e' }
+};
+const LIDAR_GROUND_GREY = '#cfcabd';
+let lidarScheme = 'greens';
+let lidarEmergentM = null; // null: the tallest 10% of the cover over 2 m
+try { const s = localStorage.getItem('inferrd.lidarScheme'); if (LIDAR_SCHEMES[s]) lidarScheme = s; } catch (e) {}
+const LIDAR_ELEV_RAMP =[[0, '#3a7d44'], [0.25, '#a3c46c'], [0.5, '#f0e08a'], [0.75, '#c99a5b'], [0.9, '#8c5a3c'], [1, '#f5f0ea']];
 const LIDAR_SPIKE_M = 100; // taller than any NZ tree: birds, wires, return errors
 
 let appTab = 'infrared';
@@ -4562,20 +4592,26 @@ async function lidarMosaic(dir, tiles, g, onTile) {
       const tb = lidarTileBounds(name);
       const ox0 = Math.max(tb[0], g.x0), ox1 = Math.min(tb[2], g.x1), oy0 = Math.max(tb[1], g.y0), oy1 = Math.min(tb[3], g.y1);
       if (ox1 > ox0 && oy1 > oy0) {
-        const tiff = await GeoTIFF.fromUrl(LIDAR_BUCKET + dir + name + '.tiff');
-        const n = await tiff.getImageCount();
+        let img, ras;
         // Overviews halve each time: take the coarsest one still at least
         // as fine as the grid, and step through it if it's finer.
-        let img = await tiff.getImage(0);
-        for (let i = 1; i < n; i++) {
-          const im = await tiff.getImage(i);
-          if ((tb[2] - tb[0]) / im.getWidth() <= g.res + 1e-6) img = im; else break;
-        }
-        const px = (tb[2] - tb[0]) / img.getWidth();
-        const step = Math.max(1, Math.round(g.res / px));
-        const c0 = Math.round((ox0 - tb[0]) / px), c1 = Math.round((ox1 - tb[0]) / px);
-        const r0 = Math.round((tb[3] - oy1) / px), r1 = Math.round((tb[3] - oy0) / px);
-        const ras = (await img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }))[0];
+        const readTile = async () => {
+          const tiff = await GeoTIFF.fromUrl(LIDAR_BUCKET + dir + name + '.tiff');
+          const n = await tiff.getImageCount();
+          img = await tiff.getImage(0);
+          for (let i = 1; i < n; i++) {
+            const im = await tiff.getImage(i);
+            if ((tb[2] - tb[0]) / im.getWidth() <= g.res + 1e-6) img = im; else break;
+          }
+        };
+        const px = () => (tb[2] - tb[0]) / img.getWidth();
+        const win = () => [Math.round((ox0 - tb[0]) / px()), Math.round((tb[3] - oy1) / px()), Math.round((ox1 - tb[0]) / px()), Math.round((tb[3] - oy0) / px())];
+        // A read now and then comes back short ("Invalid typed array
+        // length"); a fresh second go has always worked.
+        try { await readTile(); ras = (await img.readRasters({ window: win(), samples: [0] }))[0]; }
+        catch (err) { await readTile(); ras = (await img.readRasters({ window: win(), samples: [0] }))[0]; }
+        const step = Math.max(1, Math.round(g.res / px()));
+        const [c0, r0, c1, r1] = win();
         const nodata = img.getGDALNoData();
         const ww = c1 - c0;
         const gc0 = Math.round((ox0 - g.x0) / g.res), gr0 = Math.round((g.y1 - oy1) / g.res);
@@ -4660,6 +4696,28 @@ function lidarPercentileOf(arr, mask, ps) {
   return ps.map(p => sample.length ? sample[Math.min(sample.length - 1, Math.floor(p * sample.length))] : NaN);
 }
 
+// The current scheme as RGB per 0.1 m of height, 0 to LIDAR_SPIKE_M.
+function lidarHeightLut(d) {
+  const sc = LIDAR_SCHEMES[lidarScheme], n = LIDAR_SPIKE_M * 10 + 1, lut = new Uint8Array(n * 3);
+  const top = sc.top ? lidarEmergent(d.stats).from : Infinity;
+  const base = sc.steps ? null : sc.top ? rampLut(sc.ramp, 0, 1, 256) : rampLut(sc.ramp, 0, 40, 401);
+  const topRgb = sc.top ? hexRgb(sc.top) : null, steps = sc.steps ? sc.steps.map(hexRgb) : null;
+  const hi = isFinite(top) ? top : 40;
+  for (let k = 5; k < n; k++) {
+    const h = k / 10;
+    let rgb;
+    if (steps) rgb = steps[LIDAR_CLASSES.findIndex(c => h >= c.lo && h < c.hi) - 1];
+    else if (topRgb && h >= top) rgb = topRgb;
+    else if (topRgb) { const j = Math.round(255 * Math.min(1, Math.max(0, (h - 0.5) / (hi - 0.5 || 1)))) * 3; rgb = [base[j], base[j + 1], base[j + 2]]; }
+    else { const j = Math.min(400, k) * 3; rgb = [base[j], base[j + 1], base[j + 2]]; }
+    lut[k * 3] = rgb[0]; lut[k * 3 + 1] = rgb[1]; lut[k * 3 + 2] = rgb[2];
+  }
+  return lut;
+}
+const lutCss = (lut, h) => { if (h < 0.5) return LIDAR_GROUND_GREY; const k = Math.min(LIDAR_SPIKE_M * 10, Math.round(h * 10)) * 3; return 'rgb(' + lut[k] + ',' + lut[k + 1] + ',' + lut[k + 2] + ')'; };
+// Middle of a height class, for its swatch.
+const classMid = (c) => c.lo === -Infinity ? 0 : c.hi === Infinity ? c.lo + 5 : (c.lo + c.hi) / 2;
+
 // Colours the grid for the chosen layer, then warps it from NZTM into the
 // map's Web Mercator so it sits exactly on the basemap.
 function renderLidarLayer() {
@@ -4670,7 +4728,7 @@ function renderLidarLayer() {
   if (!d.shadeDem) d.shadeDem = lidarHillshade(d.dem, g);
   if (layer === 'dsm' && !d.shadeDsm) d.shadeDsm = lidarHillshade(d.dsm, g);
   const rgba = new Uint8ClampedArray(n * 4);
-  const hLut = rampLut(LIDAR_HEIGHT_RAMP, 0, 40, 161);
+  const hLut = layer === 'height' ? lidarHeightLut(d) : null;
   const eLut = rampLut(LIDAR_ELEV_RAMP, 0, 1, 256);
   const [elo, ehi] = d.elevRange;
   for (let i = 0; i < n; i++) {
@@ -4690,7 +4748,7 @@ function renderLidarLayer() {
       if (h !== h) continue;
       const m = 0.7 + 0.3 * (s === s ? s : 1);
       if (h < 0.5) { r = gr = b = (140 + 100 * (s === s ? s : 1)); }
-      else { const k = Math.round(Math.min(40, h) * 4) * 3; r = hLut[k] * m; gr = hLut[k + 1] * m; b = hLut[k + 2] * m; }
+      else { const k = Math.min(LIDAR_SPIKE_M * 10, Math.round(h * 10)) * 3; r = hLut[k] * m; gr = hLut[k + 1] * m; b = hLut[k + 2] * m; }
     }
     rgba[i * 4] = r; rgba[i * 4 + 1] = gr; rgba[i * 4 + 2] = b; rgba[i * 4 + 3] = 255;
   }
@@ -4744,6 +4802,21 @@ document.getElementById('lidarOpacity').addEventListener('input', () => {
   document.getElementById('lidarOpacityVal').textContent = Math.round(lidarOpacity() * 100) + '%';
   if (lidarOverlay) lidarOverlay.setOpacity(lidarOpacity());
 });
+const lidarSchemeSel = document.getElementById('lidarScheme');
+lidarSchemeSel.innerHTML = Object.entries(LIDAR_SCHEMES).map(([k, s]) => '<option value="' + k + '"' + (k === lidarScheme ? ' selected' : '') + '>' + s.name + '</option>').join('');
+lidarSchemeSel.addEventListener('change', () => {
+  lidarScheme = lidarSchemeSel.value;
+  try { localStorage.setItem('inferrd.lidarScheme', lidarScheme); } catch (e) {}
+  renderLidarLegend();
+  if (lidarData) { renderLidarLayer(); renderLidarResults(); }
+});
+// Dragging updates the label and legend; the map redraws on release.
+const lidarEmergentEl = document.getElementById('lidarEmergentM');
+lidarEmergentEl.addEventListener('input', () => {
+  lidarEmergentM = Number(lidarEmergentEl.value);
+  renderLidarLegend();
+});
+lidarEmergentEl.addEventListener('change', () => { if (lidarData) { renderLidarLayer(); renderLidarResults(); } });
 document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => b.addEventListener('click', () => {
   if (b.disabled || b.dataset.layer === lidarLayer) return;
   lidarLayer = b.dataset.layer;
@@ -4754,11 +4827,36 @@ document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => b.addEventLi
 function renderLidarLegend() {
   const el = document.getElementById('lidarLegend');
   const tick = (label, pct) => '<span style="position:absolute;left:' + pct + '%;transform:translateX(-' + pct + '%);">' + label + '</span>';
+  document.getElementById('lidarSchemeField').style.display = lidarLayer === 'height' ? '' : 'none';
+  document.getElementById('lidarEmergentField').style.display = lidarLayer === 'height' && LIDAR_SCHEMES[lidarScheme].top ? '' : 'none';
   if (lidarLayer === 'height') {
-    const grad = LIDAR_HEIGHT_RAMP.map(([v, c]) => c + ' ' + (v / 40 * 100) + '%').join(', ');
-    el.innerHTML = '<div class="ramp" style="background:linear-gradient(to right, ' + grad + ');"></div>' +
-      '<div class="ticks" style="position:relative;height:13px;">' + [0, 2, 5, 12, 25].map(v => tick(v, v / 40 * 100)).join('') + tick('40+ m', 100) + '</div>' +
-      '<div class="field-hint">Under 0.5 m is left grey, so the ground shows through.</div>';
+    const sc = LIDAR_SCHEMES[lidarScheme];
+    const em = sc.top && lidarData && lidarData.stats ? lidarEmergent(lidarData.stats) : null;
+    const top = em ? em.from : null;
+    // The slider shows the cut-off in use, including the automatic one.
+    const shownM = lidarEmergentM !== null ? lidarEmergentM : top && isFinite(top) ? top : null;
+    if (shownM !== null && document.activeElement !== lidarEmergentEl) lidarEmergentEl.value = shownM;
+    document.getElementById('lidarEmergentMVal').textContent = shownM !== null ? shownM.toFixed(1) + ' m' : 'auto';
+    const hi = sc.top ? (top && isFinite(top) ? Math.ceil(top) : 40) : 40;
+    // The legend reads 0 to 40 m (to the emergent cut-off for Emergents),
+    // sampled from the same lookup the map uses.
+    const lut = lidarData && lidarData.stats ? lidarHeightLut(lidarData) : null;
+    let grad;
+    if (lut) {
+      const span = sc.top && top && isFinite(top) ? hi * 1.25 : 40, stops = [];
+      for (let k = 0; k <= 80; k++) { const h = Math.max(0.5, span * k / 80); stops.push(lutCss(lut, h) + ' ' + (k / 80 * 100).toFixed(1) + '%'); }
+      grad = stops.join(', ');
+      el.innerHTML = '<div class="ramp" style="background:linear-gradient(to right, ' + grad + ');"></div>' +
+        '<div class="ticks" style="position:relative;height:13px;">' +
+        (sc.top && top && isFinite(top)
+          ? tick('0.5', 0) + tick(top.toFixed(1) + ' m', top / span * 100) + tick(Math.round(span) + '+ m', 100)
+          : [0, 5, 12, 25].map(v => tick(v, v / 40 * 100)).join('') + tick('40+ m', 100)) + '</div>' +
+        '<div class="field-hint">' + (sc.top
+          ? (top && isFinite(top) ? 'Pink: everything over ' + top.toFixed(1) + ' m, ' + fmtHa(em.n * lidarData.stats.cellHa) + ' ha' + (em.woody ? ' (' + (100 * em.n / em.woody).toFixed(em.n / em.woody < 0.1 ? 1 : 0) + '% of the cover over 2 m)' : '') + (lidarEmergentM === null ? '. Starts at the tallest 10%; drag to set your own height.' : '.') + ' ' : 'Nothing here is over 2 m, so there are no emergents to pick out. ')
+          : sc.steps ? 'One colour per height class, as in the table. ' : '') + 'Under 0.5 m is left grey, so the ground shows through.</div>';
+    } else {
+      el.innerHTML = '<div class="field-hint">' + (sc.top ? (lidarEmergentM === null ? 'Pink marks the tallest 10% of the cover over 2 m once LiDAR is loaded. ' : 'Pink marks everything over ' + lidarEmergentM + ' m. ') : '') + 'Under 0.5 m is left grey, so the ground shows through.</div>';
+    }
   } else if (lidarLayer === 'elev') {
     const grad = LIDAR_ELEV_RAMP.map(([v, c]) => c + ' ' + (v * 100) + '%').join(', ');
     const r = lidarData ? lidarData.elevRange : null;
@@ -4809,6 +4907,7 @@ async function lidarLoad() {
     }
     const er = lidarPercentileOf(dem, mask, [0.02, 0.98]);
     lidarData = { areaId: area.id, areaName: area.name, geojson: area.geojson, survey, grid: g, dem, dsm, height, mask, elevRange: er };
+    lidarData.stats = lidarStats(); // before drawing: the Emergents colours need its cut-off
     if (!dsm && (lidarLayer === 'height' || lidarLayer === 'dsm')) lidarLayer = 'dem';
     lidarBusy = false;
     syncLidarControls();
@@ -4847,9 +4946,29 @@ function lidarStats() {
   return { cellHa, inside, withDem, withH, spikes, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, p50: pct(0.5), p95: pct(0.95), classN, fine };
 }
 
+// Emergents cut-off. from: the height where pink starts (the slider's, or
+// by default the tallest 10% of the cells over 2 m, so it follows this
+// area's canopy rather than the open ground in it); n: cells at or above
+// it; woody: cells over 2 m.
+function lidarEmergent(st) {
+  const fine = st.fine;
+  let woody = 0;
+  for (let k = 20; k < fine.length; k++) woody += fine[k];
+  let from = lidarEmergentM;
+  if (from === null) {
+    if (!woody) return { from: Infinity, n: 0, woody };
+    let acc = 0;
+    from = 2;
+    for (let k = fine.length - 1; k >= 20; k--) { acc += fine[k]; if (acc >= 0.1 * woody) { from = k / 10; break; } }
+  }
+  let n = 0;
+  for (let k = Math.round(from * 10); k < fine.length; k++) n += fine[k];
+  return { from, n, woody };
+}
+
 function renderLidarResults() {
-  const d = lidarData, st = lidarStats();
-  d.stats = st;
+  const d = lidarData, st = d.stats || (d.stats = lidarStats());
+  const lut = d.height ? lidarHeightLut(d) : null;
   const f1 = (v) => v === v && isFinite(v) ? v.toFixed(1) : '–';
   const pc = (a, b) => b ? Math.round(100 * a / b) + '%' : '–';
   const metric = (label, value) => '<div class="metric"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
@@ -4868,14 +4987,14 @@ function renderLidarResults() {
   const csvBtn = document.getElementById('lidarCsvBtn');
   if (d.height) {
     table.innerHTML = '<tr><th>Height</th><th>Usually</th><th style="text-align:right">Area (ha)</th><th style="text-align:right">Share</th></tr>' +
-      LIDAR_CLASSES.map((c, k) => '<tr><td><span class="area-swatch" style="display:inline-block;vertical-align:-1px;margin-right:6px;background:' + c.color + ';border:1px solid var(--border2);"></span>' + c.label + '</td><td>' + c.desc + '</td>' +
+      LIDAR_CLASSES.map((c, k) => '<tr><td><span class="area-swatch" style="display:inline-block;vertical-align:-1px;margin-right:6px;background:' + lutCss(lut, classMid(c)) + ';border:1px solid var(--border2);"></span>' + c.label + '</td><td>' + c.desc + '</td>' +
         '<td style="text-align:right">' + fmtHa(st.classN[k] * st.cellHa) + '</td><td style="text-align:right">' + pc(st.classN[k], st.withH) + '</td></tr>').join('');
     csvBtn.style.display = '';
   } else {
     table.innerHTML = '<tr><td>This survey has no surface model (DSM), so vegetation height can\'t be worked out. Pick a survey marked "vegetation height available" if there is one.</td></tr>';
     csvBtn.style.display = 'none';
   }
-  renderLidarHistogram(st);
+  renderLidarHistogram(st, lut);
 
   const s = d.survey;
   const notes = [
@@ -4891,7 +5010,7 @@ function renderLidarResults() {
   document.getElementById('lidarContent').style.display = 'block';
 }
 
-function renderLidarHistogram(st) {
+function renderLidarHistogram(st, lut) {
   const el = document.getElementById('lidarHist');
   if (!lidarData.height || !st.withH) { el.innerHTML = '<div class="field-hint">No vegetation height for this survey.</div>'; return; }
   const bins = [];
@@ -4903,10 +5022,9 @@ function renderLidarHistogram(st) {
   const yOf = (share) => Ht - padB - (share / max) * (Ht - padB - 8);
   let svg = '<svg viewBox="0 0 ' + Wd + ' ' + Ht + '" style="width:100%;height:auto;display:block;font-family:var(--font-sans);font-size:10px;">';
   [0, 0.5, 1].forEach(t => { const y = yOf(max * t); svg += '<line x1="' + padL + '" x2="' + (Wd - 6) + '" y1="' + y + '" y2="' + y + '" stroke="#e2d8ca"/><text x="' + (padL - 4) + '" y="' + (y + 3) + '" text-anchor="end" fill="#a89a89">' + Math.round(max * t * 100) + '%</text>'; });
-  const hLut = rampLut(LIDAR_HEIGHT_RAMP, 0, 40, 161);
   bins.forEach((n, m) => {
-    const share = n / st.withH, y = yOf(share), k = Math.min(160, m * 4 + 2) * 3;
-    svg += '<rect x="' + (padL + m * bw + 0.5) + '" y="' + y + '" width="' + Math.max(1, bw - 1) + '" height="' + (Ht - padB - y) + '" fill="rgb(' + hLut[k] + ',' + hLut[k + 1] + ',' + hLut[k + 2] + ')" stroke="#cfc0aa" stroke-width="0.5">' +
+    const share = n / st.withH, y = yOf(share);
+    svg += '<rect x="' + (padL + m * bw + 0.5) + '" y="' + y + '" width="' + Math.max(1, bw - 1) + '" height="' + (Ht - padB - y) + '" fill="' + lutCss(lut, m + 0.5) + '" stroke="#cfc0aa" stroke-width="0.5">' +
       '<title>' + (m < 40 ? m + '–' + (m + 1) + ' m' : '40 m and over') + ': ' + (share * 100).toFixed(1) + '%</title></rect>';
   });
   [0, 5, 10, 15, 20, 25, 30, 35, 40].forEach(v => { svg += '<text x="' + (padL + v * bw) + '" y="' + (Ht - 8) + '" text-anchor="middle" fill="#a89a89">' + v + (v === 40 ? '+ m' : '') + '</text>'; });
