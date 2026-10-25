@@ -39,6 +39,20 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .about-btn { background: none; border: none; cursor: pointer; font-size: 13px; color: rgba(255,255,255,0.75); padding: 4px 8px; border-radius: var(--radius-sm); font-family: var(--font-sans); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
 .about-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
+/* Infrared / LiDAR tabs. Each tab has its own sidebar and results; the map
+   and the drawn areas are shared. */
+.app-tabs { display: flex; gap: 2px; margin-left: 1.5rem; margin-right: auto; align-self: stretch; }
+.app-tab { background: none; border: none; border-bottom: 3px solid transparent; color: rgba(255,255,255,0.6); font-family: var(--font-sans); font-size: 13px; font-weight: 500; padding: 0 14px; cursor: pointer; }
+.app-tab:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.app-tab.active { color: #fff; border-bottom-color: var(--orange-mid); }
+.sidebar.lidar-mode > :not(#lidarPanel), .sidebar:not(.lidar-mode) > #lidarPanel { display: none !important; }
+.results-pane.lidar-mode > :not(#lidarResults), .results-pane:not(.lidar-mode) > #lidarResults { display: none !important; }
+#lidarPanel { display: flex; flex-direction: column; flex: 1; }
+.lidar-legend { margin-top: 8px; }
+.lidar-legend .ramp { height: 10px; border-radius: 2px; }
+.lidar-legend .ticks { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); margin-top: 2px; }
+.lidar-hist-bar { fill: #3f7d4f; }
+
 .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 52px); overflow: hidden; }
 .sidebar { background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
 .main { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
@@ -203,6 +217,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h1><strong>inferrd</strong><em>.</em><span class="ver" id="verTag">v0.1.0</span></h1>
     <span style="font-size:12px;font-weight:300;color:rgba(255,255,255,0.5);position:relative;top:3px;">by <strong style="font-weight:700;color:rgba(255,255,255,0.85);">Rutherford</strong> <em style="font-style:normal;font-weight:300;">ecology</em></span>
   </div>
+  <nav class="app-tabs" role="tablist" aria-label="Data source">
+    <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
+    <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
+  </nav>
   <div class="header-right">
     <div id="projectsDropWrap" style="position:relative;">
       <button id="projectsDropBtn" class="about-btn" title="Project-specific layers">Projects ▾</button>
@@ -473,6 +491,59 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="status-bar" id="statusBar"></div>
     </div>
 
+    <div id="lidarPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Area</div>
+        <div class="instruction-box">Draw an area on the map (polygon or rectangle tool, top-left), or pick one you've already drawn. LiDAR covers most of New Zealand and needs no access key.</div>
+        <div class="field">
+          <label>Area</label>
+          <select id="lidarAreaSel"></select>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · LiDAR survey</div>
+        <div class="mode-row" id="lidarSurveys" role="radiogroup" aria-label="LiDAR survey"></div>
+        <div class="poly-empty" id="lidarSurveyEmpty">Draw an area to find the LiDAR surveys that cover it</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Layer</div>
+        <div class="mode-row" id="lidarLayerBtns" role="radiogroup" aria-label="LiDAR layer">
+          <button class="mode-btn active" data-layer="height" type="button" role="radio" aria-checked="true">
+            <span class="mode-name">Vegetation height</span>
+            <span class="mode-desc">Surface minus bare ground (DSM − DEM): how tall whatever stands on the ground is</span>
+          </button>
+          <button class="mode-btn" data-layer="dem" type="button" role="radio" aria-checked="false">
+            <span class="mode-name">Bare ground</span>
+            <span class="mode-desc">Hillshade of the ground with the vegetation stripped off (DEM): old tracks, slips, streams</span>
+          </button>
+          <button class="mode-btn" data-layer="dsm" type="button" role="radio" aria-checked="false">
+            <span class="mode-name">Surface</span>
+            <span class="mode-desc">Hillshade of the top of everything (DSM): canopy crowns, gaps and buildings</span>
+          </button>
+          <button class="mode-btn" data-layer="elev" type="button" role="radio" aria-checked="false">
+            <span class="mode-name">Elevation</span>
+            <span class="mode-desc">Ground height above sea level, coloured, over the hillshade</span>
+          </button>
+        </div>
+        <div class="field" style="margin-top:0.7rem;">
+          <label>Opacity</label>
+          <div class="range-row">
+            <input type="range" id="lidarOpacity" min="0" max="100" step="5" value="100">
+            <span class="range-val" id="lidarOpacityVal">100%</span>
+          </div>
+        </div>
+        <div class="lidar-legend" id="lidarLegend"></div>
+        <button class="run-btn" id="lidarRunBtn" type="button" disabled>Load LiDAR</button>
+        <div class="status-bar" id="lidarStatus"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="note">LiDAR from Toitū Te Whenua Land Information New Zealand (<a href="https://registry.opendata.aws/nz-elevation/" target="_blank" rel="noopener">nz-elevation</a>), licensed CC BY 4.0. It is read straight from LINZ's open bucket in your browser. Click the map once a layer has loaded to see the heights at a point.</p>
+      </div>
+    </div>
+
     <div class="sidebar-footer">
       <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy vegetation. NDVI stays available since it's the more common reference point in time-series work. NBR and NDMI use different bands (shortwave-infrared) to pick up burn/clearance and moisture stress respectively. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
     </div>
@@ -487,6 +558,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div id="resizeHandle" title="Drag to resize"><div class="grip"></div></div>
 
     <div class="results-pane" id="resultsPane">
+      <div id="lidarResults">
+        <div class="results-empty" id="lidarEmpty">
+          <span class="big">◌</span>
+          Draw an area, pick a survey and load the LiDAR to see heights here.
+        </div>
+        <div id="lidarContent" style="display:none">
+          <div class="metrics" id="lidarMetrics"></div>
+          <div class="table-card">
+            <div class="table-card-head">
+              <div class="card-title">Vegetation height classes</div>
+              <button class="dl-btn" id="lidarCsvBtn" type="button">Download CSV</button>
+            </div>
+            <table class="stats-table" id="lidarClassTable"></table>
+          </div>
+          <div class="chart-card">
+            <div class="card-title">Spread of heights (share of the area in each 1 m band)</div>
+            <div id="lidarHist"></div>
+          </div>
+          <div class="interp-card">
+            <div class="card-title">Reading this</div>
+            <div id="lidarNotes"></div>
+          </div>
+        </div>
+      </div>
       <div class="results-empty" id="resultsEmpty">
         <span class="big">◌</span>
         Draw a boundary, unlock with your access key, and run an analysis to see results here.
@@ -731,6 +826,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
     <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). ESA only produced it worldwide from December 2018, so outside Europe 2017 and most of 2018 are missing or thin; 2019 is the first full year everywhere, and the default start.</p>
 
+    <h3>LiDAR tab (New Zealand)</h3>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
+
     <h3>Reference layers</h3>
     <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
 
@@ -786,7 +885,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.35.0';
+const APP_VERSION = 'v0.36.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1010,6 +1109,7 @@ function renderAreaList() {
     ? 'Runs ~12x more sub-queries per area (one per month instead of one per year), so with ' + areas.length + ' areas that\'s a real wait — but it\'s the only way to see each area\'s seasonal wave and a real, location-specific natural-variability baseline.'
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
+  lidarAreasChanged();
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   hideConditionLayers();
@@ -3733,7 +3833,7 @@ map.on(L.Draw.Event.DRAWSTART + ' ' + L.Draw.Event.EDITSTART, () => { drawToolAc
 map.on(L.Draw.Event.DRAWSTOP + ' ' + L.Draw.Event.EDITSTOP, () => { drawToolActive = false; });
 
 map.on('click', (e) => {
-  if (!changeVisible || drawToolActive) return;
+  if (!changeVisible || drawToolActive || appTab === 'lidar') return;
   const pt = [e.latlng.lng, e.latlng.lat];
   // Last drawn wins where areas overlap — it's the one on top.
   const area = areas.slice().reverse().find(a => pointInGeometry(pt, a.geojson.geometry));
@@ -4187,12 +4287,664 @@ map.on(L.Draw.Event.EDITED, (e) => {
     if (area) area.geojson = layer.toGeoJSON();
   });
   syncAreaCentreLines();
+  lidarAreasChanged();
 });
 // The black centre line follows the shape while it is being reshaped, and
 // snaps back with it when an edit is cancelled.
 function syncAreaCentreLines() { areas.forEach(a => a.centre.setLatLngs(a.layer.getLatLngs())); }
 [L.Draw.Event.EDITVERTEX, L.Draw.Event.EDITMOVE, L.Draw.Event.EDITRESIZE, L.Draw.Event.EDITSTOP].forEach(ev => map.on(ev, syncAreaCentreLines));
+
+/* ---------------------------------------------------------------------
+   LiDAR tab — LINZ's 1 m DEM (bare ground) and DSM (top of everything),
+   read straight from the open nz-elevation bucket as Cloud-Optimised
+   GeoTIFFs: no Earth Engine and no key. Each survey is a STAC collection
+   of 1:10k-sheet tiles in NZTM. Only the tiles under the area are read,
+   at the finest overview that keeps the area under LIDAR_MAX_PX pixels.
+   Vegetation height is DSM − DEM from the same survey, so both surfaces
+   come from one flight.
+   --------------------------------------------------------------------- */
+const LIDAR_BUCKET = 'https://nz-elevation.s3.ap-southeast-2.amazonaws.com/';
+const NZTM_DEF = '+proj=tmerc +lat_0=0 +lon_0=173 +k=0.9996 +x_0=1600000 +y_0=10000000 +ellps=GRS80 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs';
+const LIDAR_MAX_PX = 9000000; // 3000 × 3000 cells: 1 m up to ~3 km across, 2 m to ~6 km
+// Lon/lat extent of each region folder's surveys (October 2026), so only
+// nearby surveys' tile lists are fetched. A folder missing from here is
+// always checked, so a new region still turns up.
+const LIDAR_REGION_BBOX = {
+  'auckland': [174.10, -37.38, 175.64, -35.97], 'bay-of-plenty': [175.74, -38.96, 178.19, -37.18],
+  'canterbury': [169.43, -45.48, 174.35, -41.44], 'gisborne': [177.05, -39.05, 178.69, -37.44],
+  'hawkes-bay': [175.98, -40.52, 178.41, -38.02], 'manawatu-whanganui': [174.66, -40.88, 176.71, -38.37],
+  'marlborough': [172.63, -42.59, 174.51, -40.60], 'nelson': [172.69, -41.61, 173.77, -40.73],
+  'northland': [171.93, -36.48, 174.89, -34.05], 'otago': [168.53, -46.74, 171.26, -44.50],
+  'southland': [167.13, -47.02, 169.39, -44.57], 'taranaki': [173.65, -39.98, 175.13, -38.64],
+  'tasman': [171.99, -42.39, 173.65, -40.41], 'waikato': [174.52, -39.38, 176.79, -36.35],
+  'wellington': [174.52, -41.72, 176.43, -40.56], 'west-coast': [167.99, -44.57, 172.79, -40.67]
+};
+// Six height classes, also the legend and table swatches. The names are
+// what the height usually is, not what the vegetation is.
+const LIDAR_CLASSES = [
+  { lo: -Infinity, hi: 0.5, label: 'Under 0.5 m', desc: 'Bare ground, grass, low herbs', color: '#ece6d2' },
+  { lo: 0.5, hi: 2, label: '0.5–2 m', desc: 'Low shrubs, rank grass, fern', color: '#d9ef8b' },
+  { lo: 2, hi: 5, label: '2–5 m', desc: 'Shrubland, regenerating scrub', color: '#91cf60' },
+  { lo: 5, hi: 12, label: '5–12 m', desc: 'Tall scrub, low forest', color: '#1a9850' },
+  { lo: 12, hi: 25, label: '12–25 m', desc: 'Forest canopy', color: '#006837' },
+  { lo: 25, hi: Infinity, label: '25 m and over', desc: 'Tall forest, emergent trees', color: '#00301a' }
+];
+const LIDAR_HEIGHT_RAMP = [[0, '#ece6d2'], [2, '#d9ef8b'], [5, '#91cf60'], [12, '#1a9850'], [25, '#006837'], [40, '#00301a']];
+const LIDAR_ELEV_RAMP = [[0, '#3a7d44'], [0.25, '#a3c46c'], [0.5, '#f0e08a'], [0.75, '#c99a5b'], [0.9, '#8c5a3c'], [1, '#f5f0ea']];
+const LIDAR_SPIKE_M = 100; // taller than any NZ tree: birds, wires, return errors
+
+let appTab = 'infrared';
+let lidarAreaId = null;      // area picked in the LiDAR tab
+let lidarSurveyKey = null;   // geojson the survey list was found for
+let lidarSurveys = [];
+let lidarSurveyId = null;
+let lidarLayer = 'height';
+let lidarData = null;        // the loaded rasters, see lidarLoad()
+let lidarOverlay = null;
+let lidarOverlayUrl = null;
+let lidarRunId = 0;
+let lidarBusy = false;
+
+map.createPane('lidarPane');
+map.getPane('lidarPane').style.zIndex = 350; // above Earth Engine tiles, below the area outlines
+map.getPane('lidarPane').style.pointerEvents = 'none';
+
+function setLidarStatus(kind, msg) {
+  const el = document.getElementById('lidarStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+let lidarLibsPromise = null;
+function loadLidarLibs() {
+  if (window.GeoTIFF && window.proj4) return Promise.resolve();
+  if (!lidarLibsPromise) lidarLibsPromise = Promise.all([
+    'https://cdn.jsdelivr.net/npm/geotiff@3.0.5/dist-browser/geotiff.js', // 3.x: 2.x fails on COGs with empty (sparse) tiles
+    'https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.11.0/proj4.js'
+  ].map(src => new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = src;
+    sc.onload = resolve;
+    sc.onerror = () => reject(new Error('could not load ' + src.split('/').pop()));
+    document.head.appendChild(sc);
+  }))).then(() => { proj4.defs('EPSG:2193', NZTM_DEF); })
+    .catch(err => { lidarLibsPromise = null; throw err; });
+  return lidarLibsPromise;
+}
+const toNztm = (lon, lat) => proj4('EPSG:4326', 'EPSG:2193', [lon, lat]);
+
+async function fetchJson(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(url.split('/').slice(-4).join('/') + ' returned ' + r.status);
+  return r.json();
+}
+let lidarCatalogPromise = null;
+function lidarCatalog() {
+  if (!lidarCatalogPromise) lidarCatalogPromise = fetchJson(LIDAR_BUCKET + 'catalog.json').then(c => c.links
+    .filter(l => l.rel === 'child' && /\/(dem|dsm)_1m\/2193\/collection\.json$/.test(l.href) && !l.href.startsWith('./new-zealand/'))
+    .map(l => ({ href: l.href.replace(/^\.\//, ''), title: l.title, kind: l.href.includes('/dem_1m/') ? 'dem' : 'dsm', region: l.href.split('/')[1] })))
+    .catch(err => { lidarCatalogPromise = null; throw err; });
+  return lidarCatalogPromise;
+}
+const lidarCollectionCache = new Map();
+function lidarCollection(href) {
+  if (!lidarCollectionCache.has(href)) lidarCollectionCache.set(href, fetchJson(LIDAR_BUCKET + href).catch(err => { lidarCollectionCache.delete(href); throw err; }));
+  return lidarCollectionCache.get(href);
+}
+
+// LINZ's sheet grid: 24 × 36 km 1:50k sheets counted from x 988000,
+// y 6234000 (sheet AS00), each cut into 5 × 5 tiles of 4.8 × 7.2 km at
+// 1:10k. 'BD43_10000_0305' → [x0, y0, x1, y1] in NZTM metres.
+const SHEET_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+function lidarTileBounds(name) {
+  const m = /^([A-Z]{2})(\d{2})_10000_(\d{2})(\d{2})$/.exec(name);
+  if (!m) return null;
+  const row = SHEET_LETTERS.indexOf(m[1][0]) * 24 + SHEET_LETTERS.indexOf(m[1][1]) - 16;
+  const x0 = 988000 + Number(m[2]) * 24000 + (Number(m[4]) - 1) * 4800;
+  const y1 = 6234000 - row * 36000 - (Number(m[3]) - 1) * 7200;
+  return [x0, y1 - 7200, x0 + 4800, y1];
+}
+function lidarTilesIn(collection, nb) {
+  return collection.links.filter(l => l.rel === 'item').map(l => l.href.replace(/^\.\//, '').replace(/\.json$/, ''))
+    .filter(name => { const b = lidarTileBounds(name); return b && b[0] < nb[2] && b[2] > nb[0] && b[1] < nb[3] && b[3] > nb[1]; });
+}
+
+// The area's rings in NZTM, and their bounds.
+function lidarAreaRings(geojson) {
+  const g = geojson.geometry;
+  const polys = g.type === 'Polygon' ? [g.coordinates] : g.coordinates;
+  return polys.map(p => p.map(ring => ring.map(c => toNztm(c[0], c[1]))));
+}
+function ringsBounds(polys) {
+  const b = [Infinity, Infinity, -Infinity, -Infinity];
+  polys.forEach(p => p.forEach(r => r.forEach(([x, y]) => { b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); })));
+  return b;
+}
+
+const fmtMonthYear = (iso) => { const d = new Date(iso); return d.toLocaleString('en-NZ', { month: 'short', year: 'numeric', timeZone: 'Pacific/Auckland' }); };
+function surveyDates(s) {
+  const a = fmtMonthYear(s.start), b = fmtMonthYear(s.end);
+  return a === b ? a : a + ' – ' + b;
+}
+
+async function lidarFindSurveys(area) {
+  const key = area.geojson;
+  lidarSurveyKey = key;
+  lidarSurveys = [];
+  lidarSurveyId = null;
+  renderLidarSurveys('Looking for LiDAR over ' + area.name + '…');
+  try {
+    await loadLidarLibs();
+    const bb = turf.bbox(area.geojson);
+    const nb = ringsBounds(lidarAreaRings(area.geojson));
+    const cat = await lidarCatalog();
+    const near = (r) => { const b = LIDAR_REGION_BBOX[r]; return !b || (b[0] < bb[2] && b[2] > bb[0] && b[1] < bb[3] && b[3] > bb[1]); };
+    const found = [];
+    await Promise.all(cat.filter(c => c.kind === 'dem' && near(c.region)).map(async c => {
+      const col = await lidarCollection(c.href);
+      const eb = col.extent.spatial.bbox[0];
+      if (!(eb[0] < bb[2] && eb[2] > bb[0] && eb[1] < bb[3] && eb[3] > bb[1])) return;
+      const demTiles = lidarTilesIn(col, nb);
+      if (!demTiles.length) return;
+      const dsmHref = c.href.replace('/dem_1m/', '/dsm_1m/');
+      const dsmTiles = cat.some(d => d.href === dsmHref) ? lidarTilesIn(await lidarCollection(dsmHref), nb) : [];
+      const t = col.extent.temporal.interval[0];
+      found.push({ id: c.href, title: c.title.replace(/ LiDAR 1m DEM/, ''), start: t[0], end: t[1],
+        demDir: c.href.replace(/collection\.json$/, ''), dsmDir: dsmHref.replace(/collection\.json$/, ''), demTiles, dsmTiles });
+    }));
+    if (lidarSurveyKey !== key) return; // the area changed while this ran
+    lidarSurveys = found.sort((a, b) => b.end.localeCompare(a.end));
+    const withDsm = lidarSurveys.find(s => s.dsmTiles.length);
+    lidarSurveyId = (withDsm || lidarSurveys[0] || {}).id || null;
+    renderLidarSurveys(lidarSurveys.length ? '' : 'No LINZ LiDAR covers ' + area.name + '. LINZ\'s open LiDAR is New Zealand only.');
+  } catch (err) {
+    if (lidarSurveyKey !== key) return;
+    lidarSurveyKey = null; // try again next time
+    renderLidarSurveys('Couldn\'t read the LiDAR index: ' + err.message);
+  }
+}
+
+function renderLidarSurveys(emptyMsg) {
+  const list = document.getElementById('lidarSurveys');
+  const empty = document.getElementById('lidarSurveyEmpty');
+  list.innerHTML = lidarSurveys.map(s => {
+    const on = s.id === lidarSurveyId;
+    const what = s.dsmTiles.length ? 'Ground and surface: vegetation height available' : 'Ground only: no surface model, so no vegetation height';
+    return '<button class="mode-btn' + (on ? ' active' : '') + '" type="button" role="radio" aria-checked="' + on + '" data-id="' + s.id + '">' +
+      '<span class="mode-name">' + s.title.replace(/</g, '&lt;') + '</span>' +
+      '<span class="mode-desc">Flown ' + surveyDates(s) + '. ' + what + '.</span></button>';
+  }).join('');
+  list.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+    if (lidarSurveyId === b.dataset.id) return;
+    lidarSurveyId = b.dataset.id;
+    renderLidarSurveys('');
+  }));
+  empty.textContent = emptyMsg || 'Draw an area to find the LiDAR surveys that cover it';
+  empty.style.display = lidarSurveys.length ? 'none' : 'block';
+  syncLidarControls();
+}
+
+function currentLidarSurvey() { return lidarSurveys.find(s => s.id === lidarSurveyId) || null; }
+
+function syncLidarControls() {
+  const s = currentLidarSurvey();
+  const hasDsm = !!(s && s.dsmTiles.length);
+  document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => {
+    const needsDsm = b.dataset.layer === 'height' || b.dataset.layer === 'dsm';
+    b.disabled = needsDsm && s && !hasDsm;
+    b.style.opacity = b.disabled ? 0.45 : '';
+    const on = b.dataset.layer === lidarLayer;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  const loaded = lidarData && s && lidarData.survey.id === s.id && lidarData.areaId === lidarAreaId;
+  const btn = document.getElementById('lidarRunBtn');
+  btn.disabled = !s || lidarBusy;
+  btn.textContent = lidarBusy ? 'Loading…' : loaded ? 'Reload LiDAR' : 'Load LiDAR';
+  renderLidarLegend();
+}
+
+// Called whenever the drawn areas change (and when the tab opens).
+function lidarAreasChanged() {
+  const sel = document.getElementById('lidarAreaSel');
+  const before = lidarAreaId;
+  if (!areas.some(a => a.id === lidarAreaId)) lidarAreaId = areas.length ? areas[areas.length - 1].id : null;
+  // A newly drawn area is the one to look at.
+  const newest = areas.length ? areas[areas.length - 1].id : null;
+  if (newest !== null && newest > (lidarAreasChanged.lastNewest || 0)) lidarAreaId = newest;
+  lidarAreasChanged.lastNewest = Math.max(lidarAreasChanged.lastNewest || 0, newest || 0);
+  sel.innerHTML = areas.length ? areas.map(a => '<option value="' + a.id + '"' + (a.id === lidarAreaId ? ' selected' : '') + '>' + a.name.replace(/</g, '&lt;') + '</option>').join('')
+    : '<option value="">No areas drawn yet</option>';
+  sel.disabled = !areas.length;
+  const area = areas.find(a => a.id === lidarAreaId);
+  // Loaded LiDAR for an area that's gone or been reshaped no longer fits.
+  if (lidarData && (!area || lidarData.areaId !== area.id || lidarData.geojson !== area.geojson)) clearLidar();
+  if (!area) { lidarSurveys = []; lidarSurveyId = null; lidarSurveyKey = null; renderLidarSurveys(''); return; }
+  if (appTab === 'lidar' && (area.geojson !== lidarSurveyKey || before !== lidarAreaId)) lidarFindSurveys(area);
+}
+document.getElementById('lidarAreaSel').addEventListener('change', (e) => {
+  lidarAreaId = Number(e.target.value);
+  lidarAreasChanged();
+});
+
+function clearLidar() {
+  lidarRunId++;
+  lidarData = null;
+  if (lidarOverlay) { map.removeLayer(lidarOverlay); lidarOverlay = null; }
+  if (lidarOverlayUrl) { URL.revokeObjectURL(lidarOverlayUrl); lidarOverlayUrl = null; }
+  document.getElementById('lidarContent').style.display = 'none';
+  document.getElementById('lidarEmpty').style.display = '';
+  map.closePopup();
+  setLidarStatus('', '');
+  lidarBusy = false;
+  syncLidarControls();
+}
+
+// Reads one surface (DEM or DSM) over the grid from every tile under it,
+// four tiles at a time. Cells with no data stay NaN.
+async function lidarMosaic(dir, tiles, g, onTile) {
+  const out = new Float32Array(g.W * g.H).fill(NaN);
+  const queue = tiles.slice();
+  let done = 0;
+  async function worker() {
+    while (queue.length) {
+      const name = queue.shift();
+      const tb = lidarTileBounds(name);
+      const ox0 = Math.max(tb[0], g.x0), ox1 = Math.min(tb[2], g.x1), oy0 = Math.max(tb[1], g.y0), oy1 = Math.min(tb[3], g.y1);
+      if (ox1 > ox0 && oy1 > oy0) {
+        const tiff = await GeoTIFF.fromUrl(LIDAR_BUCKET + dir + name + '.tiff');
+        const n = await tiff.getImageCount();
+        // Overviews halve each time: take the coarsest one still at least
+        // as fine as the grid, and step through it if it's finer.
+        let img = await tiff.getImage(0);
+        for (let i = 1; i < n; i++) {
+          const im = await tiff.getImage(i);
+          if ((tb[2] - tb[0]) / im.getWidth() <= g.res + 1e-6) img = im; else break;
+        }
+        const px = (tb[2] - tb[0]) / img.getWidth();
+        const step = Math.max(1, Math.round(g.res / px));
+        const c0 = Math.round((ox0 - tb[0]) / px), c1 = Math.round((ox1 - tb[0]) / px);
+        const r0 = Math.round((tb[3] - oy1) / px), r1 = Math.round((tb[3] - oy0) / px);
+        const ras = (await img.readRasters({ window: [c0, r0, c1, r1], samples: [0] }))[0];
+        const nodata = img.getGDALNoData();
+        const ww = c1 - c0;
+        const gc0 = Math.round((ox0 - g.x0) / g.res), gr0 = Math.round((g.y1 - oy1) / g.res);
+        for (let r = 0; r * step < r1 - r0; r++) {
+          const gr = gr0 + r;
+          if (gr >= g.H) break;
+          for (let c = 0; c * step < ww; c++) {
+            const gc = gc0 + c;
+            if (gc >= g.W) break;
+            const v = ras[r * step * ww + c * step];
+            if (v !== nodata && v > -1000) out[gr * g.W + gc] = v;
+          }
+        }
+      }
+      onTile(++done);
+    }
+  }
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  return out;
+}
+
+// 1 inside the area, 0 outside, on the grid (holes and several parts kept).
+function lidarMask(polys, g) {
+  const cv = document.createElement('canvas');
+  cv.width = g.W; cv.height = g.H;
+  const ctx = cv.getContext('2d');
+  ctx.beginPath();
+  polys.forEach(p => p.forEach(ring => ring.forEach(([x, y], i) => {
+    const px = (x - g.x0) / g.res, py = (g.y1 - y) / g.res;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  })));
+  ctx.fillStyle = '#000';
+  ctx.fill('evenodd');
+  const a = ctx.getImageData(0, 0, g.W, g.H).data;
+  const m = new Uint8Array(g.W * g.H);
+  for (let i = 0; i < m.length; i++) m[i] = a[i * 4 + 3] >= 128 ? 1 : 0;
+  return m;
+}
+
+// Hillshade (Horn's method), light from the north-west at 45°, 0–1.
+function lidarHillshade(z, g) {
+  const { W, H, res } = g;
+  const out = new Float32Array(W * H).fill(NaN);
+  const zen = Math.PI / 4, az = (360 - 315 + 90) * Math.PI / 180;
+  const cz = Math.cos(zen), sz = Math.sin(zen);
+  const at = (x, y, c) => { const v = z[Math.min(H - 1, Math.max(0, y)) * W + Math.min(W - 1, Math.max(0, x))]; return v === v ? v : c; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const c = z[y * W + x];
+    if (c !== c) continue;
+    const a = at(x - 1, y - 1, c), b = at(x, y - 1, c), cc = at(x + 1, y - 1, c);
+    const d = at(x - 1, y, c), f = at(x + 1, y, c);
+    const gg = at(x - 1, y + 1, c), h = at(x, y + 1, c), i = at(x + 1, y + 1, c);
+    const dzdx = ((cc + 2 * f + i) - (a + 2 * d + gg)) / (8 * res);
+    const dzdy = ((gg + 2 * h + i) - (a + 2 * b + cc)) / (8 * res);
+    const slope = Math.atan(Math.hypot(dzdx, dzdy));
+    let aspect = Math.atan2(dzdy, -dzdx);
+    if (aspect < 0) aspect += 2 * Math.PI;
+    out[y * W + x] = Math.max(0, cz * Math.cos(slope) + sz * Math.sin(slope) * Math.cos(az - aspect));
+  }
+  return out;
+}
+
+const hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function rampLut(stops, lo, hi, n) {
+  const s = stops.map(([v, c]) => [v, hexRgb(c)]);
+  const lut = new Uint8Array(n * 3);
+  for (let k = 0; k < n; k++) {
+    const v = lo + (hi - lo) * k / (n - 1);
+    let j = 0;
+    while (j < s.length - 2 && v > s[j + 1][0]) j++;
+    const t = Math.min(1, Math.max(0, (v - s[j][0]) / (s[j + 1][0] - s[j][0])));
+    for (let q = 0; q < 3; q++) lut[k * 3 + q] = Math.round(s[j][1][q] + (s[j + 1][1][q] - s[j][1][q]) * t);
+  }
+  return lut;
+}
+
+function lidarPercentileOf(arr, mask, ps) {
+  const sample = [];
+  const stride = Math.max(1, Math.floor(arr.length / 200000));
+  for (let i = 0; i < arr.length; i += stride) if (mask[i] && arr[i] === arr[i]) sample.push(arr[i]);
+  sample.sort((a, b) => a - b);
+  return ps.map(p => sample.length ? sample[Math.min(sample.length - 1, Math.floor(p * sample.length))] : NaN);
+}
+
+// Colours the grid for the chosen layer, then warps it from NZTM into the
+// map's Web Mercator so it sits exactly on the basemap.
+function renderLidarLayer() {
+  const d = lidarData;
+  if (!d) return;
+  const g = d.grid, n = g.W * g.H;
+  const layer = (lidarLayer === 'height' || lidarLayer === 'dsm') && !d.dsm ? 'dem' : lidarLayer;
+  if (!d.shadeDem) d.shadeDem = lidarHillshade(d.dem, g);
+  if (layer === 'dsm' && !d.shadeDsm) d.shadeDsm = lidarHillshade(d.dsm, g);
+  const rgba = new Uint8ClampedArray(n * 4);
+  const hLut = rampLut(LIDAR_HEIGHT_RAMP, 0, 40, 161);
+  const eLut = rampLut(LIDAR_ELEV_RAMP, 0, 1, 256);
+  const [elo, ehi] = d.elevRange;
+  for (let i = 0; i < n; i++) {
+    if (!d.mask[i]) continue;
+    let r, gr, b;
+    if (layer === 'dem' || layer === 'dsm') {
+      const s = (layer === 'dsm' ? d.shadeDsm : d.shadeDem)[i];
+      if (s !== s) continue;
+      r = gr = b = 25 + 230 * s;
+    } else if (layer === 'elev') {
+      const z = d.dem[i], s = d.shadeDem[i];
+      if (z !== z) continue;
+      const k = Math.round(255 * Math.min(1, Math.max(0, (z - elo) / (ehi - elo || 1)))) * 3, m = 0.45 + 0.55 * (s === s ? s : 1);
+      r = eLut[k] * m; gr = eLut[k + 1] * m; b = eLut[k + 2] * m;
+    } else {
+      const h = d.height[i], s = d.shadeDem[i];
+      if (h !== h) continue;
+      const m = 0.7 + 0.3 * (s === s ? s : 1);
+      if (h < 0.5) { r = gr = b = (140 + 100 * (s === s ? s : 1)); }
+      else { const k = Math.round(Math.min(40, h) * 4) * 3; r = hLut[k] * m; gr = hLut[k + 1] * m; b = hLut[k + 2] * m; }
+    }
+    rgba[i * 4] = r; rgba[i * 4 + 1] = gr; rgba[i * 4 + 2] = b; rgba[i * 4 + 3] = 255;
+  }
+
+  const [w, s, e, nn] = turf.bbox(d.geojson);
+  const crs = L.CRS.EPSG3857;
+  const p0 = crs.project(L.latLng(s, w)), p1 = crs.project(L.latLng(nn, e));
+  const OW = Math.max(1, g.W), OH = Math.max(1, Math.round(OW * (p1.y - p0.y) / (p1.x - p0.x)));
+  // NZTM of every 16th output pixel, filled in between by interpolation:
+  // the warp is smooth enough over an area that this is exact to well
+  // under a cell.
+  const S = 16, LW = Math.ceil(OW / S) + 2, LH = Math.ceil(OH / S) + 2;
+  const lx = new Float64Array(LW * LH), ly = new Float64Array(LW * LH);
+  for (let j = 0; j < LH; j++) for (let i = 0; i < LW; i++) {
+    const ll = crs.unproject(L.point(p0.x + (i * S / OW) * (p1.x - p0.x), p1.y - (j * S / OH) * (p1.y - p0.y)));
+    const q = toNztm(ll.lng, ll.lat);
+    lx[j * LW + i] = q[0]; ly[j * LW + i] = q[1];
+  }
+  const cv = document.createElement('canvas');
+  cv.width = OW; cv.height = OH;
+  const ctx = cv.getContext('2d');
+  const img = ctx.createImageData(OW, OH), o = img.data;
+  for (let y = 0; y < OH; y++) {
+    const v = (y + 0.5) / S, j = Math.floor(v), fv = v - j;
+    for (let x = 0; x < OW; x++) {
+      const u = (x + 0.5) / S, i = Math.floor(u), fu = u - i, k = j * LW + i;
+      const X = (lx[k] * (1 - fu) + lx[k + 1] * fu) * (1 - fv) + (lx[k + LW] * (1 - fu) + lx[k + LW + 1] * fu) * fv;
+      const Y = (ly[k] * (1 - fu) + ly[k + 1] * fu) * (1 - fv) + (ly[k + LW] * (1 - fu) + ly[k + LW + 1] * fu) * fv;
+      const c = Math.floor((X - g.x0) / g.res), r = Math.floor((g.y1 - Y) / g.res);
+      if (c < 0 || r < 0 || c >= g.W || r >= g.H) continue;
+      const si = (r * g.W + c) * 4, oi = (y * OW + x) * 4;
+      o[oi] = rgba[si]; o[oi + 1] = rgba[si + 1]; o[oi + 2] = rgba[si + 2]; o[oi + 3] = rgba[si + 3];
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  const runId = lidarRunId;
+  cv.toBlob(blob => {
+    if (runId !== lidarRunId || !lidarData) return;
+    const url = URL.createObjectURL(blob);
+    const bounds = L.latLngBounds([s, w], [nn, e]);
+    if (lidarOverlay) { lidarOverlay.setUrl(url); lidarOverlay.setBounds(bounds); }
+    else lidarOverlay = L.imageOverlay(url, bounds, { pane: 'lidarPane', opacity: lidarOpacity(), interactive: false }).addTo(map);
+    if (lidarOverlayUrl) setTimeout(URL.revokeObjectURL.bind(URL, lidarOverlayUrl), 1000);
+    lidarOverlayUrl = url;
+  }, 'image/png');
+  renderLidarLegend();
+}
+
+function lidarOpacity() { return Number(document.getElementById('lidarOpacity').value) / 100; }
+document.getElementById('lidarOpacity').addEventListener('input', () => {
+  document.getElementById('lidarOpacityVal').textContent = Math.round(lidarOpacity() * 100) + '%';
+  if (lidarOverlay) lidarOverlay.setOpacity(lidarOpacity());
+});
+document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => b.addEventListener('click', () => {
+  if (b.disabled || b.dataset.layer === lidarLayer) return;
+  lidarLayer = b.dataset.layer;
+  syncLidarControls();
+  renderLidarLayer();
+}));
+
+function renderLidarLegend() {
+  const el = document.getElementById('lidarLegend');
+  const tick = (label, pct) => '<span style="position:absolute;left:' + pct + '%;transform:translateX(-' + pct + '%);">' + label + '</span>';
+  if (lidarLayer === 'height') {
+    const grad = LIDAR_HEIGHT_RAMP.map(([v, c]) => c + ' ' + (v / 40 * 100) + '%').join(', ');
+    el.innerHTML = '<div class="ramp" style="background:linear-gradient(to right, ' + grad + ');"></div>' +
+      '<div class="ticks" style="position:relative;height:13px;">' + [0, 2, 5, 12, 25].map(v => tick(v, v / 40 * 100)).join('') + tick('40+ m', 100) + '</div>' +
+      '<div class="field-hint">Under 0.5 m is left grey, so the ground shows through.</div>';
+  } else if (lidarLayer === 'elev') {
+    const grad = LIDAR_ELEV_RAMP.map(([v, c]) => c + ' ' + (v * 100) + '%').join(', ');
+    const r = lidarData ? lidarData.elevRange : null;
+    el.innerHTML = '<div class="ramp" style="background:linear-gradient(to right, ' + grad + ');"></div>' +
+      '<div class="ticks"><span>' + (r ? Math.round(r[0]) + ' m' : 'low') + '</span><span>' + (r ? Math.round(r[1]) + ' m' : 'high') + '</span></div>' +
+      '<div class="field-hint">Stretched over this area\'s heights (2nd to 98th percentile).</div>';
+  } else {
+    el.innerHTML = '<div class="field-hint">Lit from the north-west at 45°.</div>';
+  }
+}
+
+async function lidarLoad() {
+  const area = areas.find(a => a.id === lidarAreaId), survey = currentLidarSurvey();
+  if (!area || !survey || lidarBusy) return;
+  clearLidar();
+  const runId = lidarRunId;
+  lidarBusy = true;
+  syncLidarControls();
+  try {
+    await loadLidarLibs();
+    const polys = lidarAreaRings(area.geojson);
+    const nb = ringsBounds(polys);
+    const w = nb[2] - nb[0], h = nb[3] - nb[1];
+    let res = 1;
+    while ((w / res) * (h / res) > LIDAR_MAX_PX && res < 16) res *= 2;
+    if ((w / res) * (h / res) > LIDAR_MAX_PX) throw new Error('This area is too big for LiDAR here (about ' + Math.round(w / 1000) + ' × ' + Math.round(h / 1000) + ' km). Draw one up to about 30 km across.');
+    const g = { res, x0: Math.floor(nb[0] / res) * res, y0: Math.floor(nb[1] / res) * res, x1: Math.ceil(nb[2] / res) * res, y1: Math.ceil(nb[3] / res) * res };
+    g.W = Math.round((g.x1 - g.x0) / res); g.H = Math.round((g.y1 - g.y0) / res);
+    const total = survey.demTiles.length + survey.dsmTiles.length;
+    let read = 0;
+    const progress = () => { if (runId === lidarRunId) setLidarStatus('info', 'Reading LiDAR tile ' + Math.min(total, ++read) + ' of ' + total + (res > 1 ? ' at ' + res + ' m (the area is too big for 1 m)' : ' at 1 m') + '…'); };
+    setLidarStatus('info', 'Reading LiDAR…');
+    const [dem, dsm] = await Promise.all([
+      lidarMosaic(survey.demDir, survey.demTiles, g, progress),
+      survey.dsmTiles.length ? lidarMosaic(survey.dsmDir, survey.dsmTiles, g, progress) : Promise.resolve(null)
+    ]);
+    if (runId !== lidarRunId) return;
+    setLidarStatus('info', 'Working out heights…');
+    await new Promise(r => setTimeout(r, 0));
+    const mask = lidarMask(polys, g);
+    let height = null;
+    if (dsm) {
+      height = new Float32Array(dem.length);
+      for (let i = 0; i < dem.length; i++) {
+        const v = dsm[i] - dem[i];
+        height[i] = v !== v || v > LIDAR_SPIKE_M ? NaN : Math.max(0, v);
+      }
+    }
+    const er = lidarPercentileOf(dem, mask, [0.02, 0.98]);
+    lidarData = { areaId: area.id, areaName: area.name, geojson: area.geojson, survey, grid: g, dem, dsm, height, mask, elevRange: er };
+    if (!dsm && (lidarLayer === 'height' || lidarLayer === 'dsm')) lidarLayer = 'dem';
+    lidarBusy = false;
+    syncLidarControls();
+    renderLidarLayer();
+    renderLidarResults();
+    setLidarStatus('success', 'Loaded ' + survey.title + ' at ' + res + ' m. Click the map for the heights at a point.');
+    expandResultsPane();
+  } catch (err) {
+    if (runId !== lidarRunId) return;
+    lidarRunId++; // stops the other surface's progress messages overwriting this
+    lidarBusy = false;
+    syncLidarControls();
+    setLidarStatus('error', err.message.startsWith('This area') ? err.message : 'Couldn\'t load the LiDAR: ' + err.message);
+  }
+}
+document.getElementById('lidarRunBtn').addEventListener('click', lidarLoad);
+
+function lidarStats() {
+  const d = lidarData, g = d.grid, cellHa = g.res * g.res / 10000;
+  let inside = 0, withDem = 0, withH = 0, spikes = 0, zMin = Infinity, zMax = -Infinity, zSum = 0, hSum = 0;
+  const classN = LIDAR_CLASSES.map(() => 0);
+  const fine = new Uint32Array(LIDAR_SPIKE_M * 10 + 1); // 0.1 m bins, for percentiles
+  for (let i = 0; i < d.mask.length; i++) {
+    if (!d.mask[i]) continue;
+    inside++;
+    const z = d.dem[i];
+    if (z === z) { withDem++; zSum += z; if (z < zMin) zMin = z; if (z > zMax) zMax = z; }
+    if (!d.height) continue;
+    const h = d.height[i];
+    if (h !== h) { if (z === z && d.dsm[i] === d.dsm[i]) spikes++; continue; }
+    withH++; hSum += h;
+    classN[LIDAR_CLASSES.findIndex(c => h >= c.lo && h < c.hi)]++;
+    fine[Math.min(fine.length - 1, Math.floor(h * 10))]++;
+  }
+  const pct = (p) => { let acc = 0; const target = p * withH; for (let k = 0; k < fine.length; k++) { acc += fine[k]; if (acc >= target) return k / 10; } return NaN; };
+  return { cellHa, inside, withDem, withH, spikes, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, p50: pct(0.5), p95: pct(0.95), classN, fine };
+}
+
+function renderLidarResults() {
+  const d = lidarData, st = lidarStats();
+  d.stats = st;
+  const f1 = (v) => v === v && isFinite(v) ? v.toFixed(1) : '–';
+  const pc = (a, b) => b ? Math.round(100 * a / b) + '%' : '–';
+  const metric = (label, value) => '<div class="metric"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
+  const tall = d.height ? st.classN.slice(3).reduce((a, b) => a + b, 0) : 0;
+  document.getElementById('lidarMetrics').innerHTML = [
+    metric('Area', fmtHa(st.inside * st.cellHa) + ' ha'),
+    metric('LiDAR cover', pc(st.withDem, st.inside)),
+    metric('Ground', st.withDem ? Math.round(st.zMin) + '–' + Math.round(st.zMax) + ' m' : '–'),
+    d.height ? metric('Mean height', f1(st.hMean) + ' m') : '',
+    d.height ? metric('Canopy top (95th pct)', f1(st.p95) + ' m') : '',
+    d.height ? metric('Over 5 m tall', pc(tall, st.withH)) : '',
+    metric('Grid', d.grid.res + ' m')
+  ].join('');
+
+  const table = document.getElementById('lidarClassTable');
+  const csvBtn = document.getElementById('lidarCsvBtn');
+  if (d.height) {
+    table.innerHTML = '<tr><th>Height</th><th>Usually</th><th style="text-align:right">Area (ha)</th><th style="text-align:right">Share</th></tr>' +
+      LIDAR_CLASSES.map((c, k) => '<tr><td><span class="area-swatch" style="display:inline-block;vertical-align:-1px;margin-right:6px;background:' + c.color + ';border:1px solid var(--border2);"></span>' + c.label + '</td><td>' + c.desc + '</td>' +
+        '<td style="text-align:right">' + fmtHa(st.classN[k] * st.cellHa) + '</td><td style="text-align:right">' + pc(st.classN[k], st.withH) + '</td></tr>').join('');
+    csvBtn.style.display = '';
+  } else {
+    table.innerHTML = '<tr><td>This survey has no surface model (DSM), so vegetation height can\'t be worked out. Pick a survey marked "vegetation height available" if there is one.</td></tr>';
+    csvBtn.style.display = 'none';
+  }
+  renderLidarHistogram(st);
+
+  const s = d.survey;
+  const notes = [
+    '<p><strong>' + s.title.replace(/</g, '&lt;') + '</strong>, flown ' + surveyDates(s) + '. Heights are for then, not now: anything cleared, planted or grown since won\'t show.</p>',
+    d.height ? '<p>Vegetation height is the surface model (DSM, the top of whatever the laser hit first) less the ground model (DEM) from the same flight. It measures the height of <em>anything</em> standing on the ground: buildings, sheds, power lines and stacked logs read as "vegetation" too.</p>' : '',
+    d.height ? '<p>Both models are 1 m grids made from the point cloud, so a single tree narrower than a few metres, or a gap in the canopy, is smoothed and reads lower than it is. The 95th percentile stands in for canopy top because the very tallest cells are often noise.</p>' : '',
+    d.grid.res > 1 ? '<p>This area was read at ' + d.grid.res + ' m to keep it manageable in the browser, which smooths heights further. Draw a smaller area for full 1 m detail.</p>' : '',
+    st.spikes ? '<p>' + st.spikes.toLocaleString() + ' cells over ' + LIDAR_SPIKE_M + ' m tall were left out as noise (birds, wires or stray returns).</p>' : '',
+    st.withDem < st.inside ? '<p>' + pc(st.inside - st.withDem, st.inside) + ' of the area has no LiDAR in this survey (outside the flown area, or water).</p>' : ''
+  ];
+  document.getElementById('lidarNotes').innerHTML = notes.join('');
+  document.getElementById('lidarEmpty').style.display = 'none';
+  document.getElementById('lidarContent').style.display = 'block';
+}
+
+function renderLidarHistogram(st) {
+  const el = document.getElementById('lidarHist');
+  if (!lidarData.height || !st.withH) { el.innerHTML = '<div class="field-hint">No vegetation height for this survey.</div>'; return; }
+  const bins = [];
+  for (let m = 0; m < 40; m++) { let n = 0; for (let k = m * 10; k < (m + 1) * 10; k++) n += st.fine[k]; bins.push(n); }
+  let rest = 0; for (let k = 400; k < st.fine.length; k++) rest += st.fine[k];
+  bins.push(rest);
+  const max = Math.max(...bins) / st.withH;
+  const Wd = 640, Ht = 170, padL = 34, padB = 22, bw = (Wd - padL - 6) / bins.length;
+  const yOf = (share) => Ht - padB - (share / max) * (Ht - padB - 8);
+  let svg = '<svg viewBox="0 0 ' + Wd + ' ' + Ht + '" style="width:100%;height:auto;display:block;font-family:var(--font-sans);font-size:10px;">';
+  [0, 0.5, 1].forEach(t => { const y = yOf(max * t); svg += '<line x1="' + padL + '" x2="' + (Wd - 6) + '" y1="' + y + '" y2="' + y + '" stroke="#e2d8ca"/><text x="' + (padL - 4) + '" y="' + (y + 3) + '" text-anchor="end" fill="#a89a89">' + Math.round(max * t * 100) + '%</text>'; });
+  const hLut = rampLut(LIDAR_HEIGHT_RAMP, 0, 40, 161);
+  bins.forEach((n, m) => {
+    const share = n / st.withH, y = yOf(share), k = Math.min(160, m * 4 + 2) * 3;
+    svg += '<rect x="' + (padL + m * bw + 0.5) + '" y="' + y + '" width="' + Math.max(1, bw - 1) + '" height="' + (Ht - padB - y) + '" fill="rgb(' + hLut[k] + ',' + hLut[k + 1] + ',' + hLut[k + 2] + ')" stroke="#cfc0aa" stroke-width="0.5">' +
+      '<title>' + (m < 40 ? m + '–' + (m + 1) + ' m' : '40 m and over') + ': ' + (share * 100).toFixed(1) + '%</title></rect>';
+  });
+  [0, 5, 10, 15, 20, 25, 30, 35, 40].forEach(v => { svg += '<text x="' + (padL + v * bw) + '" y="' + (Ht - 8) + '" text-anchor="middle" fill="#a89a89">' + v + (v === 40 ? '+ m' : '') + '</text>'; });
+  el.innerHTML = svg + '</svg>';
+}
+
+document.getElementById('lidarCsvBtn').addEventListener('click', () => {
+  const d = lidarData;
+  if (!d || !d.stats || !d.height) return;
+  const st = d.stats;
+  const rows = [['area', 'survey', 'flown', 'grid_m', 'height_class', 'usually', 'area_ha', 'share_pct'].join(',')];
+  LIDAR_CLASSES.forEach((c, k) => rows.push([d.areaName, d.survey.title, surveyDates(d.survey), d.grid.res, c.label, c.desc,
+    (st.classN[k] * st.cellHa).toFixed(2), (100 * st.classN[k] / st.withH).toFixed(1)].map(csvCell).join(',')));
+  downloadText(d.areaName.replace(/[^\w-]+/g, '_') + '_vegetation_height.csv', rows.join('\n') + '\n', 'text/csv');
+});
+
+// Heights at a clicked point.
+map.on('click', (e) => {
+  if (appTab !== 'lidar' || !lidarData || drawToolActive) return;
+  const d = lidarData, g = d.grid;
+  const q = toNztm(e.latlng.lng, e.latlng.lat);
+  const c = Math.floor((q[0] - g.x0) / g.res), r = Math.floor((g.y1 - q[1]) / g.res);
+  if (c < 0 || r < 0 || c >= g.W || r >= g.H || !d.mask[r * g.W + c]) return;
+  const i = r * g.W + c, m = (v) => v === v ? v.toFixed(1) + ' m' : 'no data';
+  const row = (k, v) => '<tr><td style="color:var(--text3);padding-right:10px;">' + k + '</td><td style="text-align:right;font-weight:600;">' + v + '</td></tr>';
+  L.popup().setLatLng(e.latlng).setContent('<table style="font-size:12.5px;">' + row('Ground (DEM)', m(d.dem[i])) +
+    (d.dsm ? row('Surface (DSM)', m(d.dsm[i])) + row('Vegetation height', m(d.height[i])) : '') + '</table>').openOn(map);
+});
+
+function setAppTab(tab) {
+  appTab = tab;
+  document.querySelectorAll('.app-tab').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+  });
+  document.querySelector('.sidebar').classList.toggle('lidar-mode', tab === 'lidar');
+  document.getElementById('resultsPane').classList.toggle('lidar-mode', tab === 'lidar');
+  map.getPane('lidarPane').style.display = tab === 'lidar' ? '' : 'none';
+  map.closePopup();
+  if (tab === 'lidar') lidarAreasChanged();
+  try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
+}
+document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
+
 renderAreaList();
+try { if (localStorage.getItem('inferrd.tab') === 'lidar') setAppTab('lidar'); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------

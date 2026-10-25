@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.36.0 — 2026-10-26
+
+- **New LiDAR tab.** The header now has two tabs, **Infrared** (everything
+  so far) and **LiDAR**. The LiDAR tab uses LINZ's free 1 m elevation
+  models for New Zealand, with no access key. Draw or pick an area and it
+  lists the surveys that cover it, newest first, saying which ones have a
+  surface model. For Tairāwhiti that's Gisborne 2018–2020, the
+  Gabrielle river-flood flight (Feb–Mar 2023) and Gisborne 2023.
+- **Vegetation height** is the surface model less the ground model
+  (DSM − DEM) from the same survey. There are also hillshades of the bare
+  ground and of the surface, and coloured elevation, with an opacity slider.
+- **Results:** area, LiDAR cover, ground range, mean height, canopy top
+  (95th percentile), share over 5 m, area in six height classes (with a
+  CSV) and a histogram of heights. Click the map for the ground, surface
+  and height at a point.
+- Areas up to ~3 km across are read at 1 m; larger ones at 2–16 m.
+  Drawn areas are shared between the tabs.
+
 ## v0.35.0 — 2026-10-19
 
 From Area 1 (Tairāwhiti), where S1–S4 were dated 2019 and the big drops

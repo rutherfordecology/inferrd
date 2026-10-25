@@ -189,6 +189,34 @@ estimator reproduces the worked examples in the `mapaccuracy` R package
 deforestation 21,158 ± 6,158 ha, overall accuracy 0.947 ± 0.018) to
 floating-point precision.
 
+### LiDAR tab (New Zealand)
+
+The **LiDAR** tab beside **Infrared** in the header works from LINZ's 1 m
+LiDAR elevation models, not Sentinel-2, and doesn't touch Earth Engine or
+need a key. The DEM (bare ground) and DSM (top of everything) are read
+straight from LINZ's open `nz-elevation` S3 bucket as Cloud-Optimised
+GeoTIFFs, with geotiff.js and proj4js (both lazy-loaded the first time the
+tab is used).
+
+- **Finding surveys:** the bucket's `catalog.json` lists each survey's
+  STAC collection. Only collections in region folders near the area are
+  fetched, and their item names (1:10k sheet tiles, e.g. `BD43_10000_0305`)
+  are turned into NZTM bounds to find the tiles under the area. No tile
+  index is stored in the app, so new surveys turn up on their own.
+- **Reading:** only the window under the area is read from each tile, at
+  the finest overview that keeps the area under 9 million cells (1 m up to
+  ~3 km across, then 2, 4, 8 or 16 m). The grid is in NZTM, clipped to the
+  area, and warped into Web Mercator for the map.
+- **Layers:** vegetation height (DSM − DEM from the same survey, negatives
+  set to 0, over 100 m dropped as noise), DEM hillshade, DSM hillshade and
+  coloured elevation (Horn hillshade, light from the north-west at 45°).
+- **Results:** area, LiDAR cover, ground range, mean height, 95th-percentile
+  height, share over 5 m, area per height class (CSV) and a histogram of
+  heights in 1 m bands. Clicking the map gives the values at that point.
+
+Heights are as flown, include buildings and wires, and are smoothed by the
+1 m grid. Data © Toitū Te Whenua LINZ, CC BY 4.0.
+
 ### Reference layers (shared with occurd.)
 
 **Projects ▾ → Layers** unlocks occurd.'s reference layers with the Layers
