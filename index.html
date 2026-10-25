@@ -922,7 +922,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.40.1';
+const APP_VERSION = 'v0.40.5';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1120,9 +1120,11 @@ function expandResultsPane() {
 // Multiple areas can be drawn at once — each gets a name, a colour (used
 // both on the map and as its chart line), and its own geometry. Drawing
 // more than one is what makes the comparison view kick in later.
-// Gold, not green, third: a green outline vanished against forest and
-// against the LiDAR vegetation-height colours.
-const AREA_COLORS = ['#b5451a', '#2c5f8a', '#c28a00', '#7b4fa0', '#a0522d', '#c9184a'];
+// Six clearly different hues, none green (a green outline vanished against
+// forest and the LiDAR height colours), ordered so each new area differs
+// most from the one before: blue, gold, purple, vermilion, teal, magenta.
+// Area n takes AREA_COLORS[n % 6], so the first area is blue.
+const AREA_COLORS = ['#c51b7d', '#1f78b4', '#c28a00', '#7b4fa0', '#e4572e', '#009e8f'];
 // Fixed per-index colours (drawn from the same palette as AREA_COLORS) so an
 // index's line/legend colour means the same thing across every chart it
 // appears on, rather than depending on selection order.
@@ -4611,6 +4613,14 @@ async function lidarFindSurveys() {
 function renderLidarSurveys(emptyMsg) {
   const list = document.getElementById('lidarSurveys');
   const empty = document.getElementById('lidarSurveyEmpty');
+  // Nothing to compare over time with fewer than two surveys: untick and
+  // grey out the box until there are.
+  const timeEl = document.getElementById('lidarTimeChk'), few = lidarSurveys.length < 2;
+  if (few) lidarTimeMode = false;
+  timeEl.checked = lidarTimeMode;
+  timeEl.disabled = few;
+  timeEl.parentElement.style.opacity = few ? 0.45 : '';
+  timeEl.parentElement.title = few && lidarSurveys.length ? 'Only one survey covers ' + (areas.length > 1 ? 'these areas' : 'this area') : '';
   list.setAttribute('role', lidarTimeMode ? 'group' : 'radiogroup');
   list.innerHTML = lidarSurveys.map(s => {
     const on = lidarTimeMode ? lidarPicked.includes(s.id) : s.id === lidarSurveyId;
@@ -5057,6 +5067,9 @@ function renderLidarLegend() {
     const sc = LIDAR_SCHEMES[lidarScheme];
     const em = sc.top && lidarPool ? lidarEmergent(lidarPool) : null;
     const top = em ? em.from : null;
+    // The slider runs up to the tallest tree loaded (60 m before any are).
+    const tallest = Math.max(...lidarSets.map(d => d.stats.hMax).filter(v => isFinite(v)));
+    lidarEmergentEl.max = isFinite(tallest) ? Math.max(3, Math.ceil(tallest)) : 60;
     // The slider shows the cut-off in use, including the automatic one.
     const shownM = lidarEmergentM !== null ? lidarEmergentM : top && isFinite(top) ? top : null;
     if (shownM !== null && document.activeElement !== lidarEmergentEl) lidarEmergentEl.value = shownM;
@@ -5341,28 +5354,44 @@ function bandShares(d) {
   const st = d.stats, bins = [], start = histStart();
   let denom = st.withH;
   if (start) for (let k = 0; k < 10; k++) denom -= st.fine[k];
-  for (let m = start; m < 40; m++) { let n = 0; for (let k = m * 10; k < (m + 1) * 10; k++) n += st.fine[k]; bins.push(denom ? n / denom : 0); }
-  let rest = 0; for (let k = 400; k < st.fine.length; k++) rest += st.fine[k];
-  bins.push(denom ? rest / denom : 0);
+  // Every 1 m band up to LIDAR_SPIKE_M (the last 0.1 m bin, exactly 100 m,
+  // joins the top band); histBands trims the empty top off.
+  for (let m = start; m < LIDAR_SPIKE_M; m++) {
+    let n = 0;
+    for (let k = m * 10; k < (m + 1) * 10; k++) n += st.fine[k];
+    if (m === LIDAR_SPIKE_M - 1) n += st.fine[st.fine.length - 1];
+    bins.push(denom ? n / denom : 0);
+  }
   return bins;
 }
-const bandLabel = (m) => m < 40 ? m + '–' + (m + 1) + ' m' : '40 m and over';
+const bandLabel = (m) => m + '–' + (m + 1) + ' m';
 const histTitle = () => 'Spread of heights' + (lidarHistSkip0 ? ' over 1 m' : '');
 const HIST = { Wd: 640, Ht: 170, padL: 34, padB: 22 };
+// How many bands to chart: up to the tallest band any series has a real
+// share in (0.05% or more, so one stray cell doesn't stretch the axis),
+// and at least 5.
+function histBands(allBins) {
+  let last = 0;
+  allBins.forEach(b => b.forEach((s, i) => { if (s >= 0.0005 && i > last) last = i; }));
+  return Math.min(allBins[0].length, Math.max(last + 1, 5));
+}
 function histFrame(max, nBins) {
-  const start = histStart();
+  const start = histStart(), end = start + nBins;
   const { Wd, Ht, padL, padB } = HIST, bw = (Wd - padL - 6) / nBins;
   const yOf = (share) => Ht - padB - (share / max) * (Ht - padB - 8);
   let svg = '<svg viewBox="0 0 ' + Wd + ' ' + Ht + '" style="width:100%;height:auto;display:block;font-family:var(--font-sans);font-size:10px;">';
   [0, 0.5, 1].forEach(t => { const y = yOf(max * t); svg += '<line x1="' + padL + '" x2="' + (Wd - 6) + '" y1="' + y + '" y2="' + y + '" stroke="#e2d8ca"/><text x="' + (padL - 4) + '" y="' + (y + 3) + '" text-anchor="end" fill="#a89a89">' + Math.round(max * t * 100) + '%</text>'; });
-  [start, 5, 10, 15, 20, 25, 30, 35, 40].forEach(v => { svg += '<text x="' + (padL + (v - start) * bw) + '" y="' + (Ht - 8) + '" text-anchor="middle" fill="#a89a89">' + v + (v === 40 ? '+ m' : '') + '</text>'; });
+  // Ticks at band edges, spaced to suit the span; the last one says m.
+  const step = nBins <= 10 ? 1 : nBins <= 20 ? 2 : nBins <= 50 ? 5 : 10, last = end, ticks = [];
+  for (let v = start; v <= last; v++) if (v === start || v === last || (v % step === 0 && last - v >= step / 2)) ticks.push(v);
+  ticks.forEach(v => { svg += '<text x="' + (padL + (v - start) * bw) + '" y="' + (Ht - 8) + '" text-anchor="middle" fill="#a89a89">' + v + (v === last ? ' m' : '') + '</text>'; });
   return { svg, bw, yOf };
 }
 
 function renderLidarHistogram(d, lut) {
   const el = document.getElementById('lidarHist');
   if (!d.height || !d.stats.withH) { el.innerHTML = '<div class="field-hint">No vegetation height for this survey.</div>'; return; }
-  const bins = bandShares(d);
+  const all = bandShares(d), bins = all.slice(0, histBands([all]));
   let { svg, bw, yOf } = histFrame(Math.max(...bins), bins.length);
   bins.forEach((share, i) => {
     const y = yOf(share), m = i + histStart();
@@ -5376,8 +5405,9 @@ function renderLidarCompareChart() {
   const el = document.getElementById('lidarHist');
   const withH = lidarSets.filter(d => d.height && d.stats.withH);
   if (!withH.length) { el.innerHTML = '<div class="field-hint">No vegetation height for this survey.</div>'; return; }
-  const series = withH.map(d => ({ d, bins: bandShares(d) }));
-  let { svg, bw, yOf } = histFrame(Math.max(...series.flatMap(s => s.bins)), series[0].bins.length);
+  const full = withH.map(d => bandShares(d)), n = histBands(full);
+  const series = withH.map((d, k) => ({ d, bins: full[k].slice(0, n) }));
+  let { svg, bw, yOf } = histFrame(Math.max(...series.flatMap(s => s.bins)), n);
   series.forEach(({ d, bins }) => {
     const pts = bins.map((share, m) => (HIST.padL + (m + 0.5) * bw).toFixed(1) + ',' + yOf(share).toFixed(1));
     svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + d.color + '" stroke-width="2" stroke-linejoin="round"' + (d.dash ? ' stroke-dasharray="' + d.dash + '"' : '') + '/>';

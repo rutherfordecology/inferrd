@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.40.5 — 2026-10-26
+
+- **Spread of heights goes past 40 m when the trees do.** The lumped
+  "40+ m" bar is gone: every 1 m band is charted up to the tallest one
+  with vegetation in it (up to 100 m, above which cells are dropped as
+  noise).
+- **The Emergents "everything taller than" slider** now runs up to the
+  tallest tree in the loaded areas instead of a fixed 60 m.
+
+## v0.40.4 — 2026-10-26
+
+- **"Compare surveys over time" unticks itself** and greys out when only
+  one survey covers the areas, and comes back when there are two or more.
+
+## v0.40.3 — 2026-10-26
+
+- **The spread-of-heights chart fits the vegetation.** Its axis now ends
+  at the tallest 1 m band holding at least 0.05% of an area (at least
+  5 bands), instead of always running to 40 m, so low scrub isn't squashed
+  into the left edge. Tick spacing follows the span.
+
+## v0.40.2 — 2026-10-26
+
+- **Area outline colours that tell apart.** The palette had three reds and
+  browns, so neighbouring areas often looked alike. Areas now go blue,
+  gold, purple, vermilion, teal, magenta (chart lines too). Areas already
+  drawn keep their colour until redrawn.
+
 ## v0.40.1 — 2026-10-26
 
 - **Less text on screen.** Instruction boxes now just say to draw one or
