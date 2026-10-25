@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.39.1 — 2026-10-26
+
+- Covenants added by draw to select from the Layers panel are named
+  "Covenant 5-04-184", as they are from the QEII layer, not just "5-04-184".
+
 ## v0.39.0 — 2026-10-26
 
 - **Draw to select, as in occurd.** Drawing a shape (polygon or rectangle)

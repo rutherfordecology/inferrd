@@ -906,7 +906,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.39.0';
+const APP_VERSION = 'v0.39.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4309,7 +4309,11 @@ async function addAreasUnder(drawn) {
     try {
       const { count, items } = await window._layersFeaturesUnder(ll(g.coordinates[0]), g.coordinates.slice(1).map(ll), LAYER_SELECT_MAX);
       if (count && !items.length) say('warning', count + ' areas in the ticked layers lie within this shape, more than ' + LAYER_SELECT_MAX + ' to add at once. Untick some layers or draw a smaller shape.');
-      items.forEach(it => found.push({ geometry: it.feature.geometry, name: String(it.label).split(' | ')[0], meta: { source: it.layerName, properties: it.feature.properties } }));
+      items.forEach(it => {
+        let name = String(it.label).split(' | ')[0];
+        if (/QEII/i.test(it.layerName) && /^\d+-\d+-\d+/.test(name)) name = 'Covenant ' + name; // named as from the QEII layer
+        found.push({ geometry: it.feature.geometry, name, meta: { source: it.layerName, properties: it.feature.properties } });
+      });
     } catch (err) { console.warn('[inferrd] layers draw-to-select failed', err); }
   }
   // A covenant can come from both the QEII layer and the Layers panel.
