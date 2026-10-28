@@ -47,7 +47,12 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .app-tab.active { color: #fff; border-bottom-color: var(--orange-mid); }
 .sidebar.lidar-mode > :not(#lidarPanel), .sidebar:not(.lidar-mode) > #lidarPanel { display: none !important; }
 .results-pane.lidar-mode > :not(#lidarResults), .results-pane:not(.lidar-mode) > #lidarResults { display: none !important; }
-#lidarPanel { display: flex; flex-direction: column; flex: 1; }
+.sidebar.forest-mode > :not(#forestPanel), .sidebar:not(.forest-mode) > #forestPanel { display: none !important; }
+.results-pane.forest-mode > :not(#forestResults), .results-pane:not(.forest-mode) > #forestResults { display: none !important; }
+#lidarPanel, #forestPanel { display: flex; flex-direction: column; flex: 1; }
+.forest-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
+.forest-sw { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.forest-bar { display: flex; height: 14px; border-radius: 3px; overflow: hidden; background: var(--surface2); }
 .lidar-legend { margin-top: 8px; }
 .lidar-legend .ramp { height: 10px; border-radius: 2px; }
 .lidar-legend .ticks span { white-space: nowrap; }
@@ -224,6 +229,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
   <nav class="app-tabs" role="tablist" aria-label="Data source">
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
+    <button class="app-tab" id="tabForest" data-tab="forest" type="button" role="tab" aria-selected="false" title="Global 10 m forest types, 2020 (Nature Trace / Google)">Forest type</button>
   </nav>
   <div class="header-right">
     <div id="projectsDropWrap" style="position:relative;">
@@ -565,6 +571,47 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <div id="forestPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Earth Engine</div>
+        <div id="forestEeNote" style="font-size:12.5px;color:var(--text2);"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Areas</div>
+        <div class="instruction-box">Draw one or more areas to get the hectares of each forest type. The map layer works without one.</div>
+        <div id="forestAreaList"></div>
+        <div class="poly-empty" id="forestAreaEmpty">No areas drawn yet</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Forest type, 2020</div>
+        <div class="field">
+          <label>Show on map</label>
+          <select id="forestExtent">
+            <option value="all">Everywhere</option>
+            <option value="areas">Inside my areas only</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Opacity</label>
+          <div class="range-row">
+            <input type="range" id="forestOpacity" min="0" max="100" step="5" value="75">
+            <span class="range-val" id="forestOpacityVal">75%</span>
+          </div>
+        </div>
+        <button class="dl-btn" id="forestToggleBtn" type="button">Show layer</button>
+        <div class="forest-legend" id="forestLegend"></div>
+        <div class="field-hint">Each 10 m pixel takes the class the model thinks most likely in 2020. Primary: native forest with no clear sign of past clearance. Naturally regenerating: grown back by itself after disturbance. Planted: planted or seeded but not intensively managed, such as restoration planting. Plantation: intensively managed, usually even-aged and often exotic, such as pine. Click the map for the model's probability of each class at that point.</div>
+        <button class="run-btn" id="forestRunBtn" type="button" disabled>Summarise area</button>
+        <div class="status-bar" id="forestStatus"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="note">Forest typology (ForTy) 2020 v1.0, Nature Trace / Google, CC BY 4.0. Neumann et al. 2026, Global forest typology at 10-meter resolution for forest and land-use monitoring (<a href="https://doi.org/10.31223/X58R27" target="_blank" rel="noopener">preprint</a>).</p>
+      </div>
+    </div>
+
     <div class="sidebar-footer">
       <p class="note">EVI is the default index — it resists saturation better than NDVI in dense, closed-canopy vegetation. NDVI stays available since it's the more common reference point in time-series work. NBR and NDMI use different bands (shortwave-infrared) to pick up burn/clearance and moisture stress respectively. See <a href="#" id="aboutLink2">About</a> for methodology and limitations.</p>
     </div>
@@ -579,6 +626,26 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div id="resizeHandle" title="Drag to resize"><div class="grip"></div></div>
 
     <div class="results-pane" id="resultsPane">
+      <div id="forestResults">
+        <div class="results-empty" id="forestEmpty">
+          <span class="big">◌</span>
+          Draw an area and summarise it.
+        </div>
+        <div id="forestContent" style="display:none">
+          <div class="table-card">
+            <div class="table-card-head">
+              <div class="card-title">Forest type, 2020</div>
+              <button class="dl-btn" id="forestCsvBtn" type="button">Download CSV</button>
+            </div>
+            <div id="forestBars" style="margin-bottom:12px;"></div>
+            <div style="overflow-x:auto;"><table class="stats-table" id="forestTable"></table></div>
+          </div>
+          <div class="interp-card">
+            <div class="card-title">Reading this</div>
+            <div id="forestNotes"></div>
+          </div>
+        </div>
+      </div>
       <div id="lidarResults">
         <div class="results-empty" id="lidarEmpty">
           <span class="big">◌</span>
@@ -866,6 +933,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
 
+    <h3>Forest type tab</h3>
+    <p>The <strong>Forest type</strong> tab shows Google and Nature Trace's global forest typology for 2020 at 10 m: primary forest, naturally regenerating forest, planted forest, plantation forest, tree crops and agroforestry, and other land. It runs on Earth Engine, so it needs the access key from the Infrared tab. Each pixel shows the class the model thinks most likely. "Summarise" gives the hectares and share of each class in every drawn area, and the model's average probability for each. Click the map for the probabilities at a point.</p>
+    <p>It is one year from a worldwide model: use it as a first look, not a survey. Telling primary from regenerating forest, and planted from plantation, is the hard part, and is least reliable in small patches and along edges. Data: Neumann et al. 2026, CC BY 4.0.</p>
+
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with the QEII layer on, or the Layers panel open, drawing a shape also adds each covenant it overlaps, and each area of the ticked layers lying within it, as its own area. Your drawn shape is kept.</p>
     <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
@@ -922,7 +993,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.41.0';
+const APP_VERSION = 'v0.42.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1162,6 +1233,7 @@ function renderAreaList() {
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   lidarAreasChanged();
+  forestAreasChanged();
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   hideConditionLayers();
@@ -3903,7 +3975,7 @@ map.on(L.Draw.Event.DRAWSTART + ' ' + L.Draw.Event.EDITSTART, () => { drawToolAc
 map.on(L.Draw.Event.DRAWSTOP + ' ' + L.Draw.Event.EDITSTOP, () => { drawToolActive = false; });
 
 map.on('click', (e) => {
-  if (!changeVisible || drawToolActive || appTab === 'lidar') return;
+  if (!changeVisible || drawToolActive || appTab !== 'infrared') return;
   const pt = [e.latlng.lng, e.latlng.lat];
   // Last drawn wins where areas overlap — it's the one on top.
   const area = areas.slice().reverse().find(a => pointInGeometry(pt, a.geojson.geometry));
@@ -4338,7 +4410,7 @@ map.on(L.Draw.Event.CREATED, (e) => {
 const LAYER_SELECT_MAX = 40;
 let qeiiFeaturesUnder = () => []; // set by the QEII layer below
 async function addAreasUnder(drawn) {
-  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : setStatus)(kind, msg);
+  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'forest' ? setForestStatus : setStatus)(kind, msg);
   const found = qeiiFeaturesUnder(drawn.geojson).map(f => ({
     geometry: f.geometry, name: f.properties.CovNumber ? 'Covenant ' + f.properties.CovNumber : 'QEII covenant',
     meta: { source: 'QEII National Trust covenant', properties: f.properties }
@@ -4370,7 +4442,7 @@ async function addAreasUnder(drawn) {
   say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' inside your shape: ' + names.slice(0, 6).join(', ') +
     (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '.');
   // One click to drop the drawn shape and keep only what it picked up.
-  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : 'statusBar');
+  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'forest' ? 'forestStatus' : 'statusBar');
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dl-btn';
@@ -4412,6 +4484,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
   });
   syncAreaCentreLines();
   lidarAreasChanged();
+  forestAreasChanged();
 });
 // The black centre line follows the shape while it is being reshaped, and
 // snaps back with it when an edit is cancelled.
@@ -4709,9 +4782,11 @@ function syncLidarControls() {
   renderLidarLegend();
 }
 
-function renderLidarAreaList() {
-  const list = document.getElementById('lidarAreaList');
-  document.getElementById('lidarAreaEmpty').style.display = areas.length ? 'none' : 'block';
+function renderLidarAreaList() { renderTabAreaList('lidarAreaList', 'lidarAreaEmpty'); }
+// The LiDAR and Forest type tabs list the shared areas the same way.
+function renderTabAreaList(listId, emptyId) {
+  const list = document.getElementById(listId);
+  document.getElementById(emptyId).style.display = areas.length ? 'none' : 'block';
   list.innerHTML = areas.map(a => '<div class="area-item" data-id="' + a.id + '">' +
     '<span class="area-swatch" style="background:' + a.color + '"></span>' +
     '<span class="area-name" style="cursor:pointer;" title="Zoom to this area">' + escHtml(a.name) + '</span>' +
@@ -5502,6 +5577,225 @@ map.on('click', (e) => {
   }
 });
 
+/* ---------------------------------------------------------------------
+   Forest type tab — Google / Nature Trace forest typology (ForTy) 2020,
+   10 m, worldwide. Five probability bands (0–250, scale 0.004); "other
+   land" is 250 less their sum. Each pixel is mapped as its most likely
+   class, as in the catalogue's own example. Runs on Earth Engine, so it
+   needs the access key from the Infrared tab.
+   --------------------------------------------------------------------- */
+const FOREST_ASSET = 'projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection';
+const FOREST_BANDS = ['PrimaryForest', 'NaturallyRegeneratingForest', 'PlantedForest', 'PlantationForest', 'TreeCropsAndAgroforestry'];
+const FOREST_CLASSES = [
+  { name: 'Primary forest', color: '#1B7837' },
+  { name: 'Naturally regenerating forest', color: '#7FBF7B' },
+  { name: 'Planted forest', color: '#1D91C0' },
+  { name: 'Plantation forest', color: '#E65FA9' },
+  { name: 'Tree crops and agroforestry', color: '#E6AB02' },
+  { name: 'Other land', color: '#FDE278' }
+];
+let forestLayer = null;
+let forestShown = false;
+let forestOpacity = 0.75;
+let forestRunId = 0;
+let forestBusy = false;
+let forestResults = null; // [{ area, key, ha: [6], prob: [6], total, noData }] from the last summary
+
+map.createPane('forestPane');
+map.getPane('forestPane').style.zIndex = 350; // as the LiDAR pane: above Earth Engine tiles, below the outlines
+map.getPane('forestPane').style.pointerEvents = 'none';
+map.getPane('forestPane').style.display = 'none';
+
+function setForestStatus(kind, msg) {
+  const el = document.getElementById('forestStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// The five bands plus "Other land" (250 less their sum), as probabilities 0–1.
+function forestProbImage() {
+  const img = ee.ImageCollection(FOREST_ASSET).mosaic().select(FOREST_BANDS);
+  const other = ee.Image(250).subtract(img.reduce(ee.Reducer.sum())).max(0).rename('OtherLand');
+  return img.addBands(other).multiply(0.004);
+}
+// 1–6: the most likely class.
+function forestClassImage(probs) {
+  return probs.toArray().arrayArgmax().arrayGet([0]).add(1).rename('cls');
+}
+const forestSwatch = c => '<span class="forest-sw" style="background:' + c.color + '"></span>';
+
+document.getElementById('forestLegend').innerHTML = FOREST_CLASSES.map(c => '<div>' + forestSwatch(c) + c.name + '</div>').join('');
+
+function syncForestControls() {
+  document.getElementById('forestEeNote').innerHTML = eeReady
+    ? 'Unlocked.'
+    : 'Unlock with your access key on the <a href="#" id="forestGoIr">Infrared</a> tab first.';
+  const go = document.getElementById('forestGoIr');
+  if (go) go.addEventListener('click', (e) => { e.preventDefault(); setAppTab('infrared'); });
+  const run = document.getElementById('forestRunBtn');
+  run.disabled = !eeReady || !areas.length || forestBusy;
+  run.textContent = forestBusy ? 'Summarising…' : 'Summarise ' + (areas.length > 1 ? areas.length + ' areas' : 'area');
+  const tog = document.getElementById('forestToggleBtn');
+  tog.disabled = !eeReady;
+  tog.textContent = forestShown ? 'Hide layer' : 'Show layer';
+}
+
+function hideForestLayer() {
+  if (forestLayer) { map.removeLayer(forestLayer); forestLayer = null; }
+  forestShown = false;
+  syncForestControls();
+}
+function showForestLayer() {
+  if (!eeReady) return;
+  const clip = document.getElementById('forestExtent').value === 'areas';
+  if (clip && !areas.length) { setForestStatus('warning', 'Draw an area first, or show the layer everywhere.'); return; }
+  hideForestLayer();
+  forestShown = true;
+  syncForestControls();
+  setForestStatus('info', 'Loading forest types…');
+  let cls = forestClassImage(forestProbImage());
+  if (clip) cls = cls.clip(ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry)))));
+  cls.getMapId({ min: 1, max: 6, palette: FOREST_CLASSES.map(c => c.color.slice(1)) }, (mapId, err) => {
+    if (!forestShown || forestLayer) return; // hidden, or shown again, while loading
+    if (err) { forestShown = false; syncForestControls(); setForestStatus('error', 'Forest type layer failed: ' + err); return; }
+    forestLayer = L.tileLayer(mapId.urlFormat, { pane: 'forestPane', opacity: forestOpacity, maxNativeZoom: 18, maxZoom: 22,
+      attribution: 'Forest typology 2020: Nature Trace / Google, CC BY 4.0' }).addTo(map);
+    setForestStatus('', '');
+  });
+}
+document.getElementById('forestToggleBtn').addEventListener('click', () => forestShown ? hideForestLayer() : showForestLayer());
+document.getElementById('forestExtent').addEventListener('change', () => { if (forestShown) showForestLayer(); });
+document.getElementById('forestOpacity').addEventListener('input', (e) => {
+  forestOpacity = Number(e.target.value) / 100;
+  document.getElementById('forestOpacityVal').textContent = e.target.value + '%';
+  if (forestLayer) forestLayer.setOpacity(forestOpacity);
+});
+
+// Called whenever the drawn areas change (and when the tab opens).
+function forestAreasChanged() {
+  renderTabAreaList('forestAreaList', 'forestAreaEmpty');
+  // A summary of other areas, or other shapes, no longer fits.
+  if (forestResults) {
+    const keys = areas.map(areaKey).join('|');
+    if (forestResults.map(r => r.key).join('|') !== keys) clearForestResults();
+  }
+  if (forestShown && document.getElementById('forestExtent').value === 'areas') {
+    if (areas.length) showForestLayer(); else hideForestLayer();
+  }
+  syncForestControls();
+}
+function clearForestResults() {
+  forestRunId++;
+  forestBusy = false;
+  forestResults = null;
+  document.getElementById('forestContent').style.display = 'none';
+  document.getElementById('forestEmpty').style.display = '';
+}
+
+// Hectares of each mapped class (area-weighted, at 10 m) and the mean
+// probability of each class over the area.
+function forestRun() {
+  if (!eeReady || !areas.length || forestBusy) return;
+  const runId = ++forestRunId;
+  forestBusy = true;
+  syncForestControls();
+  setForestStatus('info', 'Summarising ' + areas.length + (areas.length === 1 ? ' area…' : ' areas…'));
+  const probs = forestProbImage();
+  const cls = forestClassImage(probs);
+  const jobs = areas.map(a => new Promise((resolve, reject) => {
+    const geom = ee.Geometry(a.geojson.geometry);
+    const byClass = ee.Image.pixelArea().divide(1e4).addBands(cls).reduceRegion({
+      reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'cls' }), geometry: geom, scale: 10, maxPixels: 1e10, tileScale: 4
+    });
+    const means = probs.reduceRegion({ reducer: ee.Reducer.mean(), geometry: geom, scale: 10, maxPixels: 1e10, tileScale: 4 });
+    ee.Dictionary({ groups: byClass.get('groups'), means: means }).evaluate((r, err) => {
+      if (err) return reject(new Error(a.name + ': ' + err));
+      const ha = [0, 0, 0, 0, 0, 0];
+      (r.groups || []).forEach(g => { if (g.cls >= 1 && g.cls <= 6) ha[g.cls - 1] = g.sum; });
+      const prob = FOREST_BANDS.concat('OtherLand').map(b => r.means && r.means[b] != null ? r.means[b] : null);
+      const total = turf.area(a.geojson) / 1e4;
+      resolve({ area: a, key: areaKey(a), ha, prob, total, noData: Math.max(0, total - ha.reduce((x, y) => x + y, 0)) });
+    });
+  }));
+  Promise.all(jobs).then(results => {
+    if (runId !== forestRunId) return;
+    forestResults = results;
+    renderForestResults();
+    setForestStatus('', '');
+  }).catch(err => {
+    if (runId !== forestRunId) return;
+    setForestStatus('error', 'Summary failed: ' + err.message);
+  }).finally(() => {
+    if (runId === forestRunId) { forestBusy = false; syncForestControls(); }
+  });
+}
+document.getElementById('forestRunBtn').addEventListener('click', forestRun);
+
+function renderForestResults() {
+  const rs = forestResults;
+  document.getElementById('forestEmpty').style.display = 'none';
+  document.getElementById('forestContent').style.display = '';
+  const pct = (v, t) => t > 0 ? 100 * v / t : 0;
+  const R = 'style="text-align:right;white-space:nowrap;"';
+  // One stacked bar per area: the share of its mapped land in each class.
+  document.getElementById('forestBars').innerHTML = rs.map(r => {
+    const mapped = r.ha.reduce((x, y) => x + y, 0);
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;">' +
+      '<span style="width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.area.name) + '">' +
+      '<span class="forest-sw" style="background:' + r.area.color + '"></span>' + escHtml(r.area.name) + '</span>' +
+      '<div class="forest-bar" style="flex:1;">' + r.ha.map((h, i) => h > 0
+        ? '<span style="width:' + pct(h, mapped) + '%;background:' + FOREST_CLASSES[i].color + ';" title="' + FOREST_CLASSES[i].name + ': ' + pct(h, mapped).toFixed(1) + '%"></span>' : '').join('') +
+      '</div></div>';
+  }).join('');
+  // One area: hectares, share and mean probability. Several: hectares and share side by side.
+  const multi = rs.length > 1;
+  const head = '<tr><th>Class</th>' + (multi
+    ? rs.map(r => '<th ' + R + '>' + escHtml(r.area.name) + '</th>').join('')
+    : '<th ' + R + '>ha</th><th ' + R + '>% of area</th><th ' + R + '>Mean probability</th>') + '</tr>';
+  const cells = (r, ha, prob) => multi
+    ? '<td ' + R + '>' + fmtHa(ha) + ' ha · ' + pct(ha, r.total).toFixed(0) + '%</td>'
+    : '<td ' + R + '>' + fmtHa(ha) + '</td><td ' + R + '>' + pct(ha, r.total).toFixed(1) + '%</td><td ' + R + '>' + (prob == null ? '' : (100 * prob).toFixed(0) + '%') + '</td>';
+  const rows = FOREST_CLASSES.map((c, i) => '<tr><td>' + forestSwatch(c) + c.name + '</td>' + rs.map(r => cells(r, r.ha[i], r.prob[i])).join('') + '</tr>').join('');
+  const noData = rs.some(r => r.noData > 0.01 * r.total)
+    ? '<tr style="color:var(--text3);"><td>No data</td>' + rs.map(r => cells(r, r.noData, null)).join('') + '</tr>' : '';
+  const total = '<tr style="font-weight:600;"><td>Total</td>' + rs.map(r => multi
+    ? '<td ' + R + '>' + fmtHa(r.total) + ' ha</td>'
+    : '<td ' + R + '>' + fmtHa(r.total) + '</td><td></td><td></td>').join('') + '</tr>';
+  document.getElementById('forestTable').innerHTML = head + rows + noData + total;
+  document.getElementById('forestNotes').innerHTML =
+    '<p>Hectares count each 10 m pixel as its single most likely class. The mean probability is the model\'s average confidence in each class across the area: a low figure for the biggest class means a mixed or uncertain picture.</p>' +
+    '<p>The map is for 2020, from a global model. Primary against regenerating, and planted against plantation, are the hardest calls; check them on the ground or against local mapping before relying on them.</p>';
+}
+
+document.getElementById('forestCsvBtn').addEventListener('click', () => {
+  if (!forestResults) return;
+  const rows = ['area,class,hectares,percent_of_area,mean_probability'];
+  forestResults.forEach(r => {
+    FOREST_CLASSES.forEach((c, i) => rows.push([r.area.name, c.name, r.ha[i].toFixed(3), pct2(r.ha[i], r.total), r.prob[i] == null ? '' : r.prob[i].toFixed(3)].map(csvCell).join(',')));
+    if (r.noData > 0) rows.push([r.area.name, 'No data', r.noData.toFixed(3), pct2(r.noData, r.total), ''].map(csvCell).join(','));
+  });
+  downloadText('forest_type_2020.csv', rows.join('\n') + '\n', 'text/csv');
+});
+function pct2(v, t) { return t > 0 ? (100 * v / t).toFixed(2) : ''; }
+
+// Click the map on this tab for the model's probability of each class.
+map.on('click', (e) => {
+  if (appTab !== 'forest' || !eeReady || drawToolActive) return;
+  const pt = ee.Geometry.Point([e.latlng.lng, e.latlng.lat]);
+  const popup = L.popup().setLatLng(e.latlng).setContent('<span style="font-size:12px;color:var(--text3);">Reading forest type…</span>').openOn(map);
+  forestProbImage().reduceRegion({ reducer: ee.Reducer.first(), geometry: pt, scale: 10 }).evaluate((r, err) => {
+    if (!map.hasLayer(popup)) return;
+    const vals = r && FOREST_BANDS.concat('OtherLand').map(b => r[b]);
+    if (err || !vals || vals.some(v => v == null)) { popup.setContent('<span style="font-size:12px;">No forest type data here.</span>'); return; }
+    const top = vals.indexOf(Math.max.apply(null, vals));
+    popup.setContent('<table style="font-size:12.5px;">' + FOREST_CLASSES.map((c, i) =>
+      '<tr' + (i === top ? ' style="font-weight:600;"' : '') + '><td>' + forestSwatch(c) + c.name +
+      '</td><td style="text-align:right;padding-left:10px;">' + (100 * vals[i]).toFixed(0) + '%</td></tr>').join('') + '</table>');
+  });
+});
+syncForestControls();
+
 function setAppTab(tab) {
   appTab = tab;
   document.querySelectorAll('.app-tab').forEach(b => {
@@ -5511,15 +5805,19 @@ function setAppTab(tab) {
   });
   document.querySelector('.sidebar').classList.toggle('lidar-mode', tab === 'lidar');
   document.getElementById('resultsPane').classList.toggle('lidar-mode', tab === 'lidar');
+  document.querySelector('.sidebar').classList.toggle('forest-mode', tab === 'forest');
+  document.getElementById('resultsPane').classList.toggle('forest-mode', tab === 'forest');
   map.getPane('lidarPane').style.display = tab === 'lidar' ? '' : 'none';
+  map.getPane('forestPane').style.display = tab === 'forest' ? '' : 'none';
   map.closePopup();
   if (tab === 'lidar') lidarAreasChanged();
+  if (tab === 'forest') forestAreasChanged();
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { if (localStorage.getItem('inferrd.tab') === 'lidar') setAppTab('lidar'); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'forest') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
@@ -5559,6 +5857,7 @@ function onEeInitSuccess() {
   document.getElementById('eeSignedIn').style.display = 'flex';
   setStatus('info', '');
   updateRunEnabled();
+  syncForestControls();
 }
 
 async function fetchEeToken(key) {

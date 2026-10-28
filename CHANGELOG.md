@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.42.0 — 2026-10-29
+
+- **New Forest type tab.** It shows Google and Nature Trace's global 10 m
+  forest typology for 2020 (ForTy v1.0, CC BY 4.0) on Earth Engine, using
+  the same access key as Infrared. The classes are primary,
+  naturally regenerating, planted and plantation forest, tree crops and
+  agroforestry, and other land. Each pixel takes its most likely class.
+  The map can show the layer everywhere or only inside your areas, with
+  an opacity slider and a legend.
+- **"Summarise"** gives each drawn area's hectares and share of each
+  class, with a stacked bar per area and the model's mean probability
+  for each class. It also downloads as a CSV. Click the map on this tab
+  for the probability of each class at a point.
+
 ## v0.41.0 — 2026-10-26
 
 - **"↓ KML" on every area**, in both tabs, as in occurd.: downloads that
