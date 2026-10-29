@@ -252,7 +252,9 @@ needs its own registration and licence, so they aren't used.
 ### Report tab
 
 Gathers the data a report is built from: areas from KML or KMZ and
-species records exported from occurd. "Gather the facts" runs the other
+species records exported from occurd. (fetch them in occurd.'s Big Data
+Mode so the export carries a GBIF download DOI, which the species facts
+cite). "Gather the facts" runs the other
 tabs' checks and builds a fact sheet of measured values with their
 sources and no interpretation. "Export for report" saves a zip of the
 ticked facts (`facts.csv`, with fact IDs a report can cite), a

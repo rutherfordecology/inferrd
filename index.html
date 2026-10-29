@@ -683,7 +683,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">3 · Species from occurd.</div>
         <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add occurd. CSV<input type="file" id="rptOccurdFile" accept=".csv" multiple></label></div>
         <div class="rpt-list" id="rptOccurdList"></div>
-        <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
+        <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
       </div>
 
       <div class="sidebar-section">
@@ -1178,7 +1178,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Report tab</h3>
     <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
-    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported. Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery.</p>
 
     <h3>Map layers</h3>
     <p>Every map layer, from every tab, goes in one <strong>Map layers</strong> list at the bottom left of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down, so it draws over or under the others. Layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. A layer is only listed once it has something to show: the index preview, change map and condition trend once you show them, LiDAR once loaded, and the Physical and Land cover layers once those tabs have checked the areas (and only those that found something). The list remembers its order, opacities and what is on in this browser.</p>
@@ -1252,7 +1252,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.49.0';
+const APP_VERSION = 'v0.50.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -7520,7 +7520,7 @@ function rptFillForm() {
 function rptRenderLists() {
   document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(f =>
     '<div class="rpt-item" data-id="' + f.id + '"><div class="rpt-item-head"><span class="t">' + escHtml(f.name) + '</span><span class="m">' +
-    (f.kind === 'records' ? f.rows.length.toLocaleString() + ' records' : f.rows.length.toLocaleString() + ' species') + (f.hasStatus ? '' : ', no NZTCS status') + '</span>' +
+    (f.kind === 'records' ? f.rows.length.toLocaleString() + ' records' : f.rows.length.toLocaleString() + ' species') + (f.hasStatus ? '' : ', no NZTCS status') + (f.citation ? ', DOI' : ', no DOI') + '</span>' +
     '<button class="rpt-x" type="button" data-del="occurd" title="Remove">✕</button></div></div>').join('');
 }
 
@@ -7590,6 +7590,9 @@ function rptCsv(text) {
   return rows;
 }
 function rptReadOccurd(name, text) {
+  // occurd. (v7.48 on) writes "# GBIF citation: GBIF.org (date) GBIF Occurrence
+  // Download https://doi.org/..." when the records came from a GBIF download.
+  const cite = /^# GBIF citation: (GBIF\.org .*https:\/\/doi\.org\/\S+)\s*$/m.exec(text.split(/\r?\n/).filter(l => l.startsWith('#')).join('\n'));
   const body = text.replace(/^﻿/, '').split(/\r?\n/).filter((l, i, all) => !(l.startsWith('#') && all.slice(0, i).every(x => x.startsWith('#')))).join('\n');
   const rows = rptCsv(body).filter(r => r.some(c => c.trim()));
   if (rows.length < 2) throw new Error(name + ' has no rows');
@@ -7601,7 +7604,7 @@ function rptReadOccurd(name, text) {
   const out = rows.slice(1).map(r => kind === 'records'
     ? { sp: get(r, 'species') || get(r, 'scientificName'), vn: get(r, 'vernacularName'), year: Number(get(r, 'year')) || null, poly: get(r, 'polygon_name'), kingdom: get(r, 'kingdom'), st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') }
     : { sp: get(r, 'scientificName'), vn: get(r, 'vernacularName'), group: get(r, 'taxonGroup'), kingdom: get(r, 'kingdom'), n: Number(get(r, 'records')) || 0, st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') });
-  return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, rows: out.filter(x => x.sp) };
+  return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, citation: cite ? cite[1] : null, rows: out.filter(x => x.sp) };
 }
 
 /* Fact sheet. Statements of measured values only: numbers, units, dates
@@ -7701,7 +7704,7 @@ function rptBuildFacts() {
   });
   // occurd. files, as exported
   if (rpt.checks.occurd) rpt.occurd.forEach(f => {
-    const src = 'occurd. export ' + f.name + ' (GBIF records' + (f.hasStatus ? '; NZTCS status as occurd. assigned it' : '') + ')';
+    const src = (f.citation ? f.citation + ', via occurd. export ' + f.name : 'occurd. export ' + f.name + ' (GBIF records, no download DOI)') + (f.hasStatus ? '; NZTCS status as occurd. assigned it' : '');
     const groups = new Map();
     f.rows.forEach(r => {
       const hit = f.kind === 'records' && r.poly ? areas.find(a => a.name === r.poly) : null;
@@ -7760,7 +7763,10 @@ async function rptRun() {
       const n = areas.filter(a => lidarSets.some(dd => dd.key === areaKey(a) && dd.height)).length;
       notes.push('LiDAR: ' + (n ? 'from the LiDAR tab, ' + n + ' of ' + areas.length + (areas.length === 1 ? ' area.' : ' areas.') : 'not loaded; load it on the LiDAR tab to include it.'));
     }
-    if (doc.checks.occurd !== false) notes.push('Species: ' + (doc.occurd.length ? doc.occurd.length + (doc.occurd.length === 1 ? ' occurd. file.' : ' occurd. files.') : 'no occurd. file added.'));
+    if (doc.checks.occurd !== false) {
+      notes.push('Species: ' + (doc.occurd.length ? doc.occurd.length + (doc.occurd.length === 1 ? ' occurd. file.' : ' occurd. files.') : 'no occurd. file added.'));
+      doc.occurd.filter(f => !f.citation).forEach(f => notes.push('Species: ' + f.name + ' has no GBIF download DOI, so its records can\'t be cited. Fetch them in occurd.\'s Big Data Mode and export again.'));
+    }
     if (doc !== rpt) return;
     doc.facts = rptBuildFacts();
     doc.factsAt = new Date().toISOString();
@@ -7919,7 +7925,7 @@ async function rptExport() {
       areas: list.map(a => ({ name: a.name, area_ha: +(turf.area(a.geometry) / 1e4).toFixed(2) })),
       checks_run: RPT_CHECKS.filter(([k]) => doc.checks[k] !== false).map(([, label]) => label),
       gathering_notes: doc.factsNotes || [],
-      occurd_files: doc.occurd.map(f => ({ name: f.name, kind: f.kind, rows: f.rows.length, nztcs_status: f.hasStatus })),
+      occurd_files: doc.occurd.map(f => ({ name: f.name, kind: f.kind, rows: f.rows.length, nztcs_status: f.hasStatus, gbif_citation: f.citation || null })),
       sources: [...used].sort(),
       map_imagery: list.length ? 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + isoDate(now) : null,
       files_missing: missing

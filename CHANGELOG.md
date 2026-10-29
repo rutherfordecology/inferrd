@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.50.0 — 2026-10-30
+
+- **Species facts cite the GBIF download.** occurd. (v7.48 on) writes the
+  GBIF download citation and DOI into its CSV exports when the records came
+  from Big Data Mode. The Report tab reads it, uses it as the source of
+  every species fact, lists it per file in `summary.json`
+  (`gbif_citation`), and marks each occurd. file "DOI" or "no DOI". A file
+  without a DOI gets a note in "What was gathered" that its records can't
+  be cited.
+
 ## v0.49.0 — 2026-10-30
 
 - **Report tab re-scoped to data only.** The writing, and every call on
