@@ -692,7 +692,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Species from occurd.</div>
-        <label class="rpt-drop" id="rptOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="rptOccurdFile" accept=".csv" multiple></label>
+        <label class="rpt-drop" id="rptOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="rptOccurdFile" accept=".csv,.txt,.zip" multiple></label>
         <div class="rpt-list" id="rptOccurdList" style="margin-top:8px;"></div>
         <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
       </div>
@@ -1263,7 +1263,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.51.0';
+const APP_VERSION = 'v0.51.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -7519,6 +7519,7 @@ async function rptInit() {
 }
 
 function rptFillForm() {
+  if (rpt && rptFailed.length && rptFailed[0].report !== rpt.id) rptFailed = [];
   const sel = document.getElementById('rptProjectSel');
   sel.innerHTML = rptList.map(x => '<option value="' + x.id + '"' + (rpt && x.id === rpt.id ? ' selected' : '') + '>' + escHtml(x.title || 'Untitled') + '</option>').join('');
   if (!rpt) return;
@@ -7528,8 +7529,14 @@ function rptFillForm() {
   rptRenderLists();
 }
 
+// Files that couldn't be read, kept on screen with the reason until removed
+// or until another report is opened (not saved with the report).
+let rptFailed = [];
 function rptRenderLists() {
-  document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(rptOccurdCard).join('');
+  document.getElementById('rptOccurdList').innerHTML = rptFailed.map(x =>
+    '<div class="rpt-card warn" data-fail="' + x.id + '"><div class="head"><span class="no">✗</span><span class="t">' + escHtml(x.name) + '</span>' +
+    '<button class="rpt-x" type="button" data-del="fail" title="Dismiss">✕</button></div><div><strong>Not added.</strong> ' + escHtml(x.msg) + '</div></div>').join('') +
+    rpt.occurd.map(rptOccurdCard).join('');
 }
 
 function rptOccurdCard(f) {
@@ -7628,16 +7635,19 @@ function rptCsv(text) {
 // Listed on occurd.'s own category, or a Threatened or At Risk status name;
 // "Not Threatened" must not match.
 const rptListed = (st, cat) => /^(threatened|at risk)$/i.test((cat || '').trim()) || /^(nationally (critical|endangered|vulnerable|increasing)|declining|recovering|relict|naturally uncommon)$/i.test((st || '').trim());
+const RPT_RAW_GBIF = ' is straight from GBIF, not an occurd. export. Load it into occurd. first (with the same polygons, and NZTCS on), check that Output shows the GBIF citation, then export "Occurrences CSV" from occurd. and add that file here.';
 function rptReadOccurd(name, text) {
+  const first = (text.replace(/^\ufeff/, '').split(/\r?\n/).find(l => l.trim() && !l.startsWith('#')) || '');
+  if (!/^# Downloaded from Occurd/im.test(text.slice(0, 2000)) && (first.includes('\t') || /\b\d{7}-\d{15}\b/.test(name)) && /\bgbifID\b/.test(first)) throw new Error(name + RPT_RAW_GBIF);
   // occurd. (v7.48 on) writes "# GBIF citation: GBIF.org (date) GBIF Occurrence
   // Download https://doi.org/..." when the records came from a GBIF download.
   const cite = /^# GBIF citation: (GBIF\.org .*https:\/\/doi\.org\/\S+)\s*$/m.exec(text.split(/\r?\n/).filter(l => l.startsWith('#')).join('\n'));
   const body = text.replace(/^﻿/, '').split(/\r?\n/).filter((l, i, all) => !(l.startsWith('#') && all.slice(0, i).every(x => x.startsWith('#')))).join('\n');
   const rows = rptCsv(body).filter(r => r.some(c => c.trim()));
-  if (rows.length < 2) throw new Error(name + ' has no rows');
+  if (rows.length < 2) throw new Error(name + (rows.length === 1 && /gbifID|scientificName/.test(rows[0].join(',')) ? ' has column names but no records. occurd. exports only the records that pass the filters on its map (taxon groups, NZTCS or IUCN filter, hidden species, species search): clear them in occurd., check the record count, and export again.' : ' has no rows'));
   const head = rows[0].map(h => h.trim()), col = (k) => head.indexOf(k);
   const kind = col('gbifID') >= 0 || col('decimalLatitude') >= 0 ? 'records' : col('records') >= 0 && col('scientificName') >= 0 ? 'checklist' : null;
-  if (!kind) throw new Error(name + ' doesn\'t look like an occurd. records or checklist CSV');
+  if (!kind) throw new Error(name + ' isn\'t an occurd. records or checklist CSV (it has no gbifID, decimalLatitude or records column). Export "Occurrences CSV" or "Species CSV" from occurd. and add that.');
   const get = (r, k) => { const i = col(k); return i >= 0 ? (r[i] || '').trim() : ''; };
   const hasStatus = col('nztcs_status') >= 0;
   const out = rows.slice(1).map(r => kind === 'records'
@@ -7802,6 +7812,7 @@ async function rptRun() {
     }
     if (doc.checks.occurd !== false) {
       notes.push('Species: ' + (doc.occurd.length ? doc.occurd.length + (doc.occurd.length === 1 ? ' occurd. file.' : ' occurd. files.') : 'no occurd. file added.'));
+      rptFailed.forEach(x => notes.push('Species: ' + x.name + ' was not added (see section 3), so none of its records are here.'));
       doc.occurd.filter(f => !f.citation).forEach(f => notes.push('Species: ' + f.name + ' has no GBIF download DOI, so its records can\'t be cited. Fetch them in occurd.\'s Big Data Mode and export again.'));
     }
     if (doc !== rpt) return;
@@ -7887,13 +7898,22 @@ async function rptEachFile(input, fn) {
   const errs = [];
   for (const f of files) {
     setReportStatus('info', 'Reading ' + f.name + '…');
-    try { await fn(f); } catch (err) { errs.push(err && err.message ? err.message : String(err)); }
+    try { await fn(f); } catch (err) {
+      const msg = err && err.message ? err.message : String(err);
+      errs.push(msg);
+      if (input.failCards && rpt) {
+        rptFailed = rptFailed.filter(x => x.name !== f.name);
+        rptFailed.unshift({ id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), report: rpt.id, name: f.name, msg: msg.startsWith(f.name) ? msg.slice(f.name.length).replace(/^[\s:]+/, '').replace(/^is /, 'This file is ').replace(/^has /, 'This file has ').replace(/^isn't /, 'This file isn\'t ') : msg });
+      }
+    }
   }
   setReportStatus(errs.length ? 'error' : '', errs.join('; '));
   if (rpt) { rptSave(); rptRenderLists(); renderReport(); }
 }
 async function rptAddOccurd(f) {
+  if (/\.zip$/i.test(f.name)) throw new Error(f.name + (/\b\d{7}-\d{15}\b/.test(f.name) ? ' is a GBIF download zip.' + RPT_RAW_GBIF.replace(/^ is straight from GBIF, not an occurd\. export\./, '') : ' is a zip. Add the occurd. CSV export itself.'));
   const o = rptReadOccurd(f.name, await f.text());
+  rptFailed = rptFailed.filter(x => x.name !== f.name);
   const old = rpt.occurd.findIndex(x => x.name === o.name);
   if (old >= 0) rpt.occurd.splice(old, 1, o); else rpt.occurd.push(o);
   rptAdded.push(f.name + (old >= 0 ? ' (replaced)' : ''));
@@ -7902,8 +7922,8 @@ let rptAdded = [];
 async function rptTakeFiles(files) {
   if (!rpt || !files.length) return;
   rptAdded = [];
-  const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), csv = files.filter(f => /\.csv$/i.test(f.name)), other = files.filter(f => !/\.(km[lz]|csv)$/i.test(f.name));
-  if (csv.length) await rptEachFile({ files: csv, value: '' }, rptAddOccurd);
+  const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), csv = files.filter(f => /\.(csv|txt|zip)$/i.test(f.name)), other = files.filter(f => !/\.(km[lz]|csv|txt|zip)$/i.test(f.name));
+  if (csv.length) await rptEachFile({ files: csv, value: '', failCards: true }, rptAddOccurd);
   if (kml.length) await rptEachFile({ files: kml, value: '' }, rptAddKml);
   const msg = (rptAdded.length ? 'Added ' + rptAdded.join(', ') + '.' : '') + (other.length ? ' Not read: ' + other.map(f => f.name).join(', ') + ' (occurd. CSV, KML or KMZ only).' : '');
   if (msg && !document.getElementById('reportStatus').classList.contains('error')) setReportStatus(other.length ? 'warning' : 'success', msg.trim());
@@ -7935,6 +7955,8 @@ async function rptAddKml(f) {
 }
 document.getElementById('rptKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
 document.getElementById('rptOccurdList').addEventListener('click', (e) => {
+  const fail = e.target.closest('[data-fail]');
+  if (fail && e.target.dataset.del === 'fail') { rptFailed = rptFailed.filter(x => x.id !== fail.dataset.fail); rptRenderLists(); return; }
   const item = e.target.closest('.rpt-card');
   if (!item || !rpt || e.target.dataset.del !== 'occurd') return;
   rpt.occurd = rpt.occurd.filter(x => x.id !== item.dataset.id);
