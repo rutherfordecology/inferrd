@@ -78,6 +78,17 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .rpt-item-head { display: flex; gap: 6px; align-items: baseline; }
 .rpt-item-head .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .rpt-item-head .m { color: var(--text3); font-size: 11px; white-space: nowrap; }
+.rpt-drop { display: block; border: 1.5px dashed var(--border2); padding: 14px 10px; text-align: center; font-size: 12.5px; color: var(--text2); cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.rpt-drop strong { color: var(--text); }
+.rpt-drop.over { border-color: var(--brand); background: var(--hover); color: var(--text); }
+.rpt-drop input { display: none; }
+.rpt-card { border: 1px solid var(--rule); border-left: 3px solid var(--brand); padding: 7px 9px; font-size: 12px; line-height: 1.45; }
+.rpt-card.warn { border-left-color: var(--base); }
+.rpt-card .head { display: flex; gap: 6px; align-items: baseline; }
+.rpt-card .head .t { flex: 1; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.rpt-card .ok { color: var(--brand); font-weight: 600; }
+.rpt-card .no { color: var(--base); font-weight: 600; }
+.rpt-card .sub { color: var(--text2); }
 .rpt-x { cursor: pointer; color: var(--text3); background: none; border: none; padding: 0 2px; font-size: 12px; }
 .rpt-checks label { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--text2); margin: 3px 0; cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
 .rpt-area-head { margin: 16px 0 2px; font-size: 14px; font-weight: 600; }
@@ -676,13 +687,13 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Load KML or KMZ<input type="file" id="rptKmlFile" accept=".kml,.kmz" multiple></label></div>
         <div id="reportAreaList"></div>
         <div class="poly-empty" id="reportAreaEmpty">No areas yet: load a KML, or draw on the map</div>
-        <div class="field-hint" style="margin:6px 0 0;">Each polygon placemark becomes an area, named as in the file. While this report is open its areas are the ones on the map, on every tab.</div>
+        <div class="field-hint" style="margin:6px 0 0;">KML and KMZ files can also be dropped anywhere on this tab. Each polygon placemark becomes an area, named as in the file. While this report is open its areas are the ones on the map, on every tab.</div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">3 · Species from occurd.</div>
-        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add occurd. CSV<input type="file" id="rptOccurdFile" accept=".csv" multiple></label></div>
-        <div class="rpt-list" id="rptOccurdList"></div>
+        <label class="rpt-drop" id="rptOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="rptOccurdFile" accept=".csv" multiple></label>
+        <div class="rpt-list" id="rptOccurdList" style="margin-top:8px;"></div>
         <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
       </div>
 
@@ -1252,7 +1263,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.50.0';
+const APP_VERSION = 'v0.51.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -7518,10 +7529,34 @@ function rptFillForm() {
 }
 
 function rptRenderLists() {
-  document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(f =>
-    '<div class="rpt-item" data-id="' + f.id + '"><div class="rpt-item-head"><span class="t">' + escHtml(f.name) + '</span><span class="m">' +
-    (f.kind === 'records' ? f.rows.length.toLocaleString() + ' records' : f.rows.length.toLocaleString() + ' species') + (f.hasStatus ? '' : ', no NZTCS status') + (f.citation ? ', DOI' : ', no DOI') + '</span>' +
-    '<button class="rpt-x" type="button" data-del="occurd" title="Remove">✕</button></div></div>').join('');
+  document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(rptOccurdCard).join('');
+}
+
+function rptOccurdCard(f) {
+  const n = f.kind === 'records' ? f.rows.length : f.rows.reduce((t, r) => t + (r.n || 0), 0);
+  const taxa = new Map();
+  f.rows.forEach(r => { if (!taxa.has(r.sp)) taxa.set(r.sp, r); });
+  const years = f.rows.map(r => r.year).filter(Boolean);
+  const y0 = years.length ? Math.min(...years) : null, y1 = years.length ? Math.max(...years) : null;
+  const listed = [...taxa.values()].filter(r => rptListed(r.st, r.cat)).length;
+  const lines = [];
+  lines.push(n.toLocaleString() + (n === 1 ? ' record' : ' records') + ' of ' + taxa.size.toLocaleString() + (taxa.size === 1 ? ' taxon' : ' taxa') + (y0 ? ', ' + (y0 === y1 ? y0 : y0 + '–' + y1) : '') +
+    (f.kind === 'checklist' ? ' (species checklist)' : ''));
+  lines.push(f.hasStatus ? '<span class="ok">✓</span> NZTCS status: ' + listed + (listed === 1 ? ' taxon' : ' taxa') + ' Threatened or At Risk'
+    : '<span class="no">✗</span> No NZTCS status columns: export again from occurd. with NZTCS on');
+  lines.push(f.citation ? '<span class="ok">✓</span> Citable: ' + escHtml(f.citation)
+    : '<span class="no">✗</span> No GBIF download DOI, so not citable: fetch in occurd.\'s Big Data Mode');
+  if (f.kind === 'records') {
+    const byPoly = new Map();
+    f.rows.forEach(r => byPoly.set(r.poly || '', (byPoly.get(r.poly || '') || 0) + 1));
+    const names = new Set(areas.map(a => a.name));
+    lines.push('<span class="sub">By occurd. polygon: ' + [...byPoly.entries()].map(([p, c]) => (p ? escHtml(p) : 'no polygon name') + ' ' + c.toLocaleString() +
+      (p && names.has(p) ? ' (an area here)' : '')).join('; ') + '</span>');
+  }
+  const when = f.added ? new Date(f.added).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+  return '<div class="rpt-card' + (f.citation && f.hasStatus ? '' : ' warn') + '" data-id="' + f.id + '"><div class="head"><span class="ok">✓</span><span class="t">' + escHtml(f.name) + '</span>' +
+    '<button class="rpt-x" type="button" data-del="occurd" title="Remove">✕</button></div>' +
+    '<div>' + lines.join('<br>') + '</div>' + (when ? '<div class="sub" style="font-size:11px;">Added ' + when + '</div>' : '') + '</div>';
 }
 
 function syncReportControls() {
@@ -7533,6 +7568,7 @@ function syncReportControls() {
 
 function reportAreasChanged() {
   renderTabAreaList('reportAreaList', 'reportAreaEmpty');
+  if (rpt) rptRenderLists();
   if (rpt && !rptLoadingAreas && !rptAreasMatch(rpt.areas)) {
     rpt.areas = rptAreaList();
     rptSave();
@@ -7589,6 +7625,9 @@ function rptCsv(text) {
   if (cell || row.length) { row.push(cell); rows.push(row); }
   return rows;
 }
+// Listed on occurd.'s own category, or a Threatened or At Risk status name;
+// "Not Threatened" must not match.
+const rptListed = (st, cat) => /^(threatened|at risk)$/i.test((cat || '').trim()) || /^(nationally (critical|endangered|vulnerable|increasing)|declining|recovering|relict|naturally uncommon)$/i.test((st || '').trim());
 function rptReadOccurd(name, text) {
   // occurd. (v7.48 on) writes "# GBIF citation: GBIF.org (date) GBIF Occurrence
   // Download https://doi.org/..." when the records came from a GBIF download.
@@ -7604,7 +7643,7 @@ function rptReadOccurd(name, text) {
   const out = rows.slice(1).map(r => kind === 'records'
     ? { sp: get(r, 'species') || get(r, 'scientificName'), vn: get(r, 'vernacularName'), year: Number(get(r, 'year')) || null, poly: get(r, 'polygon_name'), kingdom: get(r, 'kingdom'), st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') }
     : { sp: get(r, 'scientificName'), vn: get(r, 'vernacularName'), group: get(r, 'taxonGroup'), kingdom: get(r, 'kingdom'), n: Number(get(r, 'records')) || 0, st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') });
-  return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, citation: cite ? cite[1] : null, rows: out.filter(x => x.sp) };
+  return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, citation: cite ? cite[1] : null, added: new Date().toISOString(), rows: out.filter(x => x.sp) };
 }
 
 /* Fact sheet. Statements of measured values only: numbers, units, dates
@@ -7729,9 +7768,7 @@ function rptBuildFacts() {
       sp.forEach(e => king.set(e.kingdom || 'kingdom not given', (king.get(e.kingdom || 'kingdom not given') || 0) + 1));
       if (king.size > 1) add(g, 'Species (occurd.)', f.id + ' kingdoms', 'Taxa by kingdom: ' + [...king.entries()].sort((x, y) => y[1] - x[1]).map(([k, n]) => k + ' ' + n).join(', ') + '.', src);
       if (!f.hasStatus) { add(g, 'Species (occurd.)', f.id + ' no status', 'This occurd. export has no NZTCS status columns, so no threat statuses are listed from it.', src); return; }
-      // Listed on occurd.'s own category, or a Threatened or At Risk status
-      // name; "Not Threatened" must not match.
-      const listed = sp.filter(e => /^(threatened|at risk)$/i.test(e.cat.trim()) || /^(nationally (critical|endangered|vulnerable|increasing)|declining|recovering|relict|naturally uncommon)$/i.test(e.st.trim())).sort((x, y) => x.sp.localeCompare(y.sp));
+      const listed = sp.filter(e => rptListed(e.st, e.cat)).sort((x, y) => x.sp.localeCompare(y.sp));
       listed.forEach(e => add(g, 'Species (occurd.)', f.id + ' ' + e.sp, e.sp + (e.vn ? ' (' + e.vn + ')' : '') + ': NZTCS ' + e.st + (e.cat && e.cat !== e.st ? ', ' + e.cat : '') + (e.sy ? ' (' + e.sy + ')' : '') + '; ' + e.n + (e.n === 1 ? ' record' : ' records') + (e.last ? ', ' + (e.first === e.last ? e.last : e.first + '–' + e.last) : '') + '.', src));
       if (!listed.length) add(g, 'Species (occurd.)', f.id + ' none listed', 'No taxa in this export carry a Threatened or At Risk NZTCS status.', src);
       const dd = sp.filter(e => /^data deficient$/i.test(e.st.trim()) || /^data deficient$/i.test(e.cat.trim()));
@@ -7846,7 +7883,7 @@ document.getElementById('rptChecks').addEventListener('change', (e) => { const k
 // Files, one at a time, with any failure named in the status.
 async function rptEachFile(input, fn) {
   const files = [...input.files];
-  input.value = '';
+  try { input.value = ''; } catch (e) {}
   const errs = [];
   for (const f of files) {
     setReportStatus('info', 'Reading ' + f.name + '…');
@@ -7855,16 +7892,50 @@ async function rptEachFile(input, fn) {
   setReportStatus(errs.length ? 'error' : '', errs.join('; '));
   if (rpt) { rptSave(); rptRenderLists(); renderReport(); }
 }
-document.getElementById('rptOccurdFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => { rpt.occurd.push(rptReadOccurd(f.name, await f.text())); }));
-document.getElementById('rptKmlFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
+async function rptAddOccurd(f) {
+  const o = rptReadOccurd(f.name, await f.text());
+  const old = rpt.occurd.findIndex(x => x.name === o.name);
+  if (old >= 0) rpt.occurd.splice(old, 1, o); else rpt.occurd.push(o);
+  rptAdded.push(f.name + (old >= 0 ? ' (replaced)' : ''));
+}
+let rptAdded = [];
+async function rptTakeFiles(files) {
+  if (!rpt || !files.length) return;
+  rptAdded = [];
+  const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), csv = files.filter(f => /\.csv$/i.test(f.name)), other = files.filter(f => !/\.(km[lz]|csv)$/i.test(f.name));
+  if (csv.length) await rptEachFile({ files: csv, value: '' }, rptAddOccurd);
+  if (kml.length) await rptEachFile({ files: kml, value: '' }, rptAddKml);
+  const msg = (rptAdded.length ? 'Added ' + rptAdded.join(', ') + '.' : '') + (other.length ? ' Not read: ' + other.map(f => f.name).join(', ') + ' (occurd. CSV, KML or KMZ only).' : '');
+  if (msg && !document.getElementById('reportStatus').classList.contains('error')) setReportStatus(other.length ? 'warning' : 'success', msg.trim());
+}
+document.getElementById('rptOccurdFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
+// Drag and drop: onto the box, or anywhere on the Report tab. Elsewhere a
+// dropped file is ignored rather than opened in place of the app.
+(() => {
+  const box = document.getElementById('rptOccurdDrop');
+  const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  let depth = 0;
+  window.addEventListener('dragenter', (e) => { if (hasFiles(e) && appTab === 'report') { depth++; box.classList.add('over'); } });
+  window.addEventListener('dragleave', () => { if (depth && --depth === 0) box.classList.remove('over'); });
+  window.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = appTab === 'report' ? 'copy' : 'none'; } });
+  window.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    depth = 0; box.classList.remove('over');
+    if (appTab === 'report') rptTakeFiles([...e.dataTransfer.files]);
+  });
+})();
+async function rptAddKml(f) {
   const { out, skipped } = await rptReadKml(f);
   if (!out.length) throw new Error(f.name + ' has no polygons' + (skipped ? ' (' + skipped + ' points or lines left out)' : ''));
   out.forEach(x => addAreaFromGeometry(x.geometry, x.name));
   map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
+  rptAdded.push(f.name + ' (' + out.length + (out.length === 1 ? ' area)' : ' areas)'));
   if (skipped) throw new Error(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
-}));
+}
+document.getElementById('rptKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
 document.getElementById('rptOccurdList').addEventListener('click', (e) => {
-  const item = e.target.closest('.rpt-item');
+  const item = e.target.closest('.rpt-card');
   if (!item || !rpt || e.target.dataset.del !== 'occurd') return;
   rpt.occurd = rpt.occurd.filter(x => x.id !== item.dataset.id);
   rptSave(); renderReport(); rptRenderLists();
