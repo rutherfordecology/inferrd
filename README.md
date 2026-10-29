@@ -251,11 +251,13 @@ needs its own registration and licence, so they aren't used.
 
 ### Report tab
 
-Gathers what a report is built from: the brief, clarifying emails, areas
-from KML or KMZ, species records exported from occurd., writing settings
-and samples of your own writing. "Gather the facts" runs the other tabs'
-checks and builds a fact sheet of measured values with their sources and
-no interpretation. Kept in the browser; nothing is sent anywhere.
+Gathers the data a report is built from: areas from KML or KMZ and
+species records exported from occurd. "Gather the facts" runs the other
+tabs' checks and builds a fact sheet of measured values with their
+sources and no interpretation. "Export for report" saves a zip of the
+ticked facts (`facts.csv`, with fact IDs a report can cite), a
+`summary.json`, the areas as GeoJSON and KML, and a map. The report is
+written, and the facts interpreted, outside inferrd. Kept in the browser.
 
 ### Map layers
 

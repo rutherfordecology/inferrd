@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.49.0 — 2026-10-30
+
+- **Report tab re-scoped to data only.** The writing, and every call on
+  what the facts mean, now happen outside inferrd, so the brief, emails,
+  writing settings and voice-sample sections are gone. The tab keeps the
+  areas (KML or KMZ), the occurd. files and the fact sheet.
+- **Export for report.** A zip named `<date>_<time>_<report>` holding
+  `facts.csv` (the ticked facts only, keeping their IDs so a report can
+  cite them), `summary.json` (version, areas and hectares, checks run,
+  gathering notes, occurd. files, sources, whether the facts still match
+  the areas), the areas as `areas.geojson` and `areas.kml`, and
+  `map.png`, the areas outlined and labelled on Esri aerial imagery.
+- The condition-check map image can now draw several labelled outlines
+  (used by the Report export; no change to the condition export).
+
 ## v0.48.0 — 2026-10-30
 
 - **New Report tab, stages 1 and 2 of the report maker.** A report holds

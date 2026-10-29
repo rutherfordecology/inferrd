@@ -69,8 +69,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
 .results-pane.report-mode > :not(#reportResults), .results-pane:not(.report-mode) > #reportResults { display: none !important; }
-#reportPanel textarea, #reportPanel input[type=text] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); }
-#reportPanel textarea { resize: vertical; line-height: 1.45; }
+#reportPanel input[type=text] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); }
 .rpt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .rpt-file { position: relative; overflow: hidden; display: inline-block; cursor: pointer; }
 .rpt-file input { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
@@ -80,11 +79,6 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .rpt-item-head .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .rpt-item-head .m { color: var(--text3); font-size: 11px; white-space: nowrap; }
 .rpt-x { cursor: pointer; color: var(--text3); background: none; border: none; padding: 0 2px; font-size: 12px; }
-.rpt-item pre { white-space: pre-wrap; font-family: var(--font-sans); font-size: 12px; max-height: 240px; overflow: auto; margin: 6px 0 0; color: var(--text2); }
-.rpt-slider { margin-bottom: 9px; }
-.rpt-slider label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); margin-bottom: 2px; text-transform: none; letter-spacing: normal; font-weight: 500; }
-.rpt-slider label span { color: var(--text2); font-weight: 400; }
-.rpt-slider input { width: 100%; }
 .rpt-checks label { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--text2); margin: 3px 0; cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
 .rpt-area-head { margin: 16px 0 2px; font-size: 14px; font-weight: 600; }
 .rpt-section { margin: 10px 0 2px; font: 600 10.5px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); }
@@ -674,25 +668,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">1 · Report</div>
         <div class="half"><select id="rptProjectSel" aria-label="Report"></select><button class="tool-btn" id="rptNewBtn" type="button">New report</button></div>
         <div class="field" style="margin-top:8px;"><label for="rptTitle">Title</label><input type="text" id="rptTitle" autocomplete="off"></div>
-        <div class="field-hint" style="margin:0;">Kept in this browser only; nothing on this tab is sent anywhere. <a href="#" id="rptDeleteBtn">Delete this report</a></div>
+        <div class="field-hint" style="margin:0;">Kept in this browser only. <a href="#" id="rptDeleteBtn">Delete this report</a></div>
       </div>
 
       <div class="sidebar-section">
-        <div class="section-label">2 · Brief</div>
-        <textarea id="rptBrief" rows="7" placeholder="Paste the project brief: what the client asked for, the purpose, the deadline…"></textarea>
-        <div class="rpt-row"><label class="tool-btn rpt-file">Add from a file<input type="file" id="rptBriefFile" accept=".docx,.pdf,.txt,.md,.eml"></label><span class="field-hint" style="margin:0;">Word, PDF, text or email</span></div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-label">3 · Emails</div>
-        <div class="field-hint" style="margin:0 0 6px;">The clarifying emails, in any order; they're sorted by date where they have one.</div>
-        <textarea id="rptEmailPaste" rows="4" placeholder="Paste an email here, with its From, Date and Subject lines if you have them"></textarea>
-        <div class="rpt-row"><button class="tool-btn" id="rptEmailAdd" type="button">Add pasted email</button><label class="tool-btn rpt-file">Add files<input type="file" id="rptEmailFile" accept=".eml,.txt,.docx,.pdf" multiple></label></div>
-        <div class="rpt-list" id="rptEmailList"></div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-label">4 · Areas</div>
+        <div class="section-label">2 · Areas</div>
         <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Load KML or KMZ<input type="file" id="rptKmlFile" accept=".kml,.kmz" multiple></label></div>
         <div id="reportAreaList"></div>
         <div class="poly-empty" id="reportAreaEmpty">No areas yet: load a KML, or draw on the map</div>
@@ -700,33 +680,24 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
 
       <div class="sidebar-section">
-        <div class="section-label">5 · Species from occurd.</div>
+        <div class="section-label">3 · Species from occurd.</div>
         <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add occurd. CSV<input type="file" id="rptOccurdFile" accept=".csv" multiple></label></div>
         <div class="rpt-list" id="rptOccurdList"></div>
         <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
       </div>
 
       <div class="sidebar-section">
-        <div class="section-label">6 · Writing</div>
-        <div id="rptSliders"></div>
-        <div class="field" style="margin-top:4px;"><label for="rptAudience">Who is it for?</label><input type="text" id="rptAudience" placeholder="e.g. the landowner and their family; the council's biodiversity team" autocomplete="off"></div>
-        <div class="field-hint" style="margin:0;">Used when the draft is written, a later stage.</div>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-label">7 · Your voice</div>
-        <div class="field-hint" style="margin:0 0 6px;">A few reports you've written, so the draft can sound like you, and your own notes on how you write. You'll see and correct the style read from them before it's used.</div>
-        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add past reports<input type="file" id="rptVoiceFile" accept=".docx,.pdf,.txt,.md" multiple></label></div>
-        <div class="rpt-list" id="rptVoiceList"></div>
-        <textarea id="rptVoiceNotes" rows="5" style="margin-top:6px;" placeholder="How you write, in your own words: what you always do, never do, words you use and avoid…"></textarea>
-      </div>
-
-      <div class="sidebar-section">
-        <div class="section-label">8 · Fact sheet</div>
+        <div class="section-label">4 · Fact sheet</div>
         <div class="rpt-checks" id="rptChecks"></div>
         <button class="run-btn" id="rptRunBtn" type="button" disabled>Gather the facts</button>
         <div class="status-bar" id="reportStatus"></div>
         <div class="field-hint" style="margin:6px 0 0;">Runs the checks on the other tabs for these areas (or uses their results if they're already there for the same areas), and reads the occurd. files. The results also stay on those tabs and on the map.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">5 · Export</div>
+        <button class="run-btn" id="rptExportBtn" type="button" disabled>Export for report</button>
+        <div class="field-hint" style="margin:6px 0 0;">A zip for writing the report elsewhere: the ticked facts with their IDs and sources, the areas as GeoJSON and KML, a map of the areas, and a summary of what was run. The writing, and every call on what the facts mean, happen outside inferrd.</div>
       </div>
     </div>
 
@@ -834,7 +805,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div id="reportResults">
         <div class="results-empty" id="reportEmpty">
           <span class="big">✎</span>
-          Start a report: add the brief, emails and areas, then gather the facts.
+          Start a report: add its areas and occurd. files, gather the facts, then export them.
         </div>
         <div id="reportContent" style="display:none">
           <div class="metrics" id="reportMetrics"></div>
@@ -847,7 +818,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
               <div class="card-title">Fact sheet</div>
               <button class="dl-btn" id="rptCsvBtn" type="button">Download CSV</button>
             </div>
-            <div class="field-hint" style="margin:0 0 4px;">Each line is a measured value and where it came from, with no interpretation. Untick anything that doesn't belong in this report. What the facts mean is yours to say: the next stage asks you, rather than guessing.</div>
+            <div class="field-hint" style="margin:0 0 4px;">Each line is a measured value and where it came from, with no interpretation. Untick anything that doesn't belong in this report: unticked facts are left out of the export. What the facts mean is yours to say when the report is written.</div>
             <div id="reportFacts"></div>
           </div>
         </div>
@@ -1206,8 +1177,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Climate</strong> tab gives each drawn area's climate from ERA5-Land, ECMWF's land reanalysis (a weather model run over the observations, about 9 km cells, hourly from 1950 to a few months ago), averaged over the area and 6 km around it. It runs on Earth Engine, so it needs the access key from the Infrared tab. It shows the 1991–2020 normals (rainfall, mean temperature, frost days, hot days, wet and heavy-rain days, growing degree-days), each month of the years you pick against its normal with the rainfall of the 12 months to then, every year since 1950 with a Mann–Kendall trend, and a table and CSV. Use it to check whether a change in the vegetation signal lines up with a drought, a wet spell or a cold year. A 9 km cell smooths the terrain, so totals in hill country can be well off a local rain gauge: it is for timing and for comparing with normal. Station records for New Zealand are with Earth Sciences New Zealand's (formerly NIWA's) DataHub, which needs its own registration and licence, so inferrd. doesn't use them.</p>
 
     <h3>Report tab</h3>
-    <p>The <strong>Report</strong> tab gathers what a report is built from, and keeps the judgement calls with you. Each report holds the project brief, the clarifying emails (pasted, or as .eml, Word, PDF or text files), its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn), species records exported from occurd., your writing settings (length, tone, reading level and who it's for) and samples of your own writing with your notes on how you write. Reports are kept in this browser only, and nothing on this tab is sent anywhere.</p>
-    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported. Untick any fact that doesn't belong. The fact sheet and everything else in the report can be downloaded; questions about what the facts mean, and the draft, come in later stages.</p>
+    <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported. Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery.</p>
 
     <h3>Map layers</h3>
     <p>Every map layer, from every tab, goes in one <strong>Map layers</strong> list at the bottom left of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down, so it draws over or under the others. Layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. A layer is only listed once it has something to show: the index preview, change map and condition trend once you show them, LiDAR once loaded, and the Physical and Land cover layers once those tabs have checked the areas (and only those that found something). The list remembers its order, opacities and what is on in this browser.</p>
@@ -1281,7 +1252,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.48.0';
+const APP_VERSION = 'v0.49.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -3464,7 +3435,8 @@ function bboxOf(geojsonGeom) {
 const MAP_TILE_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const MAP_CREDIT = 'Imagery: Esri, Maxar, Earthstar Geographics';
 function conditionMapPng(c) {
-  const [w0, s0, e0, n0] = bboxOf(c.area.geojson.geometry);
+  const outl = c.outlines || [{ geometry: c.area.geojson.geometry }], bbs = outl.map(o => bboxOf(o.geometry));
+  const w0 = Math.min(...bbs.map(b => b[0])), s0 = Math.min(...bbs.map(b => b[1])), e0 = Math.max(...bbs.map(b => b[2])), n0 = Math.max(...bbs.map(b => b[3]));
   const padX = (e0 - w0) * 0.12 || 0.002, padY = (n0 - s0) * 0.12 || 0.002;
   const bb = [w0 - padX, s0 - padY, e0 + padX, n0 + padY];
   const wx = (lon, z) => (lon + 180) / 360 * 256 * Math.pow(2, z);
@@ -3504,16 +3476,19 @@ function conditionMapPng(c) {
       g.strokeStyle = '#000'; g.lineWidth = 4.5; g.stroke(); // dark edge so green reads against forest
       g.strokeStyle = COND_COLORS[x.spot.kind]; g.lineWidth = 2.5; g.stroke();
     });
-    trace(c.area.geojson.geometry);
-    g.strokeStyle = '#000'; g.lineWidth = 6; g.stroke();
-    g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
+    outl.forEach(o => {
+      trace(o.geometry);
+      g.strokeStyle = '#000'; g.lineWidth = 6; g.stroke();
+      g.strokeStyle = '#fff'; g.lineWidth = 3; g.stroke();
+    });
     const halo = (text, x, y, font) => {
       g.font = font; g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText(text, x, y); g.fillStyle = '#fff'; g.fillText(text, x, y);
     };
     g.textAlign = 'center'; g.textBaseline = 'middle';
     c.spots.forEach(x => { const [lx, ly] = P([x.spot.lon, x.spot.lat]); halo(x.spot.spot_id, lx, ly, 'bold 20px sans-serif'); });
+    outl.filter(o => o.label).forEach(o => { const [lx, ly] = P(turf.pointOnFeature(o.geometry).geometry.coordinates); halo(o.label, lx, ly, 'bold 16px sans-serif'); });
     // Legend, top left
-    const rows = [['Area boundary', null]].concat(Object.keys(COND_COLORS).map(k => [COND_PREFIX[k] + ' · ' + COND_KIND_NAME[k], COND_COLORS[k]]));
+    const rows = [['Area boundary', null]].concat(c.outlines ? [] : Object.keys(COND_COLORS).map(k => [COND_PREFIX[k] + ' · ' + COND_KIND_NAME[k], COND_COLORS[k]]));
     g.textAlign = 'left'; g.textBaseline = 'middle'; g.font = '15px sans-serif';
     const lw = 12 + Math.max(...rows.map(r => g.measureText(r[0]).width)) + 38, lh = 12 + rows.length * 24;
     g.fillStyle = 'rgba(255,255,255,0.88)'; g.fillRect(12, 12, lw, lh);
@@ -7403,20 +7378,15 @@ coverLayer({ key: 'cover_worldcover', section: 'worldcover', rank: 250, op: 0.7,
 syncCoverControls();
 
 /* ---------------------------------------------------------------------
-   Report tab — gathers what a report is built from, and keeps the human
-   calls with the human. A report holds the brief, the clarifying emails,
-   its areas (from KML), species records exported from occurd., writing
-   settings and samples of the author's own writing; "Gather the facts"
-   turns the other tabs' results and the occurd. files into a fact sheet:
-   numbered statements of measured values, each with its source, and no
-   interpretation. Reports are kept in this browser (IndexedDB) and
-   nothing on this tab is sent anywhere.
+   Report tab — gathers the data a report is built from. A report holds
+   its areas (from KML) and species records exported from occurd.;
+   "Gather the facts" turns the other tabs' results and the occurd. files
+   into a fact sheet: numbered statements of measured values, each with
+   its source, and no interpretation. "Export for report" saves the
+   ticked facts, the areas, a map and a summary as a zip; the report is
+   written, and the facts interpreted, outside inferrd. Reports are kept
+   in this browser (IndexedDB).
    --------------------------------------------------------------------- */
-const RPT_SLIDERS = [
-  ['length', 'Length', ['One page', 'Short', 'Standard', 'Detailed', 'Full technical']],
-  ['tone', 'Tone', ['Formal', 'Measured', 'Plain', 'Relaxed', 'Casual']],
-  ['level', 'Reading level', ['Anyone (about age 12)', 'General public', 'Landowner or practitioner', 'Professional', 'Specialist']]
-];
 const RPT_CHECKS = [
   ['physical', 'Physical: geology, faults, erosion, LUC; terrain and soil with Earth Engine'],
   ['cover', 'Land cover, tree loss, canopy height, water, fire (Earth Engine)'],
@@ -7444,9 +7414,9 @@ const RPT_SRC = {
 let rpt = null;            // the open report
 let rptList = [];          // { id, title, updated } of every report
 let rptBusy = false;
+let rptExporting = false;
 let rptLoadingAreas = false;
 let rptSaveTimer = null;
-let rptOpenEmail = null, rptOpenSample = null;
 
 function setReportStatus(kind, msg) {
   const el = document.getElementById('reportStatus');
@@ -7487,11 +7457,9 @@ function rptSave() {
 }
 function rptNew() {
   const now = new Date().toISOString();
-  return { id: 'r' + Date.now().toString(36), title: 'New report', created: now, updated: now, brief: '', emails: [], areas: [], occurd: [],
-    sliders: { length: 3, tone: 3, level: 3 }, audience: '', voice: { samples: [], notes: '' },
+  return { id: 'r' + Date.now().toString(36), title: 'New report', created: now, updated: now, areas: [], occurd: [],
     checks: { physical: true, cover: true, climate: true, lidar: true, occurd: true }, facts: [], factsAt: null, factsFor: null, factsNotes: [] };
 }
-const rptWords = (t) => (String(t || '').match(/\S+/g) || []).length;
 const rptAreaList = () => areas.map(a => ({ name: a.name, geometry: a.geojson.geometry }));
 const rptAreasMatch = (list) => list.length === areas.length && list.every((x, i) => x.name === areas[i].name && JSON.stringify(x.geometry) === JSON.stringify(areas[i].geojson.geometry));
 
@@ -7544,27 +7512,12 @@ function rptFillForm() {
   sel.innerHTML = rptList.map(x => '<option value="' + x.id + '"' + (rpt && x.id === rpt.id ? ' selected' : '') + '>' + escHtml(x.title || 'Untitled') + '</option>').join('');
   if (!rpt) return;
   document.getElementById('rptTitle').value = rpt.title;
-  document.getElementById('rptBrief').value = rpt.brief;
-  document.getElementById('rptAudience').value = rpt.audience || '';
-  document.getElementById('rptVoiceNotes').value = rpt.voice.notes || '';
-  document.getElementById('rptSliders').innerHTML = RPT_SLIDERS.map(([k, label, stops]) =>
-    '<div class="rpt-slider"><label for="rptS_' + k + '">' + label + ' <span id="rptSV_' + k + '">' + stops[rpt.sliders[k] - 1] + '</span></label>' +
-    '<input type="range" id="rptS_' + k + '" data-k="' + k + '" min="1" max="5" step="1" value="' + rpt.sliders[k] + '"></div>').join('');
   document.getElementById('rptChecks').innerHTML = RPT_CHECKS.map(([k, label]) =>
     '<label><input type="checkbox" data-k="' + k + '"' + (rpt.checks[k] !== false ? ' checked' : '') + '>' + label + '</label>').join('');
   rptRenderLists();
 }
 
 function rptRenderLists() {
-  const fmtDate = (d) => { const t = Date.parse(d); return t ? new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
-  const emails = rpt.emails.slice().sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0));
-  document.getElementById('rptEmailList').innerHTML = emails.map(e =>
-    '<div class="rpt-item" data-id="' + e.id + '"><div class="rpt-item-head"><span class="t" data-open="email" title="Show or hide">' + escHtml(e.subject || e.body.slice(0, 60) || 'Email') + '</span>' +
-    '<span class="m">' + escHtml([e.from ? e.from.replace(/\s*<[^>]*>/, '') : '', fmtDate(e.date)].filter(Boolean).join(' · ')) + '</span><button class="rpt-x" type="button" data-del="email" title="Remove">✕</button></div>' +
-    (rptOpenEmail === e.id ? '<pre>' + escHtml(e.body) + '</pre>' : '') + '</div>').join('');
-  document.getElementById('rptVoiceList').innerHTML = rpt.voice.samples.map(v =>
-    '<div class="rpt-item" data-id="' + v.id + '"><div class="rpt-item-head"><span class="t" data-open="sample" title="Show or hide">' + escHtml(v.name) + '</span><span class="m">' + rptWords(v.text).toLocaleString() + ' words</span>' +
-    '<button class="rpt-x" type="button" data-del="sample" title="Remove">✕</button></div>' + (rptOpenSample === v.id ? '<pre>' + escHtml(v.text.slice(0, 20000)) + '</pre>' : '') + '</div>').join('');
   document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(f =>
     '<div class="rpt-item" data-id="' + f.id + '"><div class="rpt-item-head"><span class="t">' + escHtml(f.name) + '</span><span class="m">' +
     (f.kind === 'records' ? f.rows.length.toLocaleString() + ' records' : f.rows.length.toLocaleString() + ' species') + (f.hasStatus ? '' : ', no NZTCS status') + '</span>' +
@@ -7575,6 +7528,7 @@ function syncReportControls() {
   const run = document.getElementById('rptRunBtn');
   run.disabled = !rpt || !areas.length || rptBusy;
   run.textContent = rptBusy ? 'Gathering…' : 'Gather the facts';
+  document.getElementById('rptExportBtn').disabled = !rpt || !rpt.facts.length || rptBusy || rptExporting;
 }
 
 function reportAreasChanged() {
@@ -7585,79 +7539,6 @@ function reportAreasChanged() {
     renderReport();
   }
   syncReportControls();
-}
-
-// Reading files: Word, PDF, email and text.
-let rptPdfPromise = null;
-function rptLoadPdf() {
-  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-  if (!rptPdfPromise) rptPdfPromise = new Promise((resolve, reject) => {
-    const sc = document.createElement('script');
-    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(window.pdfjsLib); };
-    sc.onerror = () => { rptPdfPromise = null; reject(new Error('could not load the PDF reader')); };
-    document.head.appendChild(sc);
-  });
-  return rptPdfPromise;
-}
-function rptQp(t) {
-  const out = [];
-  for (let i = 0; i < t.length; i++) {
-    if (t[i] === '=' && /^[0-9A-F]{2}$/i.test(t.substr(i + 1, 2))) { out.push(parseInt(t.substr(i + 1, 2), 16)); i += 2; }
-    else out.push(...new TextEncoder().encode(t[i]));
-  }
-  return Uint8Array.from(out);
-}
-function rptParseEml(raw) {
-  const split = (t) => { const i = t.search(/\r?\n\r?\n/); return i < 0 ? [t, ''] : [t.slice(0, i), t.slice(i).replace(/^\r?\n\r?\n/, '')]; };
-  const headers = (h) => { const o = {}; h.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(l => { const i = l.indexOf(':'); if (i > 0) o[l.slice(0, i).trim().toLowerCase()] = l.slice(i + 1).trim(); }); return o; };
-  const words = (t) => (t || '').replace(/=\?([^?]+)\?([bq])\?([^?]*)\?=/gi, (m0, cs, enc, txt) => {
-    try { return new TextDecoder(cs).decode(enc.toLowerCase() === 'b' ? Uint8Array.from(atob(txt), c => c.charCodeAt(0)) : rptQp(txt.replace(/_/g, ' '))); } catch (e) { return txt; }
-  });
-  const body = (h, b) => {
-    const ct = h['content-type'] || 'text/plain', bm = /boundary="?([^";]+)"?/i.exec(ct);
-    if (/multipart\//i.test(ct) && bm) {
-      const parts = b.split('--' + bm[1]).slice(1).filter(x => !/^--/.test(x)).map(x => { const [ph, pb] = split(x.replace(/^\r?\n/, '')); return body(headers(ph), pb); });
-      return parts.find(x => x.plain && x.text.trim()) || parts.find(x => x.text.trim()) || { text: '' };
-    }
-    const te = (h['content-transfer-encoding'] || '').toLowerCase(), cs = (/charset="?([^";\s]+)/i.exec(ct) || [0, 'utf-8'])[1];
-    const bytes = te === 'base64' ? Uint8Array.from(atob(b.replace(/\s+/g, '')), c => c.charCodeAt(0)) : te === 'quoted-printable' ? rptQp(b.replace(/=\r?\n/g, '')) : new TextEncoder().encode(b);
-    let text;
-    try { text = new TextDecoder(te === 'base64' || te === 'quoted-printable' ? cs : 'utf-8').decode(bytes); } catch (e) { text = new TextDecoder().decode(bytes); }
-    if (/text\/html/i.test(ct)) return { text: new DOMParser().parseFromString(text, 'text/html').body.innerText || '' };
-    return { text, plain: true };
-  };
-  const [hh, bb] = split(raw), h = headers(hh);
-  return { from: words(h.from), date: h.date || '', subject: words(h.subject), body: body(h, bb).text.trim() };
-}
-// A pasted email: From / Sent / Date / Subject lines at the top, if there.
-function rptParsePasted(t) {
-  const lines = t.replace(/\r/g, '').split('\n'), e = { from: '', date: '', subject: '' };
-  let i = 0;
-  for (; i < Math.min(lines.length, 12); i++) {
-    const m = /^\s*(from|sent|date|subject|to|cc)\s*:\s*(.*)$/i.exec(lines[i]);
-    if (m) { const k = m[1].toLowerCase(); if (k === 'from') e.from = m[2]; else if (k === 'sent' || k === 'date') e.date = m[2]; else if (k === 'subject') e.subject = m[2]; }
-    else if (lines[i].trim() || i === 0) break;
-  }
-  e.body = lines.slice(i).join('\n').trim();
-  return e;
-}
-async function rptFileText(file) {
-  const n = file.name.toLowerCase();
-  if (n.endsWith('.docx')) {
-    const JSZip = await loadJSZip(), zip = await JSZip.loadAsync(file), f = zip.file('word/document.xml');
-    if (!f) throw new Error(file.name + ' isn\'t a Word document');
-    const doc = new DOMParser().parseFromString(await f.async('string'), 'application/xml');
-    return [...doc.getElementsByTagName('w:p')].map(pp => [...pp.getElementsByTagName('w:t')].map(t => t.textContent).join('')).filter(t => t.trim()).join('\n\n');
-  }
-  if (n.endsWith('.pdf')) {
-    const pdfjs = await rptLoadPdf(), pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise, pages = [];
-    for (let i = 1; i <= pdf.numPages; i++) pages.push((await (await pdf.getPage(i)).getTextContent()).items.map(it => it.str + (it.hasEOL ? '\n' : '')).join(''));
-    return pages.join('\n\n').trim();
-  }
-  if (n.endsWith('.eml')) return rptParseEml(await file.text()).body;
-  if (/\.(txt|md|csv)$/.test(n) || (file.type || '').startsWith('text/')) return (await file.text()).trim();
-  throw new Error('can\'t read ' + file.name + ' (Word .docx, PDF, .eml or text only; old .doc and Outlook .msg files need saving as one of those first)');
 }
 
 // KML / KMZ: each placemark with polygons becomes an area.
@@ -7899,8 +7780,7 @@ async function rptRun() {
 
 function rptRenderMetrics() {
   const inc = rpt.facts.filter(x => x.include).length;
-  const m = [['Brief', rptWords(rpt.brief).toLocaleString() + ' words'], ['Emails', String(rpt.emails.length)], ['Areas', String(rpt.areas.length)],
-    ['occurd. files', String(rpt.occurd.length)], ['Your writing', rpt.voice.samples.length + (rpt.voice.samples.length === 1 ? ' report' : ' reports')], ['Facts', rpt.facts.length ? inc + ' of ' + rpt.facts.length : '–']];
+  const m = [['Areas', String(rpt.areas.length)], ['occurd. files', String(rpt.occurd.length)], ['Facts ticked', rpt.facts.length ? inc + ' of ' + rpt.facts.length : '–']];
   document.getElementById('reportMetrics').innerHTML = m.map(([l, v]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
 }
 function renderReport() {
@@ -7921,6 +7801,7 @@ function renderReport() {
     html += '<label class="rpt-fact' + (x.include ? '' : ' out') + '"><input type="checkbox" data-id="' + x.id + '"' + (x.include ? ' checked' : '') + '><span class="id">' + x.id + '</span><span><span class="tx">' + escHtml(x.text) + '</span><span class="src">' + escHtml(x.source) + '</span></span></label>';
   });
   document.getElementById('reportFacts').innerHTML = html;
+  syncReportControls();
 }
 
 // Wiring
@@ -7939,7 +7820,7 @@ document.getElementById('rptNewBtn').addEventListener('click', () => {
 });
 document.getElementById('rptDeleteBtn').addEventListener('click', async (e) => {
   e.preventDefault();
-  if (!rpt || !confirm('Delete "' + rpt.title + '" from this browser? Its brief, emails, files and facts go with it, and this can\'t be undone.')) return;
+  if (!rpt || !confirm('Delete "' + rpt.title + '" from this browser? Its areas list, occurd. files and facts go with it, and this can\'t be undone.')) return;
   const id = rpt.id;
   clearTimeout(rptSaveTimer);
   try { await rptStore('readwrite', st => st.delete(id)); } catch (err) {}
@@ -7955,16 +7836,6 @@ document.getElementById('rptTitle').addEventListener('input', (e) => {
   const o = document.querySelector('#rptProjectSel option[value="' + rpt.id + '"]');
   if (o) o.textContent = rpt.title || 'Untitled';
 });
-document.getElementById('rptBrief').addEventListener('input', (e) => { if (rpt) { rpt.brief = e.target.value; rptSave(); renderReport(); } });
-document.getElementById('rptAudience').addEventListener('input', (e) => { if (rpt) { rpt.audience = e.target.value; rptSave(); } });
-document.getElementById('rptVoiceNotes').addEventListener('input', (e) => { if (rpt) { rpt.voice.notes = e.target.value; rptSave(); } });
-document.getElementById('rptSliders').addEventListener('input', (e) => {
-  const k = e.target.dataset.k;
-  if (!rpt || !k) return;
-  rpt.sliders[k] = Number(e.target.value);
-  document.getElementById('rptSV_' + k).textContent = RPT_SLIDERS.find(x => x[0] === k)[2][rpt.sliders[k] - 1];
-  rptSave();
-});
 document.getElementById('rptChecks').addEventListener('change', (e) => { const k = e.target.dataset.k; if (rpt && k) { rpt.checks[k] = e.target.checked; rptSave(); } });
 // Files, one at a time, with any failure named in the status.
 async function rptEachFile(input, fn) {
@@ -7978,27 +7849,6 @@ async function rptEachFile(input, fn) {
   setReportStatus(errs.length ? 'error' : '', errs.join('; '));
   if (rpt) { rptSave(); rptRenderLists(); renderReport(); }
 }
-document.getElementById('rptBriefFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
-  const t = await rptFileText(f);
-  rpt.brief = (rpt.brief.trim() ? rpt.brief.trim() + '\n\n' : '') + t;
-  document.getElementById('rptBrief').value = rpt.brief;
-}));
-document.getElementById('rptEmailAdd').addEventListener('click', () => {
-  const box = document.getElementById('rptEmailPaste');
-  if (!rpt || !box.value.trim()) return;
-  rpt.emails.push(Object.assign({ id: 'e' + Date.now().toString(36) }, rptParsePasted(box.value)));
-  box.value = '';
-  rptSave(); rptRenderLists(); renderReport();
-});
-document.getElementById('rptEmailFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
-  const em = /\.eml$/i.test(f.name) ? rptParseEml(await f.text()) : Object.assign({ subject: f.name }, rptParsePasted(await rptFileText(f)));
-  rpt.emails.push(Object.assign({ id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }, em));
-}));
-document.getElementById('rptVoiceFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
-  const t = await rptFileText(f);
-  if (!t.trim()) throw new Error(f.name + ' has no text (a scanned PDF?)');
-  rpt.voice.samples.push({ id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: f.name, text: t });
-}));
 document.getElementById('rptOccurdFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => { rpt.occurd.push(rptReadOccurd(f.name, await f.text())); }));
 document.getElementById('rptKmlFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
   const { out, skipped } = await rptReadKml(f);
@@ -8007,19 +7857,12 @@ document.getElementById('rptKmlFile').addEventListener('change', (e) => rptEachF
   map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
   if (skipped) throw new Error(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
 }));
-['rptEmailList', 'rptVoiceList', 'rptOccurdList'].forEach(id => document.getElementById(id).addEventListener('click', (e) => {
+document.getElementById('rptOccurdList').addEventListener('click', (e) => {
   const item = e.target.closest('.rpt-item');
-  if (!item || !rpt) return;
-  const del = e.target.dataset.del, open = e.target.dataset.open, iid = item.dataset.id;
-  if (del === 'email') rpt.emails = rpt.emails.filter(x => x.id !== iid);
-  else if (del === 'sample') rpt.voice.samples = rpt.voice.samples.filter(x => x.id !== iid);
-  else if (del === 'occurd') rpt.occurd = rpt.occurd.filter(x => x.id !== iid);
-  else if (open === 'email') rptOpenEmail = rptOpenEmail === iid ? null : iid;
-  else if (open === 'sample') rptOpenSample = rptOpenSample === iid ? null : iid;
-  else return;
-  if (del) { rptSave(); renderReport(); }
-  rptRenderLists();
-}));
+  if (!item || !rpt || e.target.dataset.del !== 'occurd') return;
+  rpt.occurd = rpt.occurd.filter(x => x.id !== item.dataset.id);
+  rptSave(); renderReport(); rptRenderLists();
+});
 document.getElementById('reportFacts').addEventListener('change', (e) => {
   const x = rpt && rpt.facts.find(f => f.id === e.target.dataset.id);
   if (!x) return;
@@ -8034,6 +7877,70 @@ document.getElementById('rptCsvBtn').addEventListener('click', () => {
   downloadText((rpt.title || 'report').replace(/[^\w-]+/g, '_') + '_facts.csv', out.join('\n') + '\n', 'text/csv');
 });
 document.getElementById('rptRunBtn').addEventListener('click', rptRun);
+
+// Export for report: the ticked facts (IDs kept, so a report can cite
+// them), the areas, a map of them and a summary of what was run.
+function rptKml(list) {
+  const x = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const ring = (r) => r.map(p => p[0] + ',' + p[1]).join(' ');
+  const poly = (rings) => '<Polygon><outerBoundaryIs><LinearRing><coordinates>' + ring(rings[0]) + '</coordinates></LinearRing></outerBoundaryIs>' +
+    rings.slice(1).map(r => '<innerBoundaryIs><LinearRing><coordinates>' + ring(r) + '</coordinates></LinearRing></innerBoundaryIs>').join('') + '</Polygon>';
+  const pm = (a) => '<Placemark><name>' + x(a.name) + '</name>' + (a.geometry.type === 'Polygon' ? poly(a.geometry.coordinates)
+    : '<MultiGeometry>' + a.geometry.coordinates.map(poly).join('') + '</MultiGeometry>') + '</Placemark>';
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>' + list.map(pm).join('\n') + '</Document></kml>\n';
+}
+async function rptExport() {
+  if (!rpt || !rpt.facts.length || rptExporting) return;
+  const doc = rpt, btn = document.getElementById('rptExportBtn');
+  rptExporting = true;
+  syncReportControls();
+  btn.textContent = 'Preparing…';
+  try {
+    const JSZip = await loadJSZip();
+    const slug = (doc.title || 'report').replace(/[^A-Za-z0-9-]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'report';
+    const now = new Date(), folderName = isoDate(now) + '_' + pad2(now.getHours()) + pad2(now.getMinutes()) + '_' + slug;
+    const zip = new JSZip(), dir = zip.folder(folderName), missing = [];
+    const inc = doc.facts.filter(f => f.include);
+    dir.file('facts.csv', '\ufeff' + ['id', 'area', 'section', 'fact', 'source'].join(',') + '\n' + inc.map(f => [f.id, f.area, f.section, f.text, f.source].map(csvCell).join(',')).join('\n') + '\n');
+    const list = doc.areas.filter(a => a.geometry && /Polygon$/.test(a.geometry.type));
+    dir.file('areas.geojson', JSON.stringify({ type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geometry, properties: { name: a.name } })) }));
+    dir.file('areas.kml', rptKml(list));
+    if (list.length) {
+      try { dir.file('map.png', await conditionMapPng({ outlines: list.map(a => ({ geometry: a.geometry, label: list.length > 1 ? a.name : null })), spots: [] })); }
+      catch (e) { missing.push('map.png (' + e.message + ')'); }
+    }
+    const used = new Set(inc.map(f => f.source));
+    const summary = {
+      tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', exported_at: now.toISOString(),
+      report: doc.title, facts_gathered_at: doc.factsAt,
+      facts_match_areas: doc.factsFor === areas.map(areaKey).join('|'),
+      facts: { ticked: inc.length, unticked_left_out: doc.facts.length - inc.length,
+        note: 'Measured values only, each with its source; no interpretation. IDs are those shown in inferrd and stay fixed for this gathering; gathering again renumbers them.' },
+      areas: list.map(a => ({ name: a.name, area_ha: +(turf.area(a.geometry) / 1e4).toFixed(2) })),
+      checks_run: RPT_CHECKS.filter(([k]) => doc.checks[k] !== false).map(([, label]) => label),
+      gathering_notes: doc.factsNotes || [],
+      occurd_files: doc.occurd.map(f => ({ name: f.name, kind: f.kind, rows: f.rows.length, nztcs_status: f.hasStatus })),
+      sources: [...used].sort(),
+      map_imagery: list.length ? 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + isoDate(now) : null,
+      files_missing: missing
+    };
+    dir.file('summary.json', JSON.stringify(summary, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = folderName + '.zip';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    setReportStatus(missing.length ? 'warning' : 'success', 'Exported ' + folderName + '.zip' + (missing.length ? ' — missing: ' + missing.join('; ') : '.'));
+  } catch (e) {
+    setReportStatus('error', 'Export failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    rptExporting = false;
+    btn.textContent = 'Export for report';
+    syncReportControls();
+  }
+}
+document.getElementById('rptExportBtn').addEventListener('click', rptExport);
 rptInit();
 
 function setAppTab(tab) {
