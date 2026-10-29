@@ -15,8 +15,8 @@
 html { height: 100%; }
 /* ── Palette (visual-style.md) — the only place UI colours are defined ──────
    inferrd.'s dark orange does the structural work (the role slate plays in
-   occurd.). Data colours (index ramps, condition/trend classes, LiDAR and
-   forest-type ramps, area colours) live with the data and are not part of this set. */
+   occurd.). Data colours (index ramps, condition/trend classes, LiDAR, geology,
+   erosion and soil colours, area colours) live with the data and are not part of this set. */
 :root {
   --base: #693f1b;         /* main working colour: header band, buttons, rules, selection */
   --base-light: #d98a4a;   /* only for the active-tab underline on the dark header */
@@ -61,12 +61,17 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .app-tab.active { color: #fff; border-bottom-color: var(--base-light); }
 .sidebar.lidar-mode > :not(#lidarPanel), .sidebar:not(.lidar-mode) > #lidarPanel { display: none !important; }
 .results-pane.lidar-mode > :not(#lidarResults), .results-pane:not(.lidar-mode) > #lidarResults { display: none !important; }
-.sidebar.forest-mode > :not(#forestPanel), .sidebar:not(.forest-mode) > #forestPanel { display: none !important; }
-.results-pane.forest-mode > :not(#forestResults), .results-pane:not(.forest-mode) > #forestResults { display: none !important; }
-#lidarPanel, #forestPanel { display: flex; flex-direction: column; flex: 1; }
-.forest-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
-.forest-sw { display: inline-block; width: 11px; height: 11px; border-radius: 0; margin-right: 6px; vertical-align: -1px; }
-.forest-bar { display: flex; height: 14px; border-radius: 0; overflow: hidden; background: var(--surface2); }
+.sidebar.climate-mode > :not(#climatePanel), .sidebar:not(.climate-mode) > #climatePanel { display: none !important; }
+.results-pane.climate-mode > :not(#climateResults), .results-pane:not(.climate-mode) > #climateResults { display: none !important; }
+.sidebar.physical-mode > :not(#physicalPanel), .sidebar:not(.physical-mode) > #physicalPanel { display: none !important; }
+.results-pane.physical-mode > :not(#physicalResults), .results-pane:not(.physical-mode) > #physicalResults { display: none !important; }
+.sidebar.cover-mode > :not(#coverPanel), .sidebar:not(.cover-mode) > #coverPanel { display: none !important; }
+.results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
+#lidarPanel, #climatePanel, #physicalPanel, #coverPanel { display: flex; flex-direction: column; flex: 1; }
+.phys-bar { display: flex; height: 14px; overflow: hidden; background: var(--surface2); }
+.phys-sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
+.swatch-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
+.legend-sw { display: inline-block; width: 11px; height: 11px; border-radius: 0; margin-right: 6px; vertical-align: -1px; }
 .lidar-legend { margin-top: 8px; }
 .lidar-legend .ramp { height: 10px; border-radius: 0; }
 .lidar-legend .ticks span { white-space: nowrap; }
@@ -254,7 +259,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
   <nav class="app-tabs" role="tablist" aria-label="Data source">
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
-    <button class="app-tab" id="tabForest" data-tab="forest" type="button" role="tab" aria-selected="false" title="Global 10 m forest types, 2020 (Nature Trace / Google)">Forest type</button>
+    <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
+    <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
+    <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
   </nav>
   <div class="header-right">
     <div id="projectsDropWrap" style="position:relative;">
@@ -597,44 +604,124 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
-    <div id="forestPanel">
+    <div id="climatePanel">
       <div class="sidebar-section">
         <div class="section-label">1 · Earth Engine</div>
-        <div id="forestEeNote" style="font-size:12.5px;color:var(--text2);"></div>
+        <div id="climateEeNote" style="font-size:12.5px;color:var(--text2);"></div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">2 · Areas</div>
-        <div class="instruction-box">Draw one or more areas to get the hectares of each forest type. The map layer works without one.</div>
-        <div id="forestAreaList"></div>
-        <div class="poly-empty" id="forestAreaEmpty">No areas drawn yet</div>
+        <div class="instruction-box">Draw one or more areas, or add them from a layer. Each gets its own climate.</div>
+        <div id="climateAreaList"></div>
+        <div class="poly-empty" id="climateAreaEmpty">No areas drawn yet</div>
       </div>
 
       <div class="sidebar-section">
-        <div class="section-label">3 · Forest type, 2020</div>
+        <div class="section-label">3 · Climate</div>
+        <div class="field">
+          <label>Years to show month by month</label>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <select id="climateYearStart" style="flex:1;"></select><span style="color:var(--text3);">to</span><select id="climateYearEnd" style="flex:1;"></select>
+          </div>
+        </div>
+        <div class="field-hint">Normals are always 1991–2020, and the long-term change always runs from 1950, whatever years are picked.</div>
+        <button class="run-btn" id="climateRunBtn" type="button" disabled>Get climate</button>
+        <div class="status-bar" id="climateStatus"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="note">ERA5-Land (Muñoz-Sabater et al. 2021), Copernicus Climate Change Service / ECMWF, via Google Earth Engine. Contains modified Copernicus Climate Change Service information.</p>
+      </div>
+    </div>
+
+    <div id="coverPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Earth Engine</div>
+        <div id="coverEeNote" style="font-size:12.5px;color:var(--text2);"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Areas</div>
+        <div class="instruction-box">Draw one or more areas, or add them from a layer, then check them. Only what turns out to matter for an area is reported; the rest is listed as checked.</div>
+        <div id="coverAreaList"></div>
+        <div class="poly-empty" id="coverAreaEmpty">No areas drawn yet</div>
+        <button class="run-btn" id="coverRunBtn" type="button" disabled>Check land cover</button>
+        <div class="status-bar" id="coverStatus"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Map</div>
         <div class="field">
           <label>Show on map</label>
-          <select id="forestExtent">
-            <option value="all">Everywhere</option>
-            <option value="areas">Inside my areas only</option>
+          <select id="coverLayerSel">
+            <option value="none">Nothing</option>
+            <option value="worldcover">Land cover 2021 (WorldCover)</option>
+            <option value="dw">Land cover last year (Dynamic World)</option>
+            <option value="loss">Tree cover loss by year</option>
+            <option value="canopy">Canopy height</option>
+            <option value="water">Surface water</option>
+            <option value="burn">Burned area</option>
           </select>
         </div>
         <div class="field">
           <label>Opacity</label>
           <div class="range-row">
-            <input type="range" id="forestOpacity" min="0" max="100" step="5" value="75">
-            <span class="range-val" id="forestOpacityVal">75%</span>
+            <input type="range" id="coverOpacity" min="0" max="100" step="5" value="75">
+            <span class="range-val" id="coverOpacityVal">75%</span>
           </div>
         </div>
-        <button class="dl-btn" id="forestToggleBtn" type="button">Show layer</button>
-        <div class="forest-legend" id="forestLegend"></div>
-        <div class="field-hint">Each 10 m pixel takes the class the model thinks most likely in 2020. Primary: native forest with no clear sign of past clearance. Naturally regenerating: grown back by itself after disturbance. Planted: planted or seeded but not intensively managed, such as restoration planting. Plantation: intensively managed, usually even-aged and often exotic, such as pine. Click the map for the model's probability of each class at that point.</div>
-        <button class="run-btn" id="forestRunBtn" type="button" disabled>Summarise area</button>
-        <div class="status-bar" id="forestStatus"></div>
+        <div class="swatch-legend" id="coverLegend"></div>
+        <div class="field-hint">Layers show inside your areas only.</div>
       </div>
 
       <div class="sidebar-footer">
-        <p class="note">Forest typology (ForTy) 2020 v1.0, Nature Trace / Google, CC BY 4.0. Neumann et al. 2026, Global forest typology at 10-meter resolution for forest and land-use monitoring (<a href="https://doi.org/10.31223/X58R27" target="_blank" rel="noopener">preprint</a>).</p>
+        <p class="note">ESA WorldCover 2021 (CC BY 4.0); Dynamic World (Google / World Resources Institute, CC BY 4.0); Hansen et al. 2013 Global Forest Change (University of Maryland, CC BY 4.0); Lang et al. 2023 global canopy height (ETH Zürich, CC BY 4.0); Pekel et al. 2016 Global Surface Water (EC JRC); MODIS MCD64A1 burned area and FIRMS (NASA).</p>
+      </div>
+    </div>
+
+    <div id="physicalPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Areas</div>
+        <div class="instruction-box">Draw one or more areas, or add them from a layer, then describe them: geology, terrain, erosion-prone land and soils.</div>
+        <div id="physicalAreaList"></div>
+        <div class="poly-empty" id="physicalAreaEmpty">No areas drawn yet</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Describe</div>
+        <div id="physicalEeNote" class="field-hint" style="margin-top:0;"></div>
+        <button class="run-btn" id="physicalRunBtn" type="button" disabled>Describe area</button>
+        <div class="status-bar" id="physicalStatus"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Map</div>
+        <div class="field">
+          <label>Show on map</label>
+          <select id="physicalLayerSel">
+            <option value="geology">Geology</option>
+            <option value="esc">Erosion susceptibility (NZ)</option>
+            <option value="luc">Land use capability class (NZ)</option>
+            <option value="slope">Slope</option>
+            <option value="aspect">Aspect</option>
+            <option value="elev">Elevation</option>
+            <option value="none">Nothing</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Opacity</label>
+          <div class="range-row">
+            <input type="range" id="physicalOpacity" min="0" max="100" step="5" value="70">
+            <span class="range-val" id="physicalOpacityVal">70%</span>
+          </div>
+        </div>
+        <div class="swatch-legend" id="physicalLegend"></div>
+        <div class="field-hint">Click the map inside an area for what is mapped there.</div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="note">Geology: GNS Science 1:250 000 geological map of New Zealand (QMAP, 2023 edition); elsewhere Macrostrat (CC BY 4.0). Erosion susceptibility and LUC: MPI / Manaaki Whenua – Landcare Research. Terrain: Copernicus GLO-30 DEM, ESA. Soils: SoilGrids 2.0, ISRIC (CC BY 4.0).</p>
       </div>
     </div>
 
@@ -652,23 +739,109 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div id="resizeHandle" title="Drag to resize"><div class="grip"></div></div>
 
     <div class="results-pane" id="resultsPane">
-      <div id="forestResults">
-        <div class="results-empty" id="forestEmpty">
+      <div id="climateResults">
+        <div class="results-empty" id="climateEmpty">
           <span class="big">◌</span>
-          Draw an area and summarise it.
+          Draw an area and get its climate.
         </div>
-        <div id="forestContent" style="display:none">
+        <div id="climateContent" style="display:none">
+          <div class="table-card-head" id="climateAreaHead" style="display:none;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;">Climate for</div>
+            <select id="climateAreaSel" style="font-size:12px;padding:2px 4px;" aria-label="Climate for area"></select>
+          </div>
+          <div class="metrics" id="climateMetrics"></div>
+          <div class="chart-card">
+            <div class="card-title">Average year, 1991–2020</div>
+            <div id="climographWrap"></div>
+          </div>
+          <div class="chart-card">
+            <div class="card-title" id="climateAnomTitle">Month by month against normal</div>
+            <div id="climateChartWrap"></div>
+          </div>
+          <div class="chart-card">
+            <div class="card-title">Since 1950</div>
+            <div class="field-hint" style="margin:-4px 0 8px;">Each year's rainfall and mean temperature, with the Theil–Sen trend line where the Mann–Kendall test finds one (p &lt; 0.05).</div>
+            <div id="climateLongWrap"></div>
+          </div>
           <div class="table-card">
             <div class="table-card-head">
-              <div class="card-title">Forest type, 2020</div>
-              <button class="dl-btn" id="forestCsvBtn" type="button">Download CSV</button>
+              <div class="card-title">Year by year</div>
+              <button class="dl-btn" id="climateCsvBtn" type="button">Download CSV</button>
             </div>
-            <div id="forestBars" style="margin-bottom:12px;"></div>
-            <div style="overflow-x:auto;"><table class="stats-table" id="forestTable"></table></div>
+            <div style="overflow-x:auto;"><table class="stats-table" id="climateTable"></table></div>
           </div>
           <div class="interp-card">
             <div class="card-title">Reading this</div>
-            <div id="forestNotes"></div>
+            <div id="climateNotes"></div>
+          </div>
+        </div>
+      </div>
+      <div id="coverResults">
+        <div class="results-empty" id="coverEmpty">
+          <span class="big">◌</span>
+          Draw an area and check its land cover.
+        </div>
+        <div id="coverContent" style="display:none">
+          <div class="table-card-head" id="coverAreaHead" style="display:none;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;">Checking</div>
+            <select id="coverAreaSel" style="font-size:12px;padding:2px 4px;" aria-label="Area"></select>
+          </div>
+          <div class="metrics" id="coverMetrics"></div>
+          <div id="coverSections"></div>
+          <div class="interp-card" id="coverCheckedCard">
+            <div class="card-title">Checked, nothing to report</div>
+            <div id="coverChecked"></div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-head">
+              <div class="card-title">Download</div>
+              <button class="dl-btn" id="coverCsvBtn" type="button">Download CSV</button>
+            </div>
+            <div class="field-hint" style="margin:0;">Everything checked for every area, including what was left out of the page.</div>
+          </div>
+          <div class="interp-card">
+            <div class="card-title">Reading this</div>
+            <div id="coverNotes"></div>
+          </div>
+        </div>
+      </div>
+      <div id="physicalResults">
+        <div class="results-empty" id="physicalEmpty">
+          <span class="big">◌</span>
+          Draw an area and describe it.
+        </div>
+        <div id="physicalContent" style="display:none">
+          <div class="table-card-head" id="physicalAreaHead" style="display:none;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;">Describing</div>
+            <select id="physicalAreaSel" style="font-size:12px;padding:2px 4px;" aria-label="Area"></select>
+          </div>
+          <div class="metrics" id="physicalMetrics"></div>
+          <div class="table-card" id="physTerrainCard">
+            <div class="card-title">Terrain</div>
+            <div id="physTerrain"></div>
+          </div>
+          <div class="table-card" id="physGeologyCard">
+            <div class="card-title" id="physGeologyTitle">Geology</div>
+            <div id="physGeology"></div>
+          </div>
+          <div class="table-card" id="physErosionCard">
+            <div class="card-title">Erosion susceptibility and land use capability</div>
+            <div id="physErosion"></div>
+          </div>
+          <div class="table-card" id="physSoilCard">
+            <div class="card-title">Soil</div>
+            <div id="physSoil"></div>
+          </div>
+          <div class="table-card">
+            <div class="table-card-head">
+              <div class="card-title">Download</div>
+              <button class="dl-btn" id="physicalCsvBtn" type="button">Download CSV</button>
+            </div>
+            <div class="field-hint" style="margin:0;">Every table above for every area, one row per item.</div>
+          </div>
+          <div class="interp-card">
+            <div class="card-title">Reading this</div>
+            <div id="physicalNotes"></div>
           </div>
         </div>
       </div>
@@ -953,15 +1126,21 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>Satellite vegetation index alone can't tell you <em>why</em> a change happened — dieback, drought stress, pest or weed incursion, and actual clearance can all look similar from space. Treat a statistically significant decline as a reason to send someone to look, not as proof of what's happening on the ground.</p>
     <p>The Level-2A surface reflectance data this tool uses only goes back to 28 March 2017 (Sentinel-2's raw, uncorrected Level-1C data goes back further, to mid-2015, but that's deliberately not what this tool queries — see above). ESA only produced it worldwide from December 2018, so outside Europe 2017 and most of 2018 are missing or thin; 2019 is the first full year everywhere, and the default start.</p>
 
+    <h3>Climate tab</h3>
+    <p>The <strong>Climate</strong> tab gives each drawn area's climate from ERA5-Land, ECMWF's land reanalysis (a weather model run over the observations, about 9 km cells, hourly from 1950 to a few months ago), averaged over the area and 6 km around it. It runs on Earth Engine, so it needs the access key from the Infrared tab. It shows the 1991–2020 normals (rainfall, mean temperature, frost days, hot days, wet and heavy-rain days, growing degree-days), each month of the years you pick against its normal with the rainfall of the 12 months to then, every year since 1950 with a Mann–Kendall trend, and a table and CSV. Use it to check whether a change in the vegetation signal lines up with a drought, a wet spell or a cold year. A 9 km cell smooths the terrain, so totals in hill country can be well off a local rain gauge: it is for timing and for comparing with normal. Station records for New Zealand are with Earth Sciences New Zealand's (formerly NIWA's) DataHub, which needs its own registration and licence, so inferrd. doesn't use them.</p>
+
+    <h3>Land cover tab</h3>
+    <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: land cover in 2021 (ESA WorldCover, 10 m), change in land cover from 2016 to last year (Dynamic World, 10 m), tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m), surface water since 1984 (EC JRC Global Surface Water, 30 m), and fire since 2001 (MODIS burned area, 500 m, and FIRMS fire detections, 1 km). Land cover is always shown; the others only when they find something for that area, such as tree loss of more than about two pixels, a class moving by 3 percentage points or more, vegetation 3 m or taller over at least 5% of the area, any surface water, or any fire. What was checked and found nothing is listed in one line each, and everything goes in the CSV. These layers are good at forest against pasture, clearance, water and large fires, and poor at native against exotic or at anything a few pixels across.</p>
+
+    <h3>Physical tab</h3>
+    <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
+
     <h3>LiDAR tab (New Zealand)</h3>
     <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
 
-    <h3>Forest type tab</h3>
-    <p>The <strong>Forest type</strong> tab shows Google and Nature Trace's global forest typology for 2020 at 10 m: primary forest, naturally regenerating forest, planted forest, plantation forest, tree crops and agroforestry, and other land. It runs on Earth Engine, so it needs the access key from the Infrared tab. Each pixel shows the class the model thinks most likely. "Summarise" gives the hectares and share of each class in every drawn area, and the model's average probability for each. Click the map for the probabilities at a point.</p>
-    <p>It is one year from a worldwide model: use it as a first look, not a survey. Telling primary from regenerating forest, and planted from plantation, is the hard part, and is least reliable in small patches and along edges. Data: Neumann et al. 2026, CC BY 4.0.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with the QEII layer on, or the Layers panel open, drawing a shape also adds each covenant it overlaps, and each area of the ticked layers lying within it, as its own area. Your drawn shape is kept.</p>
@@ -1019,7 +1198,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.44.0';
+const APP_VERSION = 'v0.46.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1259,7 +1438,9 @@ function renderAreaList() {
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   lidarAreasChanged();
-  forestAreasChanged();
+  climateAreasChanged();
+  physicalAreasChanged();
+  coverAreasChanged();
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   hideConditionLayers();
@@ -4436,7 +4617,7 @@ map.on(L.Draw.Event.CREATED, (e) => {
 const LAYER_SELECT_MAX = 40;
 let qeiiFeaturesUnder = () => []; // set by the QEII layer below
 async function addAreasUnder(drawn) {
-  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'forest' ? setForestStatus : setStatus)(kind, msg);
+  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : setStatus)(kind, msg);
   const found = qeiiFeaturesUnder(drawn.geojson).map(f => ({
     geometry: f.geometry, name: f.properties.CovNumber ? 'Covenant ' + f.properties.CovNumber : 'QEII covenant',
     meta: { source: 'QEII National Trust covenant', properties: f.properties }
@@ -4468,7 +4649,7 @@ async function addAreasUnder(drawn) {
   say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' inside your shape: ' + names.slice(0, 6).join(', ') +
     (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '.');
   // One click to drop the drawn shape and keep only what it picked up.
-  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'forest' ? 'forestStatus' : 'statusBar');
+  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : 'statusBar');
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dl-btn';
@@ -4510,7 +4691,9 @@ map.on(L.Draw.Event.EDITED, (e) => {
   });
   syncAreaCentreLines();
   lidarAreasChanged();
-  forestAreasChanged();
+  climateAreasChanged();
+  physicalAreasChanged();
+  coverAreasChanged();
 });
 // The black centre line follows the shape while it is being reshaped, and
 // snaps back with it when an edit is cancelled.
@@ -4819,7 +5002,7 @@ function syncLidarControls() {
 }
 
 function renderLidarAreaList() { renderTabAreaList('lidarAreaList', 'lidarAreaEmpty'); }
-// The LiDAR and Forest type tabs list the shared areas the same way.
+// The LiDAR, Climate, Physical and Land cover tabs list the shared areas the same way.
 function renderTabAreaList(listId, emptyId) {
   const list = document.getElementById(listId);
   document.getElementById(emptyId).style.display = areas.length ? 'none' : 'block';
@@ -5685,224 +5868,1314 @@ map.on('click', (e) => {
   }
 });
 
+
 /* ---------------------------------------------------------------------
-   Forest type tab — Google / Nature Trace forest typology (ForTy) 2020,
-   10 m, worldwide. Five probability bands (0–250, scale 0.004); "other
-   land" is 250 less their sum. Each pixel is mapped as its most likely
-   class, as in the catalogue's own example. Runs on Earth Engine, so it
-   needs the access key from the Infrared tab.
+   Climate tab — ERA5-Land (ECMWF's land reanalysis, ~9 km cells, 1950
+   to a few months ago) on Earth Engine, so it needs the access key from
+   the Infrared tab. Monthly rainfall and mean temperature come from the
+   monthly aggregates; frost, hot, wet and heavy-rain days, the wettest
+   day and growing degree-days come from the daily aggregates, a year at
+   a time. Each area is averaged with CLIMATE_BUFFER_M around it, so even
+   a small area holds at least one ERA5-Land cell. Normals are the
+   1991–2020 averages, worked out here from the same series. ERA5-Land
+   smooths the terrain, so amounts can be well off a local gauge: it is
+   for how a year or month compared with normal, and for timing.
    --------------------------------------------------------------------- */
-const FOREST_ASSET = 'projects/nature-trace/assets/forest_typology/forest_typology_2020_v1_0_collection';
-const FOREST_BANDS = ['PrimaryForest', 'NaturallyRegeneratingForest', 'PlantedForest', 'PlantationForest', 'TreeCropsAndAgroforestry'];
-const FOREST_CLASSES = [
-  { name: 'Primary forest', color: '#1B7837' },
-  { name: 'Naturally regenerating forest', color: '#7FBF7B' },
-  { name: 'Planted forest', color: '#1D91C0' },
-  { name: 'Plantation forest', color: '#E65FA9' },
-  { name: 'Tree crops and agroforestry', color: '#E6AB02' },
-  { name: 'Other land', color: '#FDE278' }
-];
-let forestLayer = null;
-let forestShown = false;
-let forestOpacity = 0.75;
-let forestRunId = 0;
-let forestBusy = false;
-let forestResults = null; // [{ area, key, ha: [6], prob: [6], total, noData }] from the last summary
+const ERA5_MONTHLY = 'ECMWF/ERA5_LAND/MONTHLY_AGGR';
+const ERA5_DAILY = 'ECMWF/ERA5_LAND/DAILY_AGGR';
+const ERA5_FIRST_YEAR = 1950;
+const CLIMATE_NORMAL = [1991, 2020];
+const CLIMATE_BUFFER_M = 6000;
+const CLIMATE_HOT_C = 25;      // a "summer day" (ETCCDI SU25)
+const CLIMATE_HEAVY_MM = 25;   // a heavy-rain day
+const CLIMATE_GDD_BASE_C = 10; // growing degree-days above 10 °C
+let climateBusy = false;
+let climateRunId = 0;
+let lastClimate = null; // { areas, keys, byArea: { [id]: { months, years, normals, idx } }, yearStart, yearEnd, shownId }
 
-map.createPane('forestPane');
-map.getPane('forestPane').style.zIndex = 350; // as the LiDAR pane: above Earth Engine tiles, below the outlines
-map.getPane('forestPane').style.pointerEvents = 'none';
-map.getPane('forestPane').style.display = 'none';
+(function fillClimateYears() {
+  const ys = document.getElementById('climateYearStart'), ye = document.getElementById('climateYearEnd');
+  for (let y = ERA5_FIRST_YEAR; y <= CURRENT_YEAR; y++) { ys.add(new Option(y, y)); ye.add(new Option(y, y)); }
+  ys.value = CURRENT_YEAR - 9; ye.value = CURRENT_YEAR;
+})();
 
-function setForestStatus(kind, msg) {
-  const el = document.getElementById('forestStatus');
+function setClimateStatus(kind, msg) {
+  const el = document.getElementById('climateStatus');
   el.className = 'status-bar ' + kind;
   el.textContent = msg;
   el.style.display = msg ? 'block' : 'none';
 }
 
-// The five bands plus "Other land" (250 less their sum), as probabilities 0–1.
-function forestProbImage() {
-  const img = ee.ImageCollection(FOREST_ASSET).mosaic().select(FOREST_BANDS);
-  const other = ee.Image(250).subtract(img.reduce(ee.Reducer.sum())).max(0).rename('OtherLand');
-  return img.addBands(other).multiply(0.004);
-}
-// 1–6: the most likely class.
-function forestClassImage(probs) {
-  return probs.toArray().arrayArgmax().arrayGet([0]).add(1).rename('cls');
-}
-const forestSwatch = c => '<span class="forest-sw" style="background:' + c.color + '"></span>';
-
-document.getElementById('forestLegend').innerHTML = FOREST_CLASSES.map(c => '<div>' + forestSwatch(c) + c.name + '</div>').join('');
-
-function syncForestControls() {
-  document.getElementById('forestEeNote').innerHTML = eeReady
+function syncClimateControls() {
+  document.getElementById('climateEeNote').innerHTML = eeReady
     ? 'Unlocked.'
-    : 'Unlock with your access key on the <a href="#" id="forestGoIr">Infrared</a> tab first.';
-  const go = document.getElementById('forestGoIr');
+    : 'Unlock with your access key on the <a href="#" id="climateGoIr">Infrared</a> tab first.';
+  const go = document.getElementById('climateGoIr');
   if (go) go.addEventListener('click', (e) => { e.preventDefault(); setAppTab('infrared'); });
-  const run = document.getElementById('forestRunBtn');
-  run.disabled = !eeReady || !areas.length || forestBusy;
-  run.textContent = forestBusy ? 'Summarising…' : 'Summarise ' + (areas.length > 1 ? areas.length + ' areas' : 'area');
-  const tog = document.getElementById('forestToggleBtn');
-  tog.disabled = !eeReady;
-  tog.textContent = forestShown ? 'Hide layer' : 'Show layer';
+  const run = document.getElementById('climateRunBtn');
+  run.disabled = !eeReady || !areas.length || climateBusy;
+  run.textContent = climateBusy ? 'Getting climate…' : 'Get climate' + (areas.length > 1 ? ' for ' + areas.length + ' areas' : '');
 }
 
-function hideForestLayer() {
-  if (forestLayer) { map.removeLayer(forestLayer); forestLayer = null; }
-  forestShown = false;
-  syncForestControls();
+function climateAreasChanged() {
+  renderTabAreaList('climateAreaList', 'climateAreaEmpty');
+  if (lastClimate && lastClimate.keys !== areas.map(areaKey).join('|')) clearClimate();
+  syncClimateControls();
 }
-function showForestLayer() {
-  if (!eeReady) return;
-  const clip = document.getElementById('forestExtent').value === 'areas';
-  if (clip && !areas.length) { setForestStatus('warning', 'Draw an area first, or show the layer everywhere.'); return; }
-  hideForestLayer();
-  forestShown = true;
-  syncForestControls();
-  setForestStatus('info', 'Loading forest types…');
-  let cls = forestClassImage(forestProbImage());
-  if (clip) cls = cls.clip(ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry)))));
-  cls.getMapId({ min: 1, max: 6, palette: FOREST_CLASSES.map(c => c.color.slice(1)) }, (mapId, err) => {
-    if (!forestShown || forestLayer) return; // hidden, or shown again, while loading
-    if (err) { forestShown = false; syncForestControls(); setForestStatus('error', 'Forest type layer failed: ' + err); return; }
-    forestLayer = L.tileLayer(mapId.urlFormat, { pane: 'forestPane', opacity: forestOpacity, maxNativeZoom: 18, maxZoom: 22,
-      attribution: 'Forest typology 2020: Nature Trace / Google, CC BY 4.0' }).addTo(map);
-    setForestStatus('', '');
-  });
-}
-document.getElementById('forestToggleBtn').addEventListener('click', () => forestShown ? hideForestLayer() : showForestLayer());
-document.getElementById('forestExtent').addEventListener('change', () => { if (forestShown) showForestLayer(); });
-document.getElementById('forestOpacity').addEventListener('input', (e) => {
-  forestOpacity = Number(e.target.value) / 100;
-  document.getElementById('forestOpacityVal').textContent = e.target.value + '%';
-  if (forestLayer) forestLayer.setOpacity(forestOpacity);
-});
 
-// Called whenever the drawn areas change (and when the tab opens).
-function forestAreasChanged() {
-  renderTabAreaList('forestAreaList', 'forestAreaEmpty');
-  // A summary of other areas, or other shapes, no longer fits.
-  if (forestResults) {
-    const keys = areas.map(areaKey).join('|');
-    if (forestResults.map(r => r.key).join('|') !== keys) clearForestResults();
+function clearClimate() {
+  climateRunId++;
+  climateBusy = false;
+  lastClimate = null;
+  document.getElementById('climateContent').style.display = 'none';
+  document.getElementById('climateEmpty').style.display = '';
+}
+
+// Rainfall and mean temperature for every month since 1950.
+function climateMonthlyFc(list) {
+  const col = ee.ImageCollection(ERA5_MONTHLY).filterDate(ERA5_FIRST_YEAR + '-01-01', (CURRENT_YEAR + 1) + '-01-01')
+    .select(['total_precipitation_sum', 'temperature_2m']);
+  return ee.FeatureCollection(list.map(a => {
+    const region = ee.Geometry(a.geojson.geometry).buffer(CLIMATE_BUFFER_M, 200);
+    return col.map(img => ee.Feature(null, img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: region, scale: 11132, bestEffort: true }))
+      .set({ t: img.get('system:time_start'), areaId: a.id }));
+  })).flatten();
+}
+
+// Counts of days and extremes for each year, from the daily aggregates.
+function climateYearIdx(region, year, areaId) {
+  const d = ee.ImageCollection(ERA5_DAILY).filterDate(year + '-01-01', (year + 1) + '-01-01');
+  const tmin = d.select('temperature_2m_min'), tmax = d.select('temperature_2m_max'), tmean = d.select('temperature_2m'), pr = d.select('total_precipitation_sum');
+  const img = ee.Image.cat([
+    tmin.map(i => i.lt(273.15)).sum().rename('frost'),
+    tmax.map(i => i.gte(273.15 + CLIMATE_HOT_C)).sum().rename('hot'),
+    pr.map(i => i.gte(0.001)).sum().rename('wet'),
+    pr.map(i => i.gte(CLIMATE_HEAVY_MM / 1000)).sum().rename('heavy'),
+    pr.max().multiply(1000).rename('wettestDay'),
+    tmin.min().subtract(273.15).rename('coldest'),
+    tmax.max().subtract(273.15).rename('hottest'),
+    tmean.map(i => i.subtract(273.15 + CLIMATE_GDD_BASE_C).max(0)).sum().rename('gdd')
+  ]);
+  return ee.Feature(null, img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: region, scale: 11132, bestEffort: true }))
+    .set({ year, areaId, days: d.size() });
+}
+
+function climateRun() {
+  if (!eeReady || !areas.length || climateBusy) return;
+  let yearStart = Number(document.getElementById('climateYearStart').value), yearEnd = Number(document.getElementById('climateYearEnd').value);
+  if (yearEnd < yearStart) [yearStart, yearEnd] = [yearEnd, yearStart];
+  const list = areas.slice(), runId = ++climateRunId;
+  climateBusy = true;
+  syncClimateControls();
+  setClimateStatus('info', 'Getting ERA5-Land climate for ' + list.length + (list.length === 1 ? ' area' : ' areas') + ': every month since ' + ERA5_FIRST_YEAR + ', and daily records for the normal period and the years picked. This usually takes under a minute…');
+  // Day counts for the normal period (for their normals) and the years shown.
+  const idxYears = new Set();
+  for (let y = CLIMATE_NORMAL[0]; y <= CLIMATE_NORMAL[1]; y++) idxYears.add(y);
+  for (let y = yearStart; y <= yearEnd; y++) idxYears.add(y);
+  let monthlyFc, idxFc;
+  try {
+    monthlyFc = climateMonthlyFc(list);
+    idxFc = ee.FeatureCollection(list.flatMap(a => {
+      const region = ee.Geometry(a.geojson.geometry).buffer(CLIMATE_BUFFER_M, 200);
+      return [...idxYears].map(y => climateYearIdx(region, y, a.id));
+    }));
+  } catch (err) {
+    climateBusy = false; syncClimateControls();
+    setClimateStatus('error', 'Couldn\'t build the climate request: ' + (err && err.message ? err.message : err));
+    return;
   }
-  if (forestShown && document.getElementById('forestExtent').value === 'areas') {
-    if (areas.length) showForestLayer(); else hideForestLayer();
-  }
-  syncForestControls();
-}
-function clearForestResults() {
-  forestRunId++;
-  forestBusy = false;
-  forestResults = null;
-  document.getElementById('forestContent').style.display = 'none';
-  document.getElementById('forestEmpty').style.display = '';
-}
-
-// Hectares of each mapped class (area-weighted, at 10 m) and the mean
-// probability of each class over the area.
-function forestRun() {
-  if (!eeReady || !areas.length || forestBusy) return;
-  const runId = ++forestRunId;
-  forestBusy = true;
-  syncForestControls();
-  setForestStatus('info', 'Summarising ' + areas.length + (areas.length === 1 ? ' area…' : ' areas…'));
-  const probs = forestProbImage();
-  const cls = forestClassImage(probs);
-  const jobs = areas.map(a => new Promise((resolve, reject) => {
-    const geom = ee.Geometry(a.geojson.geometry);
-    const byClass = ee.Image.pixelArea().divide(1e4).addBands(cls).reduceRegion({
-      reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'cls' }), geometry: geom, scale: 10, maxPixels: 1e10, tileScale: 4
-    });
-    const means = probs.reduceRegion({ reducer: ee.Reducer.mean(), geometry: geom, scale: 10, maxPixels: 1e10, tileScale: 4 });
-    ee.Dictionary({ groups: byClass.get('groups'), means: means }).evaluate((r, err) => {
-      if (err) return reject(new Error(a.name + ': ' + err));
-      const ha = [0, 0, 0, 0, 0, 0];
-      (r.groups || []).forEach(g => { if (g.cls >= 1 && g.cls <= 6) ha[g.cls - 1] = g.sum; });
-      const prob = FOREST_BANDS.concat('OtherLand').map(b => r.means && r.means[b] != null ? r.means[b] : null);
-      const total = turf.area(a.geojson) / 1e4;
-      resolve({ area: a, key: areaKey(a), ha, prob, total, noData: Math.max(0, total - ha.reduce((x, y) => x + y, 0)) });
-    });
-  }));
-  Promise.all(jobs).then(results => {
-    if (runId !== forestRunId) return;
-    forestResults = results;
-    renderForestResults();
-    setForestStatus('', '');
+  const wait = (ms) => { if (runId === climateRunId) setClimateStatus('info', 'Earth Engine is busy; trying again in ' + Math.round(ms / 1000) + ' s…'); };
+  Promise.all([eeEvaluate(monthlyFc, wait), eeEvaluate(idxFc, wait)]).then(([mRes, iRes]) => {
+    if (runId !== climateRunId) return;
+    const byArea = {};
+    list.forEach(a => { byArea[a.id] = climateSeries(a.id, mRes.features, iRes.features); });
+    const withData = list.filter(a => byArea[a.id].months.length);
+    if (!withData.length) throw new Error('no ERA5-Land land cells within ' + CLIMATE_BUFFER_M / 1000 + ' km of ' + (list.length > 1 ? 'these areas' : 'this area'));
+    lastClimate = { areas: list, keys: list.map(areaKey).join('|'), byArea, yearStart, yearEnd, shownId: withData[0].id };
+    renderClimate();
+    setClimateStatus('', '');
+    expandResultsPane();
   }).catch(err => {
-    if (runId !== forestRunId) return;
-    setForestStatus('error', 'Summary failed: ' + err.message);
+    if (runId !== climateRunId) return;
+    setClimateStatus('error', 'Couldn\'t get the climate: ' + (err && err.message ? err.message : err));
   }).finally(() => {
-    if (runId === forestRunId) { forestBusy = false; syncForestControls(); }
+    if (runId === climateRunId) { climateBusy = false; syncClimateControls(); }
   });
 }
-document.getElementById('forestRunBtn').addEventListener('click', forestRun);
+document.getElementById('climateRunBtn').addEventListener('click', climateRun);
 
-function renderForestResults() {
-  const rs = forestResults;
-  document.getElementById('forestEmpty').style.display = 'none';
-  document.getElementById('forestContent').style.display = '';
-  const pct = (v, t) => t > 0 ? 100 * v / t : 0;
+// One area's months, years and normals from the two query results.
+function climateSeries(areaId, mFeats, iFeats) {
+  const months = [];
+  mFeats.forEach(f => {
+    const q = f.properties;
+    if (q.areaId !== areaId || q.total_precipitation_sum == null || q.temperature_2m == null) return; // all sea
+    const d = new Date(q.t);
+    months.push({ y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, rain: q.total_precipitation_sum * 1000, temp: q.temperature_2m - 273.15 });
+  });
+  months.sort((a, b) => a.y - b.y || a.m - b.m);
+  const idx = {};
+  iFeats.forEach(f => { const q = f.properties; if (q.areaId === areaId && q.frost != null) idx[q.year] = q; });
+  const inNormal = (y) => y >= CLIMATE_NORMAL[0] && y <= CLIMATE_NORMAL[1];
+  const nr = Array(13).fill(0), nt = Array(13).fill(0), nn = Array(13).fill(0);
+  months.forEach(r => { if (inNormal(r.y)) { nr[r.m] += r.rain; nt[r.m] += r.temp; nn[r.m]++; } });
+  const normals = { rain: nr.map((v, m) => nn[m] ? v / nn[m] : NaN), temp: nt.map((v, m) => nn[m] ? v / nn[m] : NaN) };
+  normals.yearRain = normals.rain.slice(1).reduce((t, v) => t + v, 0);
+  normals.yearTemp = normals.temp.slice(1).reduce((t, v) => t + v, 0) / 12;
+  const idxNorm = {};
+  ['frost', 'hot', 'wet', 'heavy', 'wettestDay', 'coldest', 'hottest', 'gdd'].forEach(k => {
+    const vs = Object.values(idx).filter(q => inNormal(q.year) && q.days >= 365).map(q => q[k]);
+    idxNorm[k] = vs.length ? vs.reduce((t, v) => t + v, 0) / vs.length : NaN;
+  });
+  // Whole calendar years only, for the yearly totals and the trend.
+  const years = [];
+  const byYear = new Map();
+  months.forEach(r => { if (!byYear.has(r.y)) byYear.set(r.y, []); byYear.get(r.y).push(r); });
+  byYear.forEach((rs, y) => { if (rs.length === 12) years.push({ y, rain: rs.reduce((t, r) => t + r.rain, 0), temp: rs.reduce((t, r) => t + r.temp, 0) / 12 }); });
+  years.sort((a, b) => a.y - b.y);
+  return { months, years, normals, idx, idxNorm };
+}
+
+const climateSign = (v, dp, unit) => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(dp) + unit;
+
+function renderClimate() {
+  const c = lastClimate;
+  if (!c) return;
+  document.getElementById('climateEmpty').style.display = 'none';
+  document.getElementById('climateContent').style.display = '';
+  const withData = c.areas.filter(a => c.byArea[a.id].months.length);
+  const sel = document.getElementById('climateAreaSel');
+  document.getElementById('climateAreaHead').style.display = withData.length > 1 ? 'flex' : 'none';
+  sel.innerHTML = withData.map(a => '<option value="' + a.id + '"' + (a.id === c.shownId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
+  const S = c.byArea[c.shownId], nm = S.normals, ix = S.idxNorm;
+  const last = S.months[S.months.length - 1], lastLabel = MONTH_NAMES[last.m - 1] + ' ' + last.y;
+
+  // Long-term change, 1950 to the last whole year.
+  const ys = S.years.map(r => r.y);
+  const mkR = mannKendall(S.years.map(r => r.rain), ys), mkT = mannKendall(S.years.map(r => r.temp), ys);
+  const pTxt = (p) => p < 0.001 ? 'p < 0.001' : 'p = ' + p.toFixed(p < 0.01 ? 3 : 2);
+  const trendTxt = (mk, per, dp, unit) => mk.p < 0.05 ? climateSign(mk.senSlope * 10 * per, dp, unit) + ' a decade' : 'no clear trend';
+  const warmest = nm.temp.indexOf(Math.max(...nm.temp.slice(1))), coldest = nm.temp.indexOf(Math.min(...nm.temp.slice(1)));
+  const wettest = nm.rain.indexOf(Math.max(...nm.rain.slice(1))), driest = nm.rain.indexOf(Math.min(...nm.rain.slice(1)));
+  const metric = (label, value, title) => '<div class="metric"' + (title ? ' title="' + escHtml(title) + '"' : '') + '><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
+  const r0 = (v) => v === v ? Math.round(v).toLocaleString() : '–';
+  document.getElementById('climateMetrics').innerHTML = [
+    metric('Rainfall a year', r0(nm.yearRain) + ' mm', '1991–2020 average'),
+    metric('Mean temperature', nm.yearTemp.toFixed(1) + ' °C', '1991–2020 average'),
+    metric('Warmest month', MONTH_NAMES[warmest - 1] + ' ' + nm.temp[warmest].toFixed(1) + ' °C', 'Mean of day and night, 1991–2020'),
+    metric('Coldest month', MONTH_NAMES[coldest - 1] + ' ' + nm.temp[coldest].toFixed(1) + ' °C', 'Mean of day and night, 1991–2020'),
+    metric('Wettest / driest', MONTH_NAMES[wettest - 1] + ' / ' + MONTH_NAMES[driest - 1], r0(nm.rain[wettest]) + ' / ' + r0(nm.rain[driest]) + ' mm, 1991–2020'),
+    metric('Frost days', r0(ix.frost) + ' a year', 'Days the cell average fell below 0 °C, 1991–2020'),
+    metric('Days ' + CLIMATE_HOT_C + ' °C or more', r0(ix.hot) + ' a year', '1991–2020'),
+    metric('Wet days', r0(ix.wet) + ' a year', 'Days with 1 mm or more, 1991–2020'),
+    metric('Heavy-rain days', r0(ix.heavy) + ' a year', 'Days with ' + CLIMATE_HEAVY_MM + ' mm or more, 1991–2020'),
+    metric('Growing degree-days', r0(ix.gdd), 'Sum of daily mean temperature above ' + CLIMATE_GDD_BASE_C + ' °C, a year, 1991–2020'),
+    metric('Temperature since ' + ys[0], trendTxt(mkT, 1, 2, ' °C'), 'Theil–Sen slope; Mann–Kendall ' + pTxt(mkT.p)),
+    metric('Rainfall since ' + ys[0], mkR.p < 0.05 ? climateSign(100 * mkR.senSlope * 10 / nm.yearRain, 1, '%') + ' a decade' : 'no clear trend', 'Theil–Sen slope as a share of normal; Mann–Kendall ' + pTxt(mkR.p))
+  ].join('');
+
+  renderClimograph(nm);
+  renderClimateAnomalies(c, S, lastLabel);
+  renderClimateLong(S, mkR, mkT);
+  renderClimateTable(c, S);
+  document.getElementById('climateNotes').innerHTML = [
+    '<p>ERA5-Land is a reanalysis: a weather model run over the observations, giving a value for every 9 km cell, every hour since ' + ERA5_FIRST_YEAR + '. The numbers here are averaged over the area and ' + CLIMATE_BUFFER_M / 1000 + ' km around it. It runs to ' + lastLabel + '.</p>',
+    '<p>A 9 km cell smooths hills and valleys, so rainfall in hill country is often too low and frost in valley floors too rare. Read it for how a month or year compared with this place\'s normal, which it does well, and for when droughts, wet spells and warm or cold years happened. Use a nearby rain gauge for amounts.</p>',
+    '<p>Normals are the 1991–2020 averages. The trend since ' + ys[0] + ' is the Theil–Sen slope of the yearly values, shown when the Mann–Kendall test (allowing for year-to-year autocorrelation) gives p &lt; 0.05. Early decades rest on fewer observations, so treat the long-term trend as a guide.</p>',
+    '<p>A frost day is a day the cell\'s lowest temperature fell below 0 °C; a hot day reached ' + CLIMATE_HOT_C + ' °C. Growing degree-days add up how far each day\'s mean was above ' + CLIMATE_GDD_BASE_C + ' °C.</p>'
+  ].join('');
+}
+
+// Bars of normal monthly rainfall (left axis, mm) and a line of normal
+// mean temperature (right axis, °C).
+function renderClimograph(nm) {
+  const w = 640, h = 220, padL = 44, padR = 40, padT = 14, padB = 26;
+  const rMax = Math.max(50, Math.ceil(Math.max(...nm.rain.slice(1)) / 50) * 50);
+  const tLo = Math.floor(Math.min(0, ...nm.temp.slice(1))), tHi = Math.ceil(Math.max(...nm.temp.slice(1)) / 5) * 5;
+  const bw = (w - padL - padR) / 12, xOf = (m) => padL + (m - 1) * bw;
+  const yR = (v) => padT + (1 - v / rMax) * (h - padT - padB), yT = (v) => padT + (1 - (v - tLo) / (tHi - tLo)) * (h - padT - padB);
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + i / 4 * (h - padT - padB);
+    svg += '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="var(--border)"/>';
+    svg += '<text x="' + (padL - 6) + '" y="' + (y + 3) + '" text-anchor="end" font-size="10" fill="#4a90c2">' + Math.round(rMax * (1 - i / 4)) + '</text>';
+    svg += '<text x="' + (w - padR + 6) + '" y="' + (y + 3) + '" font-size="10" fill="#d0603a">' + (tHi - (tHi - tLo) * i / 4).toFixed(0) + '°</text>';
+  }
+  svg += '<text x="' + (padL - 6) + '" y="' + (padT - 4) + '" text-anchor="end" font-size="10" fill="#4a90c2">mm</text>';
+  for (let m = 1; m <= 12; m++) {
+    svg += '<rect x="' + (xOf(m) + bw * 0.15).toFixed(1) + '" y="' + yR(nm.rain[m]).toFixed(1) + '" width="' + (bw * 0.7).toFixed(1) + '" height="' + (h - padB - yR(nm.rain[m])).toFixed(1) + '" fill="#4a90c2"><title>' + MONTH_NAMES[m - 1] + ': ' + nm.rain[m].toFixed(0) + ' mm</title></rect>';
+    svg += '<text x="' + (xOf(m) + bw / 2) + '" y="' + (h - 8) + '" text-anchor="middle" font-size="10" fill="var(--text3)">' + MONTH_NAMES[m - 1] + '</text>';
+  }
+  const pts = []; for (let m = 1; m <= 12; m++) pts.push((xOf(m) + bw / 2).toFixed(1) + ',' + yT(nm.temp[m]).toFixed(1));
+  svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#d0603a" stroke-width="2"/>';
+  for (let m = 1; m <= 12; m++) svg += '<circle cx="' + (xOf(m) + bw / 2).toFixed(1) + '" cy="' + yT(nm.temp[m]).toFixed(1) + '" r="3" fill="#d0603a"><title>' + MONTH_NAMES[m - 1] + ': ' + nm.temp[m].toFixed(1) + ' °C</title></circle>';
+  document.getElementById('climographWrap').innerHTML = svg + '</svg><div style="display:flex;gap:14px;margin-top:6px;font-size:11.5px;color:var(--text2);">' +
+    '<span><span style="display:inline-block;width:10px;height:10px;background:#4a90c2;vertical-align:-1px;"></span> rainfall (left)</span>' +
+    '<span><span style="display:inline-block;width:14px;height:2px;background:#d0603a;vertical-align:3px;"></span> mean temperature (right)</span></div>';
+}
+
+// Each month's rainfall and temperature against its normal, for the
+// years picked, with the rainfall of the 12 months to then.
+function renderClimateAnomalies(c, S, lastLabel) {
+  const nm = S.normals, wrap = document.getElementById('climateChartWrap');
+  document.getElementById('climateAnomTitle').textContent = 'Month by month against normal, ' + c.yearStart + (c.yearEnd > c.yearStart ? '–' + c.yearEnd : '');
+  const key = (r) => r.y * 100 + r.m;
+  const roll = new Map();
+  S.months.forEach((r, i) => {
+    if (i < 11) return;
+    let sum = 0;
+    for (let k = i - 11; k <= i; k++) sum += S.months[k].rain;
+    roll.set(key(r), 100 * sum / nm.yearRain - 100);
+  });
+  const months = S.months.filter(r => r.y >= c.yearStart && r.y <= c.yearEnd);
+  if (months.length < 2) { wrap.innerHTML = '<div class="field-hint">ERA5-Land runs to ' + lastLabel + ', so it doesn\'t cover these years yet.</div>'; return; }
+  const w = 640, padL = 44, padR = 16, ph = 120, gap = 34, top = 16, h = top + ph + gap + ph + 26;
+  const n = months.length, bw = (w - padL - padR) / n, xOf = (i) => padL + i * bw;
+  const rainA = months.map(r => 100 * r.rain / nm.rain[r.m] - 100), rollA = months.map(r => roll.get(key(r))), tempA = months.map(r => r.temp - nm.temp[r.m]);
+  const rLo = -100, rHi = Math.min(200, Math.max(50, Math.ceil(Math.max(...rainA) / 50) * 50));
+  const tMax = Math.max(1, Math.ceil(Math.max(...tempA.map(Math.abs)) * 2) / 2);
+  const rY = (v) => top + (1 - (Math.max(rLo, Math.min(rHi, v)) - rLo) / (rHi - rLo)) * ph;
+  const t0 = top + ph + gap, tY = (v) => t0 + (1 - (v + tMax) / (2 * tMax)) * ph;
+  const label = (x, y, t, anchor, extra) => '<text x="' + x + '" y="' + y + '" text-anchor="' + (anchor || 'end') + '" font-size="10" fill="var(--text3)"' + (extra || '') + '>' + t + '</text>';
+  const hline = (y, dark) => '<line x1="' + padL + '" y1="' + y + '" x2="' + (w - padR) + '" y2="' + y + '" stroke="' + (dark ? 'var(--text3)' : 'var(--border)') + '"/>';
+  const bar = (i, y, y0, color, tip) => '<rect x="' + (xOf(i) + bw * 0.1).toFixed(1) + '" y="' + Math.min(y, y0).toFixed(1) + '" width="' + Math.max(0.6, bw * 0.8).toFixed(1) + '" height="' + Math.max(0.5, Math.abs(y - y0)).toFixed(1) + '" fill="' + color + '"><title>' + tip + '</title></rect>';
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  svg += label(padL, top - 5, 'Rainfall, % above or below normal', 'start', ' font-weight="600"');
+  for (let v = rLo; v <= rHi; v += rHi - rLo > 200 ? 100 : 50) svg += hline(rY(v), v === 0) + label(padL - 6, rY(v) + 3, (v > 0 ? '+' : '') + v + '%');
+  months.forEach((r, i) => {
+    const v = rainA[i], when = MONTH_NAMES[r.m - 1] + ' ' + r.y;
+    svg += bar(i, rY(v), rY(0), v >= 0 ? '#4a90c2' : '#c9a36a', when + ': ' + r.rain.toFixed(0) + ' mm, ' + climateSign(v, 0, '%') + ' on normal (' + nm.rain[r.m].toFixed(0) + ' mm)');
+    if (v > rHi) svg += label(xOf(i) + bw / 2, rY(rHi) - 2, '▲', 'middle', ' font-size="7" fill="#4a90c2"');
+  });
+  const pts = rollA.map((v, i) => v === undefined ? null : (xOf(i) + bw / 2).toFixed(1) + ',' + rY(v).toFixed(1)).filter(Boolean);
+  if (pts.length > 1) svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="#1f3b57" stroke-width="1.8"/>';
+  svg += label(padL, t0 - 5, 'Temperature, °C above or below normal', 'start', ' font-weight="600"');
+  for (let v = -tMax; v <= tMax + 1e-9; v += tMax > 2 ? 1 : 0.5) svg += hline(tY(v), Math.abs(v) < 1e-9) + label(padL - 6, tY(v) + 3, (Math.abs(v) < 1e-9 ? '0' : climateSign(v, v % 1 ? 1 : 0, '')) + '°');
+  months.forEach((r, i) => { svg += bar(i, tY(tempA[i]), tY(0), tempA[i] >= 0 ? '#d0603a' : '#5b8fb9', MONTH_NAMES[r.m - 1] + ' ' + r.y + ': ' + r.temp.toFixed(1) + ' °C, ' + climateSign(tempA[i], 1, ' °C') + ' on normal'); });
+  const every = Math.ceil((c.yearEnd - c.yearStart + 1) / 14);
+  months.forEach((r, i) => {
+    if (r.m !== 1) return;
+    svg += '<line x1="' + xOf(i) + '" y1="' + top + '" x2="' + xOf(i) + '" y2="' + (t0 + ph) + '" stroke="var(--border)" stroke-dasharray="2 3"/>';
+    if ((r.y - c.yearStart) % every === 0) svg += label(xOf(i) + 2, h - 8, r.y, 'start');
+  });
+  const sw = (color, text, line) => '<span><span style="display:inline-block;width:' + (line ? 14 : 10) + 'px;height:' + (line ? 2 : 10) + 'px;background:' + color + ';vertical-align:' + (line ? 3 : -1) + 'px;"></span> ' + text + '</span>';
+  wrap.innerHTML = svg + '</svg><div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:11.5px;color:var(--text2);">' +
+    sw('#4a90c2', 'wetter month') + sw('#c9a36a', 'drier month') + sw('#1f3b57', 'rainfall of the 12 months to then', true) + sw('#d0603a', 'warmer') + sw('#5b8fb9', 'cooler') + '</div>';
+}
+
+// Yearly rainfall and mean temperature since 1950, two small panels.
+function renderClimateLong(S, mkR, mkT) {
+  const w = 640, padL = 44, padR = 16, ph = 110, gap = 30, top = 16, h = top + 2 * ph + gap + 24;
+  const ys = S.years, y0 = ys[0].y, y1 = ys[ys.length - 1].y;
+  const xOf = (y) => padL + (y - y0) / Math.max(1, y1 - y0) * (w - padL - padR);
+  let svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;font-family:var(--font-sans);">';
+  const panel = (top0, vals, color, unit, dp, mk, title, normal) => {
+    const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.08 || 1;
+    const yOf = (v) => top0 + (1 - (v - (lo - pad)) / ((hi + pad) - (lo - pad))) * ph;
+    let out = '<text x="' + padL + '" y="' + (top0 - 5) + '" font-size="10" font-weight="600" fill="var(--text3)">' + title + '</text>';
+    for (let i = 0; i <= 3; i++) {
+      const v = lo - pad + (hi - lo + 2 * pad) * i / 3;
+      out += '<line x1="' + padL + '" y1="' + yOf(v) + '" x2="' + (w - padR) + '" y2="' + yOf(v) + '" stroke="var(--border)"/>';
+      out += '<text x="' + (padL - 6) + '" y="' + (yOf(v) + 3) + '" text-anchor="end" font-size="10" fill="var(--text3)">' + v.toFixed(dp) + '</text>';
+    }
+    out += '<line x1="' + padL + '" y1="' + yOf(normal) + '" x2="' + (w - padR) + '" y2="' + yOf(normal) + '" stroke="var(--text3)" stroke-dasharray="4 3"><title>1991–2020 normal</title></line>';
+    out += '<polyline points="' + ys.map((r, i) => xOf(r.y).toFixed(1) + ',' + yOf(vals[i]).toFixed(1)).join(' ') + '" fill="none" stroke="' + color + '" stroke-width="1.6"/>';
+    ys.forEach((r, i) => { out += '<circle cx="' + xOf(r.y).toFixed(1) + '" cy="' + yOf(vals[i]).toFixed(1) + '" r="2.2" fill="' + color + '"><title>' + r.y + ': ' + vals[i].toFixed(dp) + unit + '</title></circle>'; });
+    if (mk.p < 0.05) {
+      // Theil–Sen line through the median point.
+      const med = (a) => { const s2 = a.slice().sort((x, z) => x - z), k = s2.length >> 1; return s2.length % 2 ? s2[k] : (s2[k - 1] + s2[k]) / 2; };
+      const b = med(vals.map((v, i) => v - mk.senSlope * ys[i].y));
+      out += '<line x1="' + xOf(y0) + '" y1="' + yOf(b + mk.senSlope * y0) + '" x2="' + xOf(y1) + '" y2="' + yOf(b + mk.senSlope * y1) + '" stroke="var(--text)" stroke-width="1.5"/>';
+    }
+    return out;
+  };
+  svg += panel(top, ys.map(r => r.rain), '#4a90c2', ' mm', 0, mkR, 'Rainfall a year (mm)', S.normals.yearRain);
+  svg += panel(top + ph + gap, ys.map(r => r.temp), '#d0603a', ' °C', 1, mkT, 'Mean temperature (°C)', S.normals.yearTemp);
+  for (let y = Math.ceil(y0 / 10) * 10; y <= y1; y += 10) svg += '<text x="' + xOf(y) + '" y="' + (h - 6) + '" text-anchor="middle" font-size="10" fill="var(--text3)">' + y + '</text>';
+  document.getElementById('climateLongWrap').innerHTML = svg + '</svg><div style="font-size:11.5px;color:var(--text2);margin-top:4px;">Dashed: 1991–2020 normal. Solid black: trend, where there is one.</div>';
+}
+
+function renderClimateTable(c, S) {
+  const nm = S.normals, R = 'style="text-align:right;white-space:nowrap;"';
+  const n0 = (v) => v == null || v !== v ? '–' : Math.round(v).toLocaleString();
+  let html = '<thead><tr><th>Year</th><th ' + R + '>Rainfall</th><th ' + R + '>On normal</th><th ' + R + '>Mean temp.</th><th ' + R + '>On normal</th><th ' + R + '>Frost days</th><th ' + R + '>Days ≥' + CLIMATE_HOT_C + ' °C</th><th ' + R + '>Heavy-rain days</th><th ' + R + '>Wettest day</th></tr></thead><tbody>';
+  html += '<tr style="color:var(--text2);"><td>1991–2020 normal</td><td ' + R + '>' + n0(nm.yearRain) + ' mm</td><td></td><td ' + R + '>' + nm.yearTemp.toFixed(1) + ' °C</td><td></td><td ' + R + '>' + n0(S.idxNorm.frost) + '</td><td ' + R + '>' + n0(S.idxNorm.hot) + '</td><td ' + R + '>' + n0(S.idxNorm.heavy) + '</td><td ' + R + '>' + n0(S.idxNorm.wettestDay) + ' mm</td></tr>';
+  for (let y = c.yearEnd; y >= c.yearStart; y--) {
+    const ms = S.months.filter(r => r.y === y), q = S.idx[y];
+    if (!ms.length) { html += '<tr><td>' + y + '</td><td colspan="8" style="color:var(--text3);">not in ERA5-Land yet</td></tr>'; continue; }
+    const rain = ms.reduce((t, r) => t + r.rain, 0), rainN = ms.reduce((t, r) => t + nm.rain[r.m], 0);
+    const temp = ms.reduce((t, r) => t + r.temp, 0) / ms.length, tempN = ms.reduce((t, r) => t + nm.temp[r.m], 0) / ms.length;
+    const part = ms.length < 12 ? ' <span style="color:var(--text3);">(to ' + MONTH_NAMES[ms[ms.length - 1].m - 1] + ')</span>' : '';
+    html += '<tr><td>' + y + part + '</td><td ' + R + '>' + n0(rain) + ' mm</td><td ' + R + '>' + climateSign(100 * rain / rainN - 100, 0, '%') + '</td><td ' + R + '>' + temp.toFixed(1) + ' °C</td><td ' + R + '>' + climateSign(temp - tempN, 1, ' °C') + '</td>' +
+      '<td ' + R + '>' + (q ? n0(q.frost) : '–') + '</td><td ' + R + '>' + (q ? n0(q.hot) : '–') + '</td><td ' + R + '>' + (q ? n0(q.heavy) : '–') + '</td><td ' + R + '>' + (q ? n0(q.wettestDay) + ' mm' : '–') + '</td></tr>';
+  }
+  document.getElementById('climateTable').innerHTML = html + '</tbody>';
+}
+
+document.getElementById('climateAreaSel').addEventListener('change', (e) => {
+  if (!lastClimate) return;
+  lastClimate.shownId = Number(e.target.value);
+  renderClimate();
+});
+
+document.getElementById('climateCsvBtn').addEventListener('click', () => {
+  const c = lastClimate;
+  if (!c) return;
+  const out = [['area', 'year', 'month', 'rain_mm', 'rain_normal_mm', 'rain_pct_of_normal', 'temp_mean_c', 'temp_normal_c', 'temp_anomaly_c', 'frost_days', 'days_25c_plus', 'wet_days', 'heavy_rain_days', 'wettest_day_mm', 'coldest_c', 'hottest_c', 'growing_degree_days'].join(',')];
+  c.areas.forEach(a => {
+    const S = c.byArea[a.id], nm = S.normals;
+    S.months.forEach(r => out.push([a.name, r.y, r.m, r.rain.toFixed(1), nm.rain[r.m].toFixed(1), (100 * r.rain / nm.rain[r.m]).toFixed(0),
+      r.temp.toFixed(2), nm.temp[r.m].toFixed(2), (r.temp - nm.temp[r.m]).toFixed(2), '', '', '', '', '', '', '', ''].map(csvCell).join(',')));
+    Object.values(S.idx).sort((x, z) => x.year - z.year).forEach(q => out.push([a.name, q.year, '', '', '', '', '', '', '',
+      q.frost.toFixed(1), q.hot.toFixed(1), q.wet.toFixed(1), q.heavy.toFixed(1), q.wettestDay.toFixed(1), q.coldest.toFixed(1), q.hottest.toFixed(1), q.gdd.toFixed(0)].map(csvCell).join(',')));
+  });
+  const name = c.areas.length === 1 ? c.areas[0].name.replace(/[^\w-]+/g, '_') : c.areas.length + '_areas';
+  downloadText(name + '_climate_era5land.csv', out.join('\n') + '\n', 'text/csv');
+});
+syncClimateControls();
+
+/* ---------------------------------------------------------------------
+   Physical tab — what the land is made of and how it lies, per area.
+   Geology: in New Zealand, GNS Science's 1:250 000 geological map
+   (QMAP, 2023 edition) units, faults and mapped landslides, clipped to
+   the area; elsewhere, Macrostrat's compilation of geological maps,
+   sampled at points across the area. Erosion susceptibility and Land
+   Use Capability (New Zealand only): MPI's Erosion Susceptibility
+   Classification, built on the NZ Land Resource Inventory's LUC units.
+   Both are read straight from the publishers' ArcGIS services, so they
+   need no key. Terrain (Copernicus GLO-30) and soil (SoilGrids 2.0) run
+   on Earth Engine and need the access key from the Infrared tab.
+   --------------------------------------------------------------------- */
+const PHYS_QMAP = 'https://gis.gns.cri.nz/server/rest/services/NZL_GNS_250K_Geology_2023/NZL_GNS_250K_geology_FeatureService_NZ/FeatureServer';
+const PHYS_QMAP_UNITS = 55, PHYS_QMAP_FAULTS = 18, PHYS_QMAP_SLIDES = 50;
+const PHYS_ESC = 'https://geospatial.mpi.govt.nz/portal/rest/services/TERRESTRIAL/ErosionSusceptibility/FeatureServer/0';
+const PHYS_MACROSTRAT = 'https://macrostrat.org/api/v2/geologic_units/map';
+const PHYS_NZ_BBOX = [166, -47.5, 179, -34]; // mainland New Zealand
+const PHYS_FAULT_NEAR_M = 1000;
+const PHYS_MAX_PAGES = 25; // 2000 features a page
+// Land Use Capability slope classes (Lynn et al. 2009).
+const PHYS_SLOPE_CLASSES = [
+  { hi: 3.5, label: 'A · 0–3°', desc: 'flat to gently undulating', color: '#ffffcc' },
+  { hi: 7.5, label: 'B · 4–7°', desc: 'undulating', color: '#c7e9b4' },
+  { hi: 15.5, label: 'C · 8–15°', desc: 'rolling', color: '#7fcdbb' },
+  { hi: 20.5, label: 'D · 16–20°', desc: 'strongly rolling', color: '#41b6c4' },
+  { hi: 25.5, label: 'E · 21–25°', desc: 'moderately steep', color: '#fd8d3c' },
+  { hi: 35.5, label: 'F · 26–35°', desc: 'steep', color: '#e31a1c' },
+  { hi: 91, label: 'G · over 35°', desc: 'very steep', color: '#800026' }
+];
+const PHYS_ASPECTS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+const PHYS_ASPECT_COLORS = ['#3b5bdb', '#4dabf7', '#94d82d', '#fcc419', '#ff922b', '#f03e3e', '#ae3ec9', '#7048e8'];
+const PHYS_ESC_CLASSES = [
+  { key: 'Low', color: '#4caf50' }, { key: 'Moderate', color: '#ffd54f' },
+  { key: 'High', color: '#fb8c00' }, { key: 'Very high', color: '#d32f2f' }
+];
+const PHYS_LUC_COLORS = ['', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#fee08b', '#fdae61', '#f46d43', '#a50026'];
+const PHYS_LUC_NAMES = ['', 'arable, very few limits', 'arable, slight limits', 'arable, moderate limits', 'arable, severe limits',
+  'non-arable, negligible erosion risk', 'non-arable, slight to severe limits', 'non-arable, severe limits', 'unsuited to production'];
+const PHYS_LUC_SUB = { e: 'erosion', w: 'wetness', s: 'soil', c: 'climate' };
+// SoilGrids 2.0: property, label, unit, divisor from the stored integers.
+const PHYS_SOIL = [
+  { k: 'clay', label: 'Clay', unit: '%', div: 10 }, { k: 'silt', label: 'Silt', unit: '%', div: 10 }, { k: 'sand', label: 'Sand', unit: '%', div: 10 },
+  { k: 'cfvo', label: 'Stones and gravel', unit: '% vol.', div: 10 }, { k: 'phh2o', label: 'pH (water)', unit: '', div: 10 },
+  { k: 'soc', label: 'Organic carbon', unit: 'g/kg', div: 10 }, { k: 'nitrogen', label: 'Nitrogen', unit: 'g/kg', div: 100 },
+  { k: 'cec', label: 'Cation exchange capacity', unit: 'cmol(c)/kg', div: 10 }, { k: 'bdod', label: 'Bulk density', unit: 'g/cm³', div: 100 }
+];
+const PHYS_DEPTHS = ['0-5cm', '5-15cm', '15-30cm', '30-60cm', '60-100cm'];
+let physicalBusy = false;
+let physicalRunId = 0;
+let physicalResults = null; // { keys, areas, byArea: { [id]: { terrain, geology, faults, slides, esc, soil, errors } }, shownId }
+let physicalLayer = null;
+let physicalTileLayer = null;
+let physicalOpacity = 0.7;
+
+map.createPane('physicalPane');
+map.getPane('physicalPane').style.zIndex = 350;
+map.getPane('physicalPane').style.display = 'none';
+
+function setPhysicalStatus(kind, msg) {
+  const el = document.getElementById('physicalStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function syncPhysicalControls() {
+  document.getElementById('physicalEeNote').innerHTML = eeReady
+    ? 'Geology and erosion come from the publishers\' map services; terrain and soil from Earth Engine.'
+    : 'Geology and erosion work now. For terrain and soil, unlock Earth Engine with your access key on the <a href="#" id="physicalGoIr">Infrared</a> tab.';
+  const go = document.getElementById('physicalGoIr');
+  if (go) go.addEventListener('click', (e) => { e.preventDefault(); setAppTab('infrared'); });
+  const run = document.getElementById('physicalRunBtn');
+  run.disabled = !areas.length || physicalBusy;
+  run.textContent = physicalBusy ? 'Describing…' : 'Describe ' + (areas.length > 1 ? areas.length + ' areas' : 'area');
+}
+
+function physicalAreasChanged() {
+  renderTabAreaList('physicalAreaList', 'physicalAreaEmpty');
+  if (physicalResults && physicalResults.keys !== areas.map(areaKey).join('|')) clearPhysical();
+  syncPhysicalControls();
+}
+
+function clearPhysical() {
+  physicalRunId++;
+  physicalBusy = false;
+  physicalResults = null;
+  clearPhysicalMap();
+  document.getElementById('physicalContent').style.display = 'none';
+  document.getElementById('physicalEmpty').style.display = '';
+}
+
+// Every feature of an ArcGIS layer in a lon/lat box, as GeoJSON, a page
+// at a time. The box keeps the request simple; the area clips later.
+async function arcgisInBox(url, bbox, outFields, extra) {
+  const out = [];
+  for (let page = 0; page < PHYS_MAX_PAGES; page++) {
+    const body = new URLSearchParams(Object.assign({
+      geometry: bbox.join(','), geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects',
+      outFields, returnGeometry: 'true', outSR: '4326', geometryPrecision: '6', f: 'geojson',
+      resultOffset: String(page * 2000), resultRecordCount: '2000'
+    }, extra || {}));
+    const res = await fetch(url + '/query', { method: 'POST', body });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const j = await res.json();
+    if (j.error) throw new Error(j.error.message || 'query failed');
+    out.push(...(j.features || []));
+    if (!(j.properties && j.properties.exceededTransferLimit) && !j.exceededTransferLimit) return out;
+  }
+  throw new Error('too many features; draw a smaller area');
+}
+
+// Each polygon feature cut to the area, with its hectares inside.
+function physClip(features, area) {
+  const out = [];
+  features.forEach(f => {
+    if (!f.geometry) return;
+    let cut = null;
+    try { cut = turf.intersect(f, area); } catch (e) { return; }
+    if (!cut) return;
+    const ha = turf.area(cut) / 1e4;
+    if (ha > 0.0001) out.push({ props: f.properties, geometry: cut.geometry, ha });
+  });
+  return out;
+}
+
+const physInNz = (area) => { const c = turf.centroid(area).geometry.coordinates; return c[0] > PHYS_NZ_BBOX[0] && c[0] < PHYS_NZ_BBOX[2] && c[1] > PHYS_NZ_BBOX[1] && c[1] < PHYS_NZ_BBOX[3]; };
+// QMAP's base colour is CMYK percentages, "C M Y K".
+function physCmyk(s) {
+  const v = String(s || '').trim().split(/\s+/).map(Number);
+  if (v.length !== 4 || v.some(x => x !== x)) return '#cccccc';
+  const ch = (x) => Math.round(255 * (1 - x / 100) * (1 - v[3] / 100));
+  return '#' + [ch(v[0]), ch(v[1]), ch(v[2])].map(n => n.toString(16).padStart(2, '0')).join('');
+}
+
+async function physGeologyNz(area, bbox) {
+  const fields = 'mapname,mainrock,subrocks,rockclass,simplename,descr,geolhist,stratage,absmin_ma,absmax_ma,terrequiv,spgrpequiv,stratlex,strat_uri,basecolour,posacc_m';
+  const units = physClip(await arcgisInBox(PHYS_QMAP + '/' + PHYS_QMAP_UNITS, bbox, fields), area)
+    .map(u => Object.assign(u, { color: physCmyk(u.props.basecolour) }));
+  // Faults within PHYS_FAULT_NEAR_M of the area: the box grown by about that much.
+  const g = PHYS_FAULT_NEAR_M / 111000, gx = g / Math.cos(((bbox[1] + bbox[3]) / 2) * Math.PI / 180);
+  const near = [bbox[0] - gx, bbox[1] - g, bbox[2] + gx, bbox[3] + g];
+  const faults = (await arcgisInBox(PHYS_QMAP + '/' + PHYS_QMAP_FAULTS, near, 'name,descr,activity,geolhist,fltsys,gnstype,displcmnt,accuracy')).map(f => {
+    let dist = 0;
+    try {
+      if (!turf.booleanIntersects(f, area)) {
+        const lines = turf.flatten(f).features, verts = turf.explode(area).features;
+        dist = Math.min(...lines.map(l => Math.min(...verts.map(v => turf.pointToLineDistance(v, l, { units: 'meters' })))));
+      }
+    } catch (e) { dist = NaN; }
+    return { props: f.properties, geometry: f.geometry, dist };
+  }).filter(f => !(f.dist > PHYS_FAULT_NEAR_M));
+  // One row per fault: its mapped segments together, nearest distance.
+  const groups = new Map();
+  faults.forEach(f => {
+    const q = f.props, key = [(q.name || '').trim() || 'unnamed', q.activity, q.geolhist, q.gnstype].join('|');
+    if (!groups.has(key)) groups.set(key, { props: q, dist: f.dist, n: 0 });
+    const gr = groups.get(key);
+    gr.n++;
+    if (f.dist < gr.dist || gr.dist !== gr.dist) gr.dist = f.dist;
+  });
+  const faultGroups = [...groups.values()].sort((a, b) => a.dist - b.dist);
+  const slides = physClip(await arcgisInBox(PHYS_QMAP + '/' + PHYS_QMAP_SLIDES, bbox, 'mapname,descr,geolhist,mainrock'), area);
+  return { source: 'qmap', units, faults, faultGroups, slides };
+}
+
+// Outside New Zealand: Macrostrat's units at up to 7 × 7 points across the
+// area, each taking the most detailed map that covers it.
+async function physGeologyMacrostrat(area, bbox) {
+  const pts = [];
+  const n = 7;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+    const pt = turf.point([bbox[0] + (i + 0.5) / n * (bbox[2] - bbox[0]), bbox[1] + (j + 0.5) / n * (bbox[3] - bbox[1])]);
+    if (turf.booleanPointInPolygon(pt, area)) pts.push(pt.geometry.coordinates);
+  }
+  if (!pts.length) pts.push(turf.pointOnFeature(area).geometry.coordinates);
+  const rank = { large: 3, medium: 2, small: 1, tiny: 0 };
+  const results = [];
+  for (let k = 0; k < pts.length; k += 6) {
+    results.push(...await Promise.all(pts.slice(k, k + 6).map(async ([lng, lat]) => {
+      const res = await fetch(PHYS_MACROSTRAT + '?lat=' + lat.toFixed(5) + '&lng=' + lng.toFixed(5));
+      if (!res.ok) throw new Error('Macrostrat HTTP ' + res.status);
+      const data = ((await res.json()).success || {}).data || [];
+      const best = data.slice().sort((a, b) => (rank[b.scale] || 0) - (rank[a.scale] || 0))[0];
+      return { lng, lat, unit: best || null };
+    })));
+  }
+  const areaHa = turf.area(area) / 1e4, byName = new Map();
+  results.forEach(r => {
+    if (!r.unit) return;
+    const u = r.unit, key = u.name + '|' + u.best_int_name;
+    if (!byName.has(key)) byName.set(key, { props: { mapname: u.name, mainrock: u.lith, descr: u.descrip, geolhist: u.best_int_name, absmin_ma: u.t_age, absmax_ma: u.b_age, simplename: u.strat_name }, color: u.color || '#cccccc', n: 0 });
+    byName.get(key).n++;
+  });
+  const units = [...byName.values()].map(u => Object.assign(u, { ha: areaHa * u.n / results.length, sampled: true }));
+  return { source: 'macrostrat', units, points: results, faults: [], faultGroups: [], slides: [] };
+}
+
+async function physErosion(area, bbox) {
+  const feats = physClip(await arcgisInBox(PHYS_ESC, bbox, 'ESC2018,LUC,LEGLUC,Gtg3,Tgt3,Ef_terrain,Class8e'), area);
+  return feats.map(f => {
+    const luc = String(f.props.LUC || '').trim(), m = /^(\d)([ewsc])?/.exec(luc);
+    return Object.assign(f, { escClass: f.props.ESC2018, lucClass: m ? Number(m[1]) : null, lucSub: m && m[2] ? m[2] : '', luc });
+  });
+}
+
+// Copernicus GLO-30, with slope and aspect from it.
+function physDem() {
+  const col = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM');
+  return col.mosaic().setDefaultProjection(col.first().projection());
+}
+function physSlopeClass(slope) {
+  let cls = ee.Image(PHYS_SLOPE_CLASSES.length);
+  for (let k = PHYS_SLOPE_CLASSES.length - 2; k >= 0; k--) cls = cls.where(slope.lt(PHYS_SLOPE_CLASSES[k].hi), k + 1);
+  return cls.rename('cls');
+}
+// 0 flat (under 3.5°), 1–8 N, NE … NW.
+function physAspectClass(slope, aspect) {
+  return aspect.add(22.5).mod(360).divide(45).floor().add(1).where(slope.lt(3.5), 0).rename('cls');
+}
+
+function physTerrain(area) {
+  const geom = ee.Geometry(area.geometry);
+  const dem = physDem(), slope = ee.Terrain.slope(dem), aspect = ee.Terrain.aspect(dem);
+  const opts = { geometry: geom, scale: 30, maxPixels: 1e10, tileScale: 4 };
+  const elev = dem.reduceRegion(Object.assign({ reducer: ee.Reducer.mean().combine(ee.Reducer.minMax(), '', true).combine(ee.Reducer.percentile([5, 50, 95]), '', true) }, opts));
+  const slopeMean = slope.reduceRegion(Object.assign({ reducer: ee.Reducer.mean().combine(ee.Reducer.percentile([50, 90]), '', true) }, opts));
+  const grouped = (cls) => ee.Image.pixelArea().divide(1e4).addBands(cls).reduceRegion(Object.assign({ reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'cls' }) }, opts)).get('groups');
+  return eeEvaluate(ee.Dictionary({ elev, slope: slopeMean, slopeCls: grouped(physSlopeClass(slope)), aspectCls: grouped(physAspectClass(slope, aspect)) }));
+}
+
+function physSoil(area) {
+  const bands = [];
+  const img = ee.Image.cat(PHYS_SOIL.map(sp => ee.Image('projects/soilgrids-isric/' + sp.k + '_mean').select(PHYS_DEPTHS.map(d => { bands.push(sp.k + '_' + d + '_mean'); return sp.k + '_' + d + '_mean'; }))));
+  return eeEvaluate(img.reduceRegion({ reducer: ee.Reducer.mean(), geometry: ee.Geometry(area.geometry), scale: 250, maxPixels: 1e9, tileScale: 4 }));
+}
+
+// USDA texture class from sand and clay percentages.
+function physTexture(sand, clay) {
+  const silt = 100 - sand - clay;
+  if (silt + 1.5 * clay < 15) return 'sand';
+  if (silt + 1.5 * clay < 30) return 'loamy sand';
+  if ((clay >= 7 && clay < 20 && sand > 52 && silt + 2 * clay >= 30) || (clay < 7 && silt < 50 && silt + 2 * clay >= 30)) return 'sandy loam';
+  if (clay >= 7 && clay < 27 && silt >= 28 && silt < 50 && sand <= 52) return 'loam';
+  if ((silt >= 50 && clay >= 12 && clay < 27) || (silt >= 50 && silt < 80 && clay < 12)) return 'silt loam';
+  if (silt >= 80 && clay < 12) return 'silt';
+  if (clay >= 20 && clay < 35 && silt < 28 && sand > 45) return 'sandy clay loam';
+  if (clay >= 27 && clay < 40 && sand > 20 && sand <= 45) return 'clay loam';
+  if (clay >= 27 && clay < 40 && sand <= 20) return 'silty clay loam';
+  if (clay >= 35 && sand > 45) return 'sandy clay';
+  if (clay >= 40 && silt >= 40) return 'silty clay';
+  return 'clay';
+}
+
+async function physicalRun() {
+  if (!areas.length || physicalBusy) return;
+  const list = areas.slice(), runId = ++physicalRunId;
+  physicalBusy = true;
+  syncPhysicalControls();
+  clearPhysicalMap();
+  const byArea = {};
+  try {
+    for (let k = 0; k < list.length; k++) {
+      const a = list[k], area = turf.feature(a.geojson.geometry), bbox = turf.bbox(area), nz = physInNz(area);
+      const where = list.length > 1 ? a.name + ' (' + (k + 1) + ' of ' + list.length + '): ' : '';
+      setPhysicalStatus('info', where + 'reading geology' + (nz ? ', erosion susceptibility' : '') + (eeReady ? ', terrain and soil' : '') + '…');
+      const errors = [];
+      const safe = (label, pr) => pr.catch(err => { errors.push(label + ': ' + (err && err.message ? err.message : err)); return null; });
+      const [geology, esc, terrain, soil] = await Promise.all([
+        safe('Geology', nz ? physGeologyNz(area, bbox) : physGeologyMacrostrat(area, bbox)),
+        nz ? safe('Erosion susceptibility', physErosion(area, bbox)) : Promise.resolve(null),
+        eeReady ? safe('Terrain', physTerrain(area)) : Promise.resolve(null),
+        eeReady ? safe('Soil', physSoil(area)) : Promise.resolve(null)
+      ]);
+      if (runId !== physicalRunId) return;
+      byArea[a.id] = { nz, areaHa: turf.area(area) / 1e4, geology, esc, terrain, soil, errors };
+    }
+    physicalResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
+    renderPhysical();
+    drawPhysicalMap();
+    const errs = list.flatMap(a => byArea[a.id].errors);
+    setPhysicalStatus(errs.length ? 'warning' : '', errs.length ? 'Some parts didn\'t load: ' + errs.join('; ') : '');
+    expandResultsPane();
+  } catch (err) {
+    if (runId === physicalRunId) setPhysicalStatus('error', 'Couldn\'t describe the area: ' + (err && err.message ? err.message : err));
+  } finally {
+    if (runId === physicalRunId) { physicalBusy = false; syncPhysicalControls(); }
+  }
+}
+document.getElementById('physicalRunBtn').addEventListener('click', physicalRun);
+
+const physPct = (v, t) => t > 0 ? (100 * v / t) : 0;
+const physHa = (v) => v >= 100 ? Math.round(v).toLocaleString() : fmtHa(v);
+
+// A stacked bar and a table of hectares and shares.
+function physShareBlock(rows, total, cols) {
   const R = 'style="text-align:right;white-space:nowrap;"';
-  // One stacked bar per area: the share of its mapped land in each class.
-  document.getElementById('forestBars').innerHTML = rs.map(r => {
-    const mapped = r.ha.reduce((x, y) => x + y, 0);
-    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px;">' +
-      '<span style="width:140px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="' + escHtml(r.area.name) + '">' +
-      '<span class="forest-sw" style="background:' + r.area.color + '"></span>' + escHtml(r.area.name) + '</span>' +
-      '<div class="forest-bar" style="flex:1;">' + r.ha.map((h, i) => h > 0
-        ? '<span style="width:' + pct(h, mapped) + '%;background:' + FOREST_CLASSES[i].color + ';" title="' + FOREST_CLASSES[i].name + ': ' + pct(h, mapped).toFixed(1) + '%"></span>' : '').join('') +
-      '</div></div>';
-  }).join('');
-  // One area: hectares, share and mean probability. Several: hectares and share side by side.
-  const multi = rs.length > 1;
-  const head = '<tr><th>Class</th>' + (multi
-    ? rs.map(r => '<th ' + R + '>' + escHtml(r.area.name) + '</th>').join('')
-    : '<th ' + R + '>ha</th><th ' + R + '>% of area</th><th ' + R + '>Mean probability</th>') + '</tr>';
-  const cells = (r, ha, prob) => multi
-    ? '<td ' + R + '>' + fmtHa(ha) + ' ha · ' + pct(ha, r.total).toFixed(0) + '%</td>'
-    : '<td ' + R + '>' + fmtHa(ha) + '</td><td ' + R + '>' + pct(ha, r.total).toFixed(1) + '%</td><td ' + R + '>' + (prob == null ? '' : (100 * prob).toFixed(0) + '%') + '</td>';
-  const rows = FOREST_CLASSES.map((c, i) => '<tr><td>' + forestSwatch(c) + c.name + '</td>' + rs.map(r => cells(r, r.ha[i], r.prob[i])).join('') + '</tr>').join('');
-  const noData = rs.some(r => r.noData > 0.01 * r.total)
-    ? '<tr style="color:var(--text3);"><td>No data</td>' + rs.map(r => cells(r, r.noData, null)).join('') + '</tr>' : '';
-  const total = '<tr style="font-weight:600;"><td>Total</td>' + rs.map(r => multi
-    ? '<td ' + R + '>' + fmtHa(r.total) + ' ha</td>'
-    : '<td ' + R + '>' + fmtHa(r.total) + '</td><td></td><td></td>').join('') + '</tr>';
-  document.getElementById('forestTable').innerHTML = head + rows + noData + total;
-  document.getElementById('forestNotes').innerHTML =
-    '<p>Hectares count each 10 m pixel as its single most likely class. The mean probability is the model\'s average confidence in each class across the area: a low figure for the biggest class means a mixed or uncertain picture.</p>' +
-    '<p>The map is for 2020, from a global model. Primary against regenerating, and planted against plantation, are the hardest calls; check them on the ground or against local mapping before relying on them.</p>';
+  rows = rows.filter(r => r.ha >= 0.005);
+  if (!rows.length) return '<p style="font-size:12.5px;margin:0 0 6px;">None.</p>';
+  const bar = '<div class="phys-bar" style="margin:4px 0 10px;">' + rows.filter(r => r.ha > 0).map(r =>
+    '<span style="width:' + physPct(r.ha, total) + '%;background:' + r.color + ';" title="' + escHtml(r.label) + ': ' + physPct(r.ha, total).toFixed(1) + '%"></span>').join('') + '</div>';
+  const head = '<tr><th>' + cols[0] + '</th>' + (cols[2] ? '<th>' + cols[2] + '</th>' : '') + '<th ' + R + '>ha</th><th ' + R + '>%</th></tr>';
+  const body = rows.map(r => '<tr><td><span class="phys-sw" style="background:' + r.color + '"></span>' + escHtml(r.label) + '</td>' +
+    (cols[2] ? '<td style="color:var(--text2);">' + (r.detail || '') + '</td>' : '') +
+    '<td ' + R + '>' + physHa(r.ha) + '</td><td ' + R + '>' + physPct(r.ha, total).toFixed(1) + '</td></tr>').join('');
+  return bar + '<div style="overflow-x:auto;"><table class="stats-table">' + head + body + '</table></div>';
 }
 
-document.getElementById('forestCsvBtn').addEventListener('click', () => {
-  if (!forestResults) return;
-  const rows = ['area,class,hectares,percent_of_area,mean_probability'];
-  forestResults.forEach(r => {
-    FOREST_CLASSES.forEach((c, i) => rows.push([r.area.name, c.name, r.ha[i].toFixed(3), pct2(r.ha[i], r.total), r.prob[i] == null ? '' : r.prob[i].toFixed(3)].map(csvCell).join(',')));
-    if (r.noData > 0) rows.push([r.area.name, 'No data', r.noData.toFixed(3), pct2(r.noData, r.total), ''].map(csvCell).join(','));
-  });
-  downloadText('forest_type_2020.csv', rows.join('\n') + '\n', 'text/csv');
-});
-function pct2(v, t) { return t > 0 ? (100 * v / t).toFixed(2) : ''; }
+// Rows for every table, shared by the page and the CSV.
+function physRows(P) {
+  const out = { slope: [], aspect: [], rock: [], units: [], esc: [], luc: [], sub: [] };
+  const t = P.terrain;
+  if (t) {
+    const sl = new Map((t.slopeCls || []).map(g => [g.cls, g.sum])), as = new Map((t.aspectCls || []).map(g => [g.cls, g.sum]));
+    out.slope = PHYS_SLOPE_CLASSES.map((c, k) => ({ label: c.label, detail: c.desc, color: c.color, ha: sl.get(k + 1) || 0 }));
+    out.aspect = [{ label: 'Flat (under 3.5°)', color: '#dddddd', ha: as.get(0) || 0 }].concat(PHYS_ASPECTS.map((d, k) => ({ label: d, color: PHYS_ASPECT_COLORS[k], ha: as.get(k + 1) || 0 })));
+  }
+  const g = P.geology;
+  if (g) {
+    const units = new Map(), rocks = new Map();
+    g.units.forEach(u => {
+      const key = u.props.mapname;
+      if (!units.has(key)) units.set(key, { label: u.props.mapname, color: u.color, ha: 0, props: u.props });
+      units.get(key).ha += u.ha;
+      const rk = u.props.mainrock || 'not given';
+      if (!rocks.has(rk)) rocks.set(rk, { label: rk, color: u.color, ha: 0 });
+      rocks.get(rk).ha += u.ha;
+    });
+    out.units = [...units.values()].sort((a, b) => b.ha - a.ha);
+    out.rock = [...rocks.values()].sort((a, b) => b.ha - a.ha);
+  }
+  if (P.esc) {
+    out.esc = PHYS_ESC_CLASSES.map(c => ({ label: c.key, color: c.color, ha: P.esc.filter(f => f.escClass === c.key).reduce((s2, f) => s2 + f.ha, 0) }));
+    const other = P.esc.filter(f => !PHYS_ESC_CLASSES.some(c => c.key === f.escClass)).reduce((s2, f) => s2 + f.ha, 0);
+    if (other > 0) out.esc.push({ label: 'Not classified (towns, water, ice)', color: '#bbbbbb', ha: other });
+    for (let k = 1; k <= 8; k++) out.luc.push({ label: 'Class ' + k, detail: PHYS_LUC_NAMES[k], color: PHYS_LUC_COLORS[k], ha: P.esc.filter(f => f.lucClass === k).reduce((s2, f) => s2 + f.ha, 0) });
+    ['e', 'w', 's', 'c'].forEach(sub => out.sub.push({ label: sub + ' · ' + PHYS_LUC_SUB[sub], color: '#888888', ha: P.esc.filter(f => f.lucSub === sub).reduce((s2, f) => s2 + f.ha, 0) }));
+  }
+  return out;
+}
 
-// Click the map on this tab for the model's probability of each class.
-map.on('click', (e) => {
-  if (appTab !== 'forest' || !eeReady || drawToolActive) return;
-  const pt = ee.Geometry.Point([e.latlng.lng, e.latlng.lat]);
-  const popup = L.popup().setLatLng(e.latlng).setContent('<span style="font-size:12px;color:var(--text3);">Reading forest type…</span>').openOn(map);
-  forestProbImage().reduceRegion({ reducer: ee.Reducer.first(), geometry: pt, scale: 10 }).evaluate((r, err) => {
-    if (!map.hasLayer(popup)) return;
-    const vals = r && FOREST_BANDS.concat('OtherLand').map(b => r[b]);
-    if (err || !vals || vals.some(v => v == null)) { popup.setContent('<span style="font-size:12px;">No forest type data here.</span>'); return; }
-    const top = vals.indexOf(Math.max.apply(null, vals));
-    popup.setContent('<table style="font-size:12.5px;">' + FOREST_CLASSES.map((c, i) =>
-      '<tr' + (i === top ? ' style="font-weight:600;"' : '') + '><td>' + forestSwatch(c) + c.name +
-      '</td><td style="text-align:right;padding-left:10px;">' + (100 * vals[i]).toFixed(0) + '%</td></tr>').join('') + '</table>');
+function renderPhysical() {
+  const R0 = physicalResults;
+  if (!R0) return;
+  document.getElementById('physicalEmpty').style.display = 'none';
+  document.getElementById('physicalContent').style.display = '';
+  const sel = document.getElementById('physicalAreaSel');
+  document.getElementById('physicalAreaHead').style.display = R0.areas.length > 1 ? 'flex' : 'none';
+  sel.innerHTML = R0.areas.map(a => '<option value="' + a.id + '"' + (a.id === R0.shownId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
+  const P = R0.byArea[R0.shownId], rows = physRows(P), total = P.areaHa, t = P.terrain;
+  const R = 'style="text-align:right;white-space:nowrap;"';
+  const metric = (label, value, title) => '<div class="metric"' + (title ? ' title="' + escHtml(title) + '"' : '') + '><div class="metric-label">' + label + '</div><div class="metric-value" style="font-size:15px;">' + value + '</div></div>';
+  const top = (rs) => rs.filter(r => r.ha > 0).sort((a, b) => b.ha - a.ha)[0];
+  const m = [metric('Area', physHa(total) + ' ha')];
+  if (t && t.elev) m.push(metric('Elevation', Math.round(t.elev.DEM_min) + '–' + Math.round(t.elev.DEM_max) + ' m', 'Mean ' + Math.round(t.elev.DEM_mean) + ' m; 5th–95th percentile ' + Math.round(t.elev.DEM_p5) + '–' + Math.round(t.elev.DEM_p95) + ' m'));
+  if (t && t.slope) m.push(metric('Mean slope', t.slope.slope_mean.toFixed(0) + '°', 'Median ' + t.slope.slope_p50.toFixed(0) + '°, 90th percentile ' + t.slope.slope_p90.toFixed(0) + '°'));
+  if (rows.slope.length) { const ts = top(rows.slope); if (ts) m.push(metric('Mostly', ts.desc || ts.label, ts.label + ', ' + physPct(ts.ha, total).toFixed(0) + '% of the area')); }
+  if (rows.rock.length) m.push(metric('Main rock', escHtml(rows.rock[0].label), physPct(rows.rock[0].ha, total).toFixed(0) + '% of the area'));
+  if (P.esc) {
+    const hi = rows.esc.filter(r => r.label === 'High' || r.label === 'Very high').reduce((s2, r) => s2 + r.ha, 0);
+    m.push(metric('High or very high erosion', physPct(hi, total).toFixed(0) + '%', physHa(hi) + ' ha, MPI Erosion Susceptibility Classification'));
+    const tl = top(rows.luc);
+    if (tl) m.push(metric('Mostly LUC', tl.label, tl.detail + ', ' + physPct(tl.ha, total).toFixed(0) + '% of the area'));
+  }
+  if (P.soil) {
+    const avg = (k) => { const v = ['0-5cm', '5-15cm', '15-30cm'].map((d, i) => P.soil[k + '_' + d + '_mean'] * [5, 10, 15][i]); return v.some(x => x == null || x !== x) ? NaN : v.reduce((a2, b2) => a2 + b2, 0) / 30 / 10; };
+    const sand = avg('sand'), clay = avg('clay');
+    if (sand === sand && clay === clay) m.push(metric('Topsoil texture', physTexture(sand, clay), 'SoilGrids, 0–30 cm: ' + sand.toFixed(0) + '% sand, ' + clay.toFixed(0) + '% clay'));
+  }
+  document.getElementById('physicalMetrics').innerHTML = m.join('');
+
+  // Terrain
+  const needKey = '<div class="field-hint" style="margin:0;">Needs Earth Engine: unlock with your access key on the Infrared tab, then describe again.</div>';
+  let tHtml = !eeReady && !t ? needKey : !t ? '<div class="field-hint" style="margin:0;">Terrain didn\'t load.</div>' : '';
+  if (t) {
+    const e = t.elev;
+    tHtml += '<table class="stats-table" style="margin-bottom:10px;"><tr><th>Elevation</th><th ' + R + '>Lowest</th><th ' + R + '>5th pct</th><th ' + R + '>Median</th><th ' + R + '>Mean</th><th ' + R + '>95th pct</th><th ' + R + '>Highest</th></tr><tr><td>m above sea level</td>' +
+      [e.DEM_min, e.DEM_p5, e.DEM_p50, e.DEM_mean, e.DEM_p95, e.DEM_max].map(v => '<td ' + R + '>' + Math.round(v) + '</td>').join('') + '</tr></table>';
+    tHtml += '<div class="card-title" style="font-size:12px;">Slope (LUC slope classes)</div>' + physShareBlock(rows.slope, total, ['Class', '', 'Usually']);
+    tHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Aspect (the way slopes face)</div>' + physAspectRose(rows.aspect, total) + physShareBlock(rows.aspect, total, ['Facing']);
+  }
+  document.getElementById('physTerrain').innerHTML = tHtml;
+
+  // Geology
+  const g = P.geology;
+  document.getElementById('physGeologyTitle').textContent = !g ? 'Geology' : g.source === 'qmap' ? 'Geology (GNS Science QMAP 1:250 000)' : 'Geology (Macrostrat)';
+  let gHtml = '';
+  if (!g) gHtml = '<div class="field-hint" style="margin:0;">Geology didn\'t load.</div>';
+  else if (!g.units.length) gHtml = '<div class="field-hint" style="margin:0;">No mapped geology here.</div>';
+  else {
+    if (g.source === 'macrostrat') gHtml += '<div class="field-hint" style="margin:0 0 6px;">Shares come from ' + g.points.length + ' points across the area, so they are rough.</div>';
+    gHtml += '<div class="card-title" style="font-size:12px;">Main rock type</div>' + physShareBlock(rows.rock, total, ['Rock']);
+    gHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Map units</div><div style="overflow-x:auto;"><table class="stats-table"><tr><th>Unit</th><th>Age</th><th>Description</th><th ' + R + '>ha</th><th ' + R + '>%</th></tr>' +
+      rows.units.map(u => {
+        const q = u.props, age = (q.geolhist || '') + (q.absmax_ma != null ? ' <span style="color:var(--text3);">(' + (physMa(q.absmin_ma) === physMa(q.absmax_ma) ? physMa(q.absmax_ma) : physMa(q.absmin_ma) + '–' + physMa(q.absmax_ma)) + ')</span>' : '');
+        const name = q.strat_uri ? '<a href="' + escHtml(q.strat_uri) + '" target="_blank" rel="noopener">' + escHtml(u.label) + '</a>' : escHtml(u.label);
+        return '<tr><td><span class="phys-sw" style="background:' + u.color + '"></span>' + name + (q.terrequiv && q.terrequiv.trim() ? '<div style="font-size:11px;color:var(--text3);">' + escHtml(q.terrequiv) + '</div>' : '') + '</td><td>' + age + '</td><td style="font-size:11.5px;">' + escHtml(q.descr || '') + '</td><td ' + R + '>' + physHa(u.ha) + '</td><td ' + R + '>' + physPct(u.ha, total).toFixed(1) + '</td></tr>';
+      }).join('') + '</table></div>';
+    if (g.source === 'qmap') {
+      const slideHa = g.slides.reduce((s2, f) => s2 + f.ha, 0);
+      gHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Mapped landslides</div><p style="font-size:12.5px;margin:0 0 6px;">' + (g.slides.length
+        ? physHa(slideHa) + ' ha (' + physPct(slideHa, total).toFixed(1) + '% of the area) in ' + g.slides.length + ' mapped landslide deposit' + (g.slides.length === 1 ? '' : 's') + '. Only large slides show at this scale.'
+        : 'None mapped at 1:250 000. Smaller slides are not shown at this scale.') + '</p>';
+      gHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Faults within ' + PHYS_FAULT_NEAR_M / 1000 + ' km</div>' + (g.faultGroups.length
+        ? '<div style="overflow-x:auto;"><table class="stats-table"><tr><th>Fault</th><th>Activity</th><th>Type</th><th ' + R + '>Where</th></tr>' + g.faultGroups.map(f => {
+          const q = f.props;
+          return '<tr><td>' + escHtml(q.name && q.name.trim() ? q.name : 'unnamed') + (q.fltsys && q.fltsys.trim() ? '<div style="font-size:11px;color:var(--text3);">' + escHtml(q.fltsys) + '</div>' : '') + '</td><td>' + escHtml(q.activity || '') + (q.geolhist ? '<div style="font-size:11px;color:var(--text3);">' + escHtml(q.geolhist) + '</div>' : '') + '</td><td>' + escHtml(q.gnstype || q.descr || '') + '</td><td ' + R + '>' + (f.dist === 0 ? 'crosses the area' : f.dist === f.dist ? Math.round(f.dist) + ' m away' : '') + '</td></tr>';
+        }).join('') + '</table></div>'
+        : '<p style="font-size:12.5px;margin:0;">None mapped.</p>');
+    }
+  }
+  document.getElementById('physGeology').innerHTML = gHtml;
+
+  // Erosion and LUC
+  const eCard = document.getElementById('physErosionCard');
+  eCard.style.display = P.nz ? '' : 'none';
+  if (P.nz) {
+    let eHtml = '';
+    if (!P.esc) eHtml = '<div class="field-hint" style="margin:0;">Erosion susceptibility didn\'t load.</div>';
+    else if (!P.esc.length) eHtml = '<div class="field-hint" style="margin:0;">Not covered (offshore islands, or outside the mapped land).</div>';
+    else {
+      const flag = (k) => P.esc.filter(f => f.props[k] === 'Yes').reduce((s2, f) => s2 + f.ha, 0);
+      const flags = [['Class8e', 'LUC class 8e: land too erodible for any production use'], ['Gtg3', 'Gully erosion dominant'], ['Tgt3', 'Tunnel-gully erosion dominant'], ['Ef_terrain', 'Earthflow terrain']]
+        .map(([k, txt]) => [txt, flag(k)]).filter(x => x[1] > 0);
+      eHtml += '<div class="card-title" style="font-size:12px;">Erosion Susceptibility Classification</div>' + physShareBlock(rows.esc, total, ['Susceptibility']);
+      if (flags.length) eHtml += '<ul style="font-size:12.5px;margin:4px 0 8px 18px;padding:0;">' + flags.map(([txt, ha]) => '<li>' + txt + ': ' + physHa(ha) + ' ha (' + physPct(ha, total).toFixed(1) + '%)</li>').join('') + '</ul>';
+      eHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Land Use Capability class</div>' + physShareBlock(rows.luc, total, ['Class', '', 'Means']);
+      eHtml += '<div class="card-title" style="font-size:12px;margin-top:10px;">Main limitation (LUC subclass)</div>' + physShareBlock(rows.sub, total, ['Limitation']);
+      const units = new Map();
+      P.esc.forEach(f => { if (f.luc) units.set(f.luc, (units.get(f.luc) || 0) + f.ha); });
+      eHtml += '<div class="field-hint" style="margin:6px 0 0;">LUC units: ' + [...units.entries()].sort((a, b) => b[1] - a[1]).map(([u, ha]) => escHtml(u.replace(/\s+/g, ' ')) + ' (' + physPct(ha, total).toFixed(0) + '%)').join(', ') + '.</div>';
+    }
+    document.getElementById('physErosion').innerHTML = eHtml;
+  }
+
+  // Soil
+  let sHtml = !eeReady && !P.soil ? needKey : !P.soil ? '<div class="field-hint" style="margin:0;">Soil didn\'t load.</div>' : '';
+  if (P.soil) {
+    sHtml += '<div style="overflow-x:auto;"><table class="stats-table"><tr><th>Area average</th>' + PHYS_DEPTHS.map(d => '<th ' + R + '>' + d.replace('cm', ' cm') + '</th>').join('') + '</tr>' +
+      PHYS_SOIL.map(sp => '<tr><td>' + sp.label + (sp.unit ? ' <span style="color:var(--text3);">(' + sp.unit + ')</span>' : '') + '</td>' + PHYS_DEPTHS.map(d => {
+        const v = P.soil[sp.k + '_' + d + '_mean'];
+        return '<td ' + R + '>' + (v == null ? '–' : (v / sp.div).toFixed(sp.div >= 100 ? 2 : 1)) + '</td>';
+      }).join('') + '</tr>').join('') +
+      '<tr><td>Texture (USDA)</td>' + PHYS_DEPTHS.map(d => { const sa = P.soil['sand_' + d + '_mean'], cl = P.soil['clay_' + d + '_mean']; return '<td ' + R + '>' + (sa == null || cl == null ? '–' : physTexture(sa / 10, cl / 10)) + '</td>'; }).join('') + '</tr></table></div>';
+  }
+  document.getElementById('physSoil').innerHTML = sHtml;
+
+  document.getElementById('physicalNotes').innerHTML = [
+    P.geology && P.geology.source === 'qmap' ? '<p>Geology is GNS Science\'s 1:250 000 geological map of New Zealand (QMAP, 2023 edition). Its boundaries are placed to about ±250–500 m, so a small area can sit across a boundary that is really a few hundred metres away, and units smaller than about 1 km across are left out. It describes the rock under the soil, not the soil itself. Unit names link to the New Zealand stratigraphic lexicon.</p>' : '',
+    P.geology && P.geology.source === 'macrostrat' ? '<p>Geology outside New Zealand is from Macrostrat, a compilation of geological maps from many publishers at different scales; each point takes the most detailed map covering it.</p>' : '',
+    P.nz ? '<p>Erosion susceptibility is MPI\'s Erosion Susceptibility Classification (2018), used to set the rules for commercial forestry under the National Environmental Standards. It is built on the New Zealand Land Resource Inventory\'s Land Use Capability units, mapped at about 1:50 000 from the 1970s on: good for the general picture, not for a paddock or a slip. LUC class runs from 1 (arable, few limits) to 8 (unsuited to production); the subclass letter is the main limitation: e erosion, w wetness, s soil, c climate.</p>' : '',
+    '<p>Terrain is the Copernicus GLO-30 elevation model (30 m). It is a surface model, so forest canopy and buildings add height and soften slopes; in New Zealand, the LiDAR tab has 1 m bare-ground elevation where LiDAR has been flown. Slope classes are the LUC ones.</p>',
+    '<p>Soil is SoilGrids 2.0 (ISRIC, 250 m), a global model predicted from soil profiles and covariates. It gives a reasonable picture of texture and pH, but is least reliable where profiles are few and soils unusual, as on New Zealand\'s volcanic (allophanic and pumice) soils. For New Zealand, S-map (Manaaki Whenua) is the authority where it has been mapped.</p>'
+  ].join('');
+}
+
+const physMa = (v) => v == null ? '' : v >= 1 ? Math.round(v) + ' Ma' : v > 0 ? (v * 1000).toFixed(0) + ' ka' : 'now';
+
+// A small eight-way rose of how much of the sloping land faces each way.
+function physAspectRose(rows, total) {
+  const dirs = rows.slice(1), max = Math.max(...dirs.map(r => r.ha)) || 1, R0 = 70, cx = 90, cy = 85;
+  let svg = '<svg viewBox="0 0 180 170" style="width:180px;height:auto;display:block;margin:2px 0 8px;font-family:var(--font-sans);">';
+  [0.5, 1].forEach(f => { svg += '<circle cx="' + cx + '" cy="' + cy + '" r="' + R0 * f + '" fill="none" stroke="var(--border)"/>'; });
+  dirs.forEach((r, k) => {
+    const a0 = (k * 45 - 22.5 - 90) * Math.PI / 180, a1 = (k * 45 + 22.5 - 90) * Math.PI / 180, rr = R0 * Math.sqrt(r.ha / max);
+    svg += '<path d="M' + cx + ',' + cy + ' L' + (cx + rr * Math.cos(a0)).toFixed(1) + ',' + (cy + rr * Math.sin(a0)).toFixed(1) + ' A' + rr.toFixed(1) + ',' + rr.toFixed(1) + ' 0 0 1 ' + (cx + rr * Math.cos(a1)).toFixed(1) + ',' + (cy + rr * Math.sin(a1)).toFixed(1) + ' Z" fill="' + r.color + '" fill-opacity="0.85"><title>' + r.label + ': ' + physPct(r.ha, total).toFixed(1) + '% of the area</title></path>';
+    const la = (k * 45 - 90) * Math.PI / 180;
+    svg += '<text x="' + (cx + (R0 + 9) * Math.cos(la)).toFixed(1) + '" y="' + (cy + (R0 + 9) * Math.sin(la) + 3).toFixed(1) + '" text-anchor="middle" font-size="9" fill="var(--text3)">' + r.label + '</text>';
   });
+  return svg + '</svg>';
+}
+
+document.getElementById('physicalAreaSel').addEventListener('change', (e) => {
+  if (!physicalResults) return;
+  physicalResults.shownId = Number(e.target.value);
+  renderPhysical();
 });
-syncForestControls();
+
+// Map: clipped vector layers, or Earth Engine tiles inside the areas.
+function clearPhysicalMap() {
+  if (physicalLayer) { map.removeLayer(physicalLayer); physicalLayer = null; }
+  if (physicalTileLayer) { map.removeLayer(physicalTileLayer); physicalTileLayer = null; }
+  document.getElementById('physicalLegend').innerHTML = '';
+}
+function physLegend(items) {
+  document.getElementById('physicalLegend').innerHTML = items.map(([color, label]) => '<div><span class="legend-sw" style="background:' + color + '"></span>' + escHtml(label) + '</div>').join('');
+}
+function drawPhysicalMap() {
+  clearPhysicalMap();
+  const which = document.getElementById('physicalLayerSel').value;
+  if (which === 'none') return;
+  if (which === 'slope' || which === 'aspect' || which === 'elev') {
+    if (!eeReady) { physLegend([['#ffffff', 'Needs Earth Engine: unlock on the Infrared tab.']]); return; }
+    if (!areas.length) return;
+    const dem = physDem(), slope = ee.Terrain.slope(dem);
+    const clip = ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry))));
+    let img, vis, legend;
+    if (which === 'slope') {
+      img = physSlopeClass(slope); vis = { min: 1, max: PHYS_SLOPE_CLASSES.length, palette: PHYS_SLOPE_CLASSES.map(c => c.color.slice(1)) };
+      legend = PHYS_SLOPE_CLASSES.map(c => [c.color, c.label + ', ' + c.desc]);
+    } else if (which === 'aspect') {
+      img = physAspectClass(slope, ee.Terrain.aspect(dem)); vis = { min: 0, max: 8, palette: ['dddddd'].concat(PHYS_ASPECT_COLORS.map(c => c.slice(1))) };
+      legend = [['#dddddd', 'Flat']].concat(PHYS_ASPECTS.map((d, k) => [PHYS_ASPECT_COLORS[k], 'Facing ' + d]));
+    } else {
+      const R0 = physicalResults && physicalResults.byArea[physicalResults.shownId].terrain;
+      const lo = R0 ? R0.elev.DEM_min : 0, hi = R0 ? R0.elev.DEM_max : 1500;
+      img = dem; vis = { min: lo, max: Math.max(lo + 1, hi), palette: ['3a7d44', 'a3c46c', 'f0e08a', 'c99a5b', '8c5a3c', 'f5f0ea'] };
+      legend = [['#3a7d44', Math.round(lo) + ' m'], ['#f0e08a', ''], ['#f5f0ea', Math.round(hi) + ' m']];
+    }
+    physLegend(legend);
+    const runId = physicalRunId;
+    img.clip(clip).getMapId(vis, (mapId, err) => {
+      if (runId !== physicalRunId || document.getElementById('physicalLayerSel').value !== which) return;
+      if (err) { setPhysicalStatus('error', 'Map layer failed: ' + err); return; }
+      physicalTileLayer = L.tileLayer(mapId.urlFormat, { pane: 'physicalPane', opacity: physicalOpacity, maxZoom: 22, attribution: 'Copernicus GLO-30 DEM, ESA' }).addTo(map);
+    });
+    return;
+  }
+  if (!physicalResults) return;
+  const feats = [];
+  physicalResults.areas.forEach(a => {
+    const P = physicalResults.byArea[a.id];
+    if (which === 'geology' && P.geology) {
+      if (P.geology.source === 'qmap') {
+        P.geology.units.forEach(u => feats.push({ type: 'Feature', geometry: u.geometry, properties: { color: u.color, name: u.props.mapname } }));
+        P.geology.slides.forEach(u => feats.push({ type: 'Feature', geometry: u.geometry, properties: { color: '#000000', name: 'Landslide: ' + u.props.mapname, hatch: true } }));
+        P.geology.faults.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { line: true, active: f.props.activity === 'active', name: (f.props.name || 'Fault') + ' (' + (f.props.activity || '') + ')' } }));
+      } else {
+        P.geology.points.forEach(pt => { if (pt.unit) feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [pt.lng, pt.lat] }, properties: { color: pt.unit.color, name: pt.unit.name } }); });
+      }
+    }
+    if ((which === 'esc' || which === 'luc') && P.esc) P.esc.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: which === 'esc'
+      ? { color: (PHYS_ESC_CLASSES.find(c => c.key === f.escClass) || { color: '#bbbbbb' }).color, name: (f.escClass || 'Not classified') + ' erosion susceptibility' }
+      : { color: f.lucClass ? PHYS_LUC_COLORS[f.lucClass] : '#bbbbbb', name: 'LUC ' + (f.luc || 'not classified') } }));
+  });
+  physicalLayer = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+    pane: 'physicalPane', interactive: false,
+    style: (f) => f.properties.line
+      ? { color: f.properties.active ? '#d00000' : '#333333', weight: f.properties.active ? 2.5 : 1.5, dashArray: f.properties.active ? '' : '5 4', opacity: 0.95 }
+      : { color: f.properties.hatch ? '#000000' : '#555555', weight: f.properties.hatch ? 1.5 : 0.6, dashArray: f.properties.hatch ? '3 3' : '', fillColor: f.properties.color, fillOpacity: f.properties.hatch ? 0 : physicalOpacity },
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 6, pane: 'physicalPane', fillColor: f.properties.color, color: '#333', weight: 1, fillOpacity: physicalOpacity })
+  }).addTo(map);
+  if (which === 'geology') {
+    const R1 = physicalResults.byArea[physicalResults.shownId], units = R1 && R1.geology ? physRows(R1).units.slice(0, 10) : [];
+    physLegend(units.map(u => [u.color, u.label]).concat(R1 && R1.geology && R1.geology.source === 'qmap' ? [['#d00000', 'Active fault'], ['#333333', 'Inactive fault (dashed)']] : []));
+  } else if (which === 'esc') physLegend(PHYS_ESC_CLASSES.map(c => [c.color, c.key]));
+  else physLegend(PHYS_LUC_COLORS.slice(1).map((c, k) => [c, 'Class ' + (k + 1) + ', ' + PHYS_LUC_NAMES[k + 1]]));
+}
+document.getElementById('physicalLayerSel').addEventListener('change', drawPhysicalMap);
+document.getElementById('physicalOpacity').addEventListener('input', (e) => {
+  physicalOpacity = Number(e.target.value) / 100;
+  document.getElementById('physicalOpacityVal').textContent = e.target.value + '%';
+  if (physicalTileLayer) physicalTileLayer.setOpacity(physicalOpacity);
+  if (physicalLayer) physicalLayer.eachLayer(l => { if (l.setStyle && l.feature && !l.feature.properties.line && !l.feature.properties.hatch) l.setStyle({ fillOpacity: physicalOpacity }); });
+});
+
+// What is mapped at a clicked point, from what was loaded.
+map.on('click', (e) => {
+  if (appTab !== 'physical' || !physicalResults || drawToolActive) return;
+  const pt = turf.point([e.latlng.lng, e.latlng.lat]);
+  const inside = (geom) => { try { return turf.booleanPointInPolygon(pt, geom); } catch (err) { return false; } };
+  for (const a of physicalResults.areas) {
+    const P = physicalResults.byArea[a.id];
+    if (!inside(a.geojson.geometry)) continue;
+    const rows = [];
+    const row = (k, v) => rows.push('<tr><td style="color:var(--text3);padding-right:10px;vertical-align:top;">' + k + '</td><td style="font-weight:600;">' + v + '</td></tr>');
+    const u = P.geology && P.geology.source === 'qmap' && P.geology.units.find(x => inside(x.geometry));
+    if (u) { row('Geology', escHtml(u.props.mapname)); row('Rock', escHtml(u.props.mainrock || '')); row('Age', escHtml(u.props.geolhist || '')); }
+    const sl = P.geology && P.geology.slides && P.geology.slides.find(x => inside(x.geometry));
+    if (sl) row('Landslide', escHtml(sl.props.mapname || 'mapped deposit'));
+    const f = P.esc && P.esc.find(x => inside(x.geometry));
+    if (f) { row('Erosion susceptibility', escHtml(f.escClass || 'not classified')); row('LUC unit', escHtml(f.luc || '–')); }
+    if (!rows.length) return;
+    L.popup().setLatLng(e.latlng).setContent((physicalResults.areas.length > 1 ? '<div style="font-size:11.5px;color:var(--text2);margin-bottom:3px;">' + escHtml(a.name) + '</div>' : '') + '<table style="font-size:12.5px;">' + rows.join('') + '</table>').openOn(map);
+    return;
+  }
+});
+
+document.getElementById('physicalCsvBtn').addEventListener('click', () => {
+  const R0 = physicalResults;
+  if (!R0) return;
+  const out = [['area', 'section', 'item', 'detail', 'hectares', 'percent_of_area'].join(',')];
+  R0.areas.forEach(a => {
+    const P = R0.byArea[a.id], rows = physRows(P), push = (sec, r) => out.push([a.name, sec, r.label, r.detail || '', r.ha.toFixed(3), physPct(r.ha, P.areaHa).toFixed(2)].map(csvCell).join(','));
+    const t = P.terrain;
+    if (t) ['min', 'p5', 'p50', 'mean', 'p95', 'max'].forEach(k => out.push([a.name, 'elevation_m', k, '', '', t.elev['DEM_' + k].toFixed(1)].map(csvCell).join(',')));
+    rows.slope.forEach(r => push('slope_class', r));
+    rows.aspect.forEach(r => push('aspect', r));
+    rows.rock.forEach(r => push('main_rock', r));
+    rows.units.forEach(r => push('geology_unit', Object.assign({}, r, { detail: [r.props.geolhist, r.props.descr].filter(Boolean).join('; ') })));
+    if (P.geology && P.geology.faultGroups) P.geology.faultGroups.forEach(f => out.push([a.name, 'fault', f.props.name || 'unnamed', f.props.activity || '', '', f.dist === f.dist ? Math.round(f.dist) + ' m' : ''].map(csvCell).join(',')));
+    if (P.geology && P.geology.slides) P.geology.slides.forEach(f => push('landslide', { label: f.props.mapname || 'landslide', ha: f.ha }));
+    rows.esc.forEach(r => push('erosion_susceptibility', r));
+    rows.luc.forEach(r => push('luc_class', r));
+    rows.sub.forEach(r => push('luc_subclass', r));
+    if (P.soil) PHYS_SOIL.forEach(sp => PHYS_DEPTHS.forEach(d => { const v = P.soil[sp.k + '_' + d + '_mean']; out.push([a.name, 'soil', sp.label + (sp.unit ? ' (' + sp.unit + ')' : ''), d, '', v == null ? '' : (v / sp.div).toFixed(2)].map(csvCell).join(',')); }));
+  });
+  const name = R0.areas.length === 1 ? R0.areas[0].name.replace(/[^\w-]+/g, '_') : R0.areas.length + '_areas';
+  downloadText(name + '_physical.csv', out.join('\n') + '\n', 'text/csv');
+});
+syncPhysicalControls();
+
+/* ---------------------------------------------------------------------
+   Land cover tab — what covers each area and what has happened to it,
+   from global Earth Engine layers. Each check runs for every area, but a
+   section is only shown when it has something to say for that area (the
+   COVER_* thresholds below); the rest are listed in one line as checked
+   and empty, and all of it goes in the CSV.
+   --------------------------------------------------------------------- */
+const COVER_HANSEN = 'UMD/hansen/global_forest_change_2024_v1_12'; // loss to 2024
+const COVER_HANSEN_LAST = 2024;
+const COVER_CANOPY = 'users/nlang/ETH_GlobalCanopyHeight_2020_10m_v1';
+const COVER_DW_FIRST = 2016;            // first whole year of Dynamic World
+const COVER_DW_LAST = CURRENT_YEAR - 1; // last whole year
+const COVER_FIRE_FIRST = 2001;
+// Below these an item is noise or too small to matter, and is not shown.
+const COVER_MIN_CLASS_PCT = 1;     // a land cover class's share of the area
+const COVER_MIN_SHIFT_PTS = 3;     // Dynamic World change, percentage points
+const COVER_MIN_SHIFT_HA = 0.5;
+const COVER_MIN_LOSS_HA = 0.2;     // about two 30 m pixels
+const COVER_MIN_TALL_PCT = 5;      // share of the area with canopy 3 m or taller
+const COVER_MIN_WATER_HA = 0.1;
+const COVER_MIN_BURN_HA = 1;
+const COVER_WORLDCOVER = [
+  [10, 'Tree cover', '#006400'], [20, 'Shrubland', '#ffbb22'], [30, 'Grassland', '#ffff4c'], [40, 'Cropland', '#f096ff'],
+  [50, 'Built-up', '#fa0000'], [60, 'Bare or sparse vegetation', '#b4b4b4'], [70, 'Snow and ice', '#f0f0f0'], [80, 'Permanent water', '#0064c8'],
+  [90, 'Herbaceous wetland', '#0096a0'], [95, 'Mangroves', '#00cf75'], [100, 'Moss and lichen', '#fae6a0']
+];
+const COVER_DW = [
+  ['Water', '#419bdf'], ['Trees', '#397d49'], ['Grass', '#88b053'], ['Flooded vegetation', '#7a87c6'], ['Crops', '#e49635'],
+  ['Shrub and scrub', '#dfc35a'], ['Built', '#c4281b'], ['Bare', '#a59b8f'], ['Snow and ice', '#b39fe1']
+];
+const COVER_CANOPY_CLASSES = [[3, 5, '3–5 m', '#d9ef8b'], [5, 10, '5–10 m', '#91cf60'], [10, 20, '10–20 m', '#1a9850'], [20, 30, '20–30 m', '#006837'], [30, 99, '30 m and over', '#00301a']];
+let coverBusy = false;
+let coverRunId = 0;
+let coverResults = null; // { keys, areas, byArea: { [id]: { areaHa, raw, report } }, shownId }
+let coverTileLayer = null;
+let coverOpacity = 0.75;
+
+map.createPane('coverPane');
+map.getPane('coverPane').style.zIndex = 350;
+map.getPane('coverPane').style.pointerEvents = 'none';
+map.getPane('coverPane').style.display = 'none';
+
+function setCoverStatus(kind, msg) {
+  const el = document.getElementById('coverStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function syncCoverControls() {
+  document.getElementById('coverEeNote').innerHTML = eeReady
+    ? 'Unlocked.'
+    : 'Unlock with your access key on the <a href="#" id="coverGoIr">Infrared</a> tab first.';
+  const go = document.getElementById('coverGoIr');
+  if (go) go.addEventListener('click', (e) => { e.preventDefault(); setAppTab('infrared'); });
+  const run = document.getElementById('coverRunBtn');
+  run.disabled = !eeReady || !areas.length || coverBusy;
+  run.textContent = coverBusy ? 'Checking…' : 'Check ' + (areas.length > 1 ? areas.length + ' areas' : 'land cover');
+}
+
+function coverAreasChanged() {
+  renderTabAreaList('coverAreaList', 'coverAreaEmpty');
+  if (coverResults && coverResults.keys !== areas.map(areaKey).join('|')) clearCover();
+  if (document.getElementById('coverLayerSel').value !== 'none') drawCoverMap();
+  syncCoverControls();
+}
+
+function clearCover() {
+  coverRunId++;
+  coverBusy = false;
+  coverResults = null;
+  document.getElementById('coverContent').style.display = 'none';
+  document.getElementById('coverEmpty').style.display = '';
+}
+
+// Hectares in each value of a class image.
+function coverGroups(cls, geom, scale) {
+  return ee.Image.pixelArea().divide(1e4).addBands(cls.rename('cls')).reduceRegion({
+    reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'cls' }), geometry: geom, scale, maxPixels: 1e10, tileScale: 4
+  }).get('groups');
+}
+function coverDwYear(geom, year) {
+  return ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterBounds(geom).filterDate(year + '-01-01', (year + 1) + '-01-01').select('label').mode();
+}
+function coverBurnImage(year) {
+  return ee.ImageCollection('MODIS/061/MCD64A1').filterDate(year + '-01-01', (year + 1) + '-01-01').select('BurnDate').map(i => i.gt(0)).max().unmask(0);
+}
+
+function coverQuery(a) {
+  const geom = ee.Geometry(a.geojson.geometry);
+  const opts = (scale) => ({ geometry: geom, scale, maxPixels: 1e10, tileScale: 4 });
+  const hansen = ee.Image(COVER_HANSEN);
+  const canopy = ee.Image(COVER_CANOPY);
+  const gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater');
+  const fireYears = [];
+  for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) fireYears.push(y);
+  // Hectares burned each year (MODIS, 500 m), and the most days any 1 km
+  // FIRMS cell in the area had a fire detected.
+  const burnImg = ee.Image.cat(fireYears.map(y => coverBurnImage(y).multiply(ee.Image.pixelArea()).divide(1e4).rename('b' + y)));
+  const firmsImg = ee.Image.cat(fireYears.map(y => ee.ImageCollection('FIRMS').filterDate(y + '-01-01', (y + 1) + '-01-01').select('T21').map(i => i.gt(0)).sum().unmask(0).rename('f' + y)));
+  const pa = ee.Image.pixelArea().divide(1e4);
+  return eeEvaluate(ee.Dictionary({
+    worldcover: coverGroups(ee.ImageCollection('ESA/WorldCover/v200').first().select('Map'), geom, 10),
+    dwFirst: coverGroups(coverDwYear(geom, COVER_DW_FIRST), geom, 10),
+    dwLast: coverGroups(coverDwYear(geom, COVER_DW_LAST), geom, 10),
+    tree2000: pa.updateMask(hansen.select('treecover2000').gte(30)).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))).get('area'),
+    lossByYear: coverGroups(hansen.select('lossyear').updateMask(hansen.select('loss')), geom, 30),
+    gain: pa.updateMask(hansen.select('gain')).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))).get('area'),
+    canopy: coverGroups(canopy.updateMask(canopy.gte(3)).expression('b(0) < 5 ? 1 : b(0) < 10 ? 2 : b(0) < 20 ? 3 : b(0) < 30 ? 4 : 5'), geom, 10),
+    canopyStats: canopy.updateMask(canopy.gte(3)).reduceRegion(Object.assign({ reducer: ee.Reducer.mean().combine(ee.Reducer.percentile([95]), '', true) }, opts(10))),
+    water: ee.Image.cat([
+      pa.updateMask(gsw.select('occurrence').gt(0)).rename('ever'),
+      pa.updateMask(gsw.select('seasonality').eq(12)).rename('permanent'),
+      pa.updateMask(gsw.select('seasonality').gt(0).and(gsw.select('seasonality').lt(12))).rename('seasonal'),
+      pa.updateMask(gsw.select('transition').eq(2).or(gsw.select('transition').eq(5)).or(gsw.select('transition').eq(9))).rename('lost'),
+      pa.updateMask(gsw.select('transition').eq(3).or(gsw.select('transition').eq(4)).or(gsw.select('transition').eq(8))).rename('gained')
+    ]).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))),
+    burn: burnImg.reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(500))),
+    firms: firmsImg.reduceRegion(Object.assign({ reducer: ee.Reducer.max() }, opts(1000)))
+  }));
+}
+
+async function coverRun() {
+  if (!eeReady || !areas.length || coverBusy) return;
+  const list = areas.slice(), runId = ++coverRunId;
+  coverBusy = true;
+  syncCoverControls();
+  const byArea = {};
+  try {
+    for (let k = 0; k < list.length; k++) {
+      const a = list[k];
+      setCoverStatus('info', (list.length > 1 ? a.name + ' (' + (k + 1) + ' of ' + list.length + '): ' : '') + 'checking land cover, tree loss, canopy height, surface water and fire…');
+      const raw = await coverQuery(a);
+      if (runId !== coverRunId) return;
+      const areaHa = turf.area(a.geojson) / 1e4;
+      byArea[a.id] = { areaHa, raw, report: coverReport(raw, areaHa) };
+    }
+    coverResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
+    renderCover();
+    setCoverStatus('', '');
+    expandResultsPane();
+  } catch (err) {
+    if (runId === coverRunId) setCoverStatus('error', 'Couldn\'t check the land cover: ' + (err && err.message ? err.message : err));
+  } finally {
+    if (runId === coverRunId) { coverBusy = false; syncCoverControls(); }
+  }
+}
+document.getElementById('coverRunBtn').addEventListener('click', coverRun);
+
+const coverPct = (v, t) => t > 0 ? 100 * v / t : 0;
+const coverHa = (v) => v >= 100 ? Math.round(v).toLocaleString() : fmtHa(v);
+const coverGroupMap = (groups) => new Map((groups || []).map(g => [g.cls, g.sum]));
+
+// Turns one area's raw numbers into the sections worth showing, the
+// checks with nothing to report, and every row for the CSV.
+function coverReport(raw, areaHa) {
+  const show = [], quiet = [], csv = [];
+  const add = (section, item, ha, detail) => csv.push({ section, item, ha, pct: coverPct(ha, areaHa), detail: detail || '' });
+
+  // Land cover now: always shown, as the base description, small classes lumped.
+  const wc = coverGroupMap(raw.worldcover);
+  const wcRows = COVER_WORLDCOVER.map(([v, label, color]) => ({ label, color, ha: wc.get(v) || 0 })).filter(r => r.ha > 0).sort((a, b) => b.ha - a.ha);
+  wcRows.forEach(r => add('worldcover_2021', r.label, r.ha));
+  const big = wcRows.filter(r => coverPct(r.ha, areaHa) >= COVER_MIN_CLASS_PCT), small = wcRows.filter(r => coverPct(r.ha, areaHa) < COVER_MIN_CLASS_PCT);
+  if (small.length) big.push({ label: 'Other (' + small.map(r => r.label.toLowerCase()).join(', ') + ')', color: '#dddddd', ha: small.reduce((t, r) => t + r.ha, 0) });
+  if (big.length) show.push({ key: 'worldcover', title: 'Land cover, 2021 (ESA WorldCover, 10 m)', rows: big });
+
+  // Land cover change: only the classes that moved.
+  const d0 = coverGroupMap(raw.dwFirst), d1 = coverGroupMap(raw.dwLast);
+  const shifts = COVER_DW.map(([label, color], k) => ({ label, color, a: d0.get(k) || 0, b: d1.get(k) || 0 }))
+    .map(r => Object.assign(r, { d: r.b - r.a, dPts: coverPct(r.b - r.a, areaHa) }));
+  shifts.forEach(r => add('dynamic_world_change', r.label, r.d, COVER_DW_FIRST + ': ' + r.a.toFixed(2) + ' ha; ' + COVER_DW_LAST + ': ' + r.b.toFixed(2) + ' ha'));
+  const moved = shifts.filter(r => Math.abs(r.dPts) >= COVER_MIN_SHIFT_PTS && Math.abs(r.d) >= COVER_MIN_SHIFT_HA).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
+  if (!d0.size || !d1.size) quiet.push('Dynamic World had no clear images for ' + (d0.size ? COVER_DW_LAST : COVER_DW_FIRST) + ', so land cover change wasn\'t checked.');
+  else if (moved.length) show.push({ key: 'dw', title: 'Land cover change, ' + COVER_DW_FIRST + ' to ' + COVER_DW_LAST + ' (Dynamic World, 10 m)', shifts: moved });
+  else quiet.push('No land cover class changed by ' + COVER_MIN_SHIFT_PTS + ' percentage points or more between ' + COVER_DW_FIRST + ' and ' + COVER_DW_LAST + ' (Dynamic World).');
+
+  // Tree cover loss, only in the years it happened.
+  const loss = coverGroupMap(raw.lossByYear), tree2000 = raw.tree2000 || 0, gain = raw.gain || 0;
+  const lossRows = [...loss.entries()].filter(([y, ha]) => y > 0 && ha > 0).map(([y, ha]) => ({ year: 2000 + y, ha })).sort((a, b) => a.year - b.year);
+  const lossTotal = lossRows.reduce((t, r) => t + r.ha, 0);
+  add('tree_cover_2000', 'Tree cover 30% or more, 2000', tree2000);
+  lossRows.forEach(r => add('tree_cover_loss', String(r.year), r.ha));
+  add('tree_cover_gain', 'Gain 2000–2012', gain);
+  if (lossTotal >= COVER_MIN_LOSS_HA) show.push({ key: 'loss', title: 'Tree cover loss, 2001–' + COVER_HANSEN_LAST + ' (Hansen / UMD, 30 m)', lossRows: lossRows.filter(r => r.ha >= 0.05), lossTotal, tree2000, gain });
+  else quiet.push(tree2000 < 0.5 ? 'Next to no tree cover in 2000, and no tree cover loss mapped since (Hansen / UMD).' : 'No tree cover loss mapped from 2001 to ' + COVER_HANSEN_LAST + ' (Hansen / UMD).');
+
+  // Canopy height, if there is enough tall vegetation to describe.
+  const cg = coverGroupMap(raw.canopy), cs = raw.canopyStats || {};
+  const canRows = COVER_CANOPY_CLASSES.map(([lo, hi, label, color], k) => ({ label, color, ha: cg.get(k + 1) || 0 }));
+  const tall = canRows.reduce((t, r) => t + r.ha, 0);
+  canRows.forEach(r => add('canopy_height_2020', r.label, r.ha));
+  if (coverPct(tall, areaHa) >= COVER_MIN_TALL_PCT) show.push({ key: 'canopy', title: 'Canopy height, 2020 (ETH Zürich, 10 m)', rows: canRows.filter(r => r.ha > 0), tall, mean: cs.b1_mean, p95: cs.b1_p95 });
+  else quiet.push('Under ' + COVER_MIN_TALL_PCT + '% of the area has vegetation 3 m or taller (ETH canopy height, 2020), so canopy height isn\'t described.');
+
+  // Surface water.
+  const w = raw.water || {};
+  ['ever', 'permanent', 'seasonal', 'lost', 'gained'].forEach(k => add('surface_water', k, w[k] || 0));
+  if ((w.ever || 0) >= COVER_MIN_WATER_HA) show.push({ key: 'water', title: 'Surface water, 1984–2021 (EC JRC Global Surface Water, 30 m)', water: w });
+  else quiet.push('No surface water detected from 1984 to 2021 (JRC Global Surface Water).');
+
+  // Fire.
+  const burnRows = [], firmsRows = [];
+  for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) {
+    const b = raw.burn && raw.burn['b' + y] || 0, f = raw.firms && raw.firms['f' + y] || 0;
+    add('burned_area', String(y), b);
+    add('fire_detection_days', String(y), 0, String(Math.round(f)));
+    if (b >= COVER_MIN_BURN_HA || f >= 1) burnRows.push({ year: y, ha: b, days: Math.round(f) });
+  }
+  if (burnRows.length) show.push({ key: 'fire', title: 'Fire, ' + COVER_FIRE_FIRST + '–' + CURRENT_YEAR + ' (MODIS burned area, 500 m; FIRMS detections, 1 km)', burnRows });
+  else quiet.push('No burned area or satellite fire detections from ' + COVER_FIRE_FIRST + ' (MODIS, FIRMS).');
+
+  // Headline numbers.
+  const metrics = [['Area', coverHa(areaHa) + ' ha']];
+  if (wcRows.length) metrics.push(['Mostly', wcRows[0].label.toLowerCase() + ' (' + coverPct(wcRows[0].ha, areaHa).toFixed(0) + '%)']);
+  if (lossTotal >= COVER_MIN_LOSS_HA) metrics.push(['Tree cover lost since 2001', coverHa(lossTotal) + ' ha']);
+  if (coverPct(tall, areaHa) >= COVER_MIN_TALL_PCT && cs.b1_p95 != null) metrics.push(['Canopy top (95th pct)', cs.b1_p95.toFixed(0) + ' m']);
+  if ((w.ever || 0) >= COVER_MIN_WATER_HA) metrics.push(['Ever under water', coverHa(w.ever) + ' ha']);
+  if (burnRows.length) metrics.push(['Years with fire', String(burnRows.length)]);
+  return { show, quiet, csv, metrics };
+}
+
+function coverShareBlock(rows, total) {
+  const R = 'style="text-align:right;white-space:nowrap;"';
+  return '<div class="phys-bar" style="margin:4px 0 10px;">' + rows.map(r => '<span style="width:' + coverPct(r.ha, total) + '%;background:' + r.color + ';" title="' + escHtml(r.label) + ': ' + coverPct(r.ha, total).toFixed(1) + '%"></span>').join('') + '</div>' +
+    '<table class="stats-table"><tr><th>Class</th><th ' + R + '>ha</th><th ' + R + '>%</th></tr>' +
+    rows.map(r => '<tr><td><span class="phys-sw" style="background:' + r.color + '"></span>' + escHtml(r.label) + '</td><td ' + R + '>' + coverHa(r.ha) + '</td><td ' + R + '>' + coverPct(r.ha, total).toFixed(1) + '</td></tr>').join('') + '</table>';
+}
+
+function renderCover() {
+  const C = coverResults;
+  if (!C) return;
+  document.getElementById('coverEmpty').style.display = 'none';
+  document.getElementById('coverContent').style.display = '';
+  const sel = document.getElementById('coverAreaSel');
+  document.getElementById('coverAreaHead').style.display = C.areas.length > 1 ? 'flex' : 'none';
+  sel.innerHTML = C.areas.map(a => '<option value="' + a.id + '"' + (a.id === C.shownId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
+  const A = C.byArea[C.shownId], rep0 = A.report, total = A.areaHa, R = 'style="text-align:right;white-space:nowrap;"';
+  document.getElementById('coverMetrics').innerHTML = rep0.metrics.map(([l, v]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
+  document.getElementById('coverSections').innerHTML = rep0.show.map(sec => {
+    let body = '';
+    if (sec.key === 'worldcover') body = coverShareBlock(sec.rows, total);
+    if (sec.key === 'dw') body = '<table class="stats-table"><tr><th>Class</th><th ' + R + '>' + COVER_DW_FIRST + '</th><th ' + R + '>' + COVER_DW_LAST + '</th><th ' + R + '>Change</th></tr>' +
+      sec.shifts.map(r => '<tr><td><span class="phys-sw" style="background:' + r.color + '"></span>' + r.label + '</td><td ' + R + '>' + coverHa(r.a) + ' ha</td><td ' + R + '>' + coverHa(r.b) + ' ha</td><td ' + R + '>' + (r.d > 0 ? '+' : '−') + coverHa(Math.abs(r.d)) + ' ha (' + (r.dPts > 0 ? '+' : '−') + Math.abs(r.dPts).toFixed(0) + ' pts)</td></tr>').join('') + '</table>' +
+      '<div class="field-hint" style="margin:6px 0 0;">Each year is the most common class in each 10 m pixel across that year\'s clear images. Only classes that moved by ' + COVER_MIN_SHIFT_PTS + ' percentage points or more are listed; the rest stayed about the same.</div>';
+    if (sec.key === 'loss') {
+      const max = Math.max(...sec.lossRows.map(r => r.ha), 0.01);
+      body = '<p style="font-size:12.5px;margin:0 0 8px;">' + coverHa(sec.lossTotal) + ' ha of tree cover lost' + (sec.tree2000 >= 0.5 ? ', ' + coverPct(sec.lossTotal, sec.tree2000).toFixed(0) + '% of the ' + coverHa(sec.tree2000) + ' ha that had 30% or more tree cover in 2000' : '') + '.' +
+        (sec.gain >= COVER_MIN_LOSS_HA ? ' ' + coverHa(sec.gain) + ' ha gained tree cover between 2000 and 2012.' : '') + '</p>' +
+        '<table class="stats-table"><tr><th>Year</th><th ' + R + '>Lost</th><th></th></tr>' + sec.lossRows.map(r => '<tr><td>' + r.year + '</td><td ' + R + '>' + coverHa(r.ha) + ' ha</td><td style="width:55%;"><div style="height:9px;background:#c2185b;width:' + (100 * r.ha / max).toFixed(1) + '%;"></div></td></tr>').join('') + '</table>' +
+        '<div class="field-hint" style="margin:6px 0 0;">Loss is any stand-replacing removal of trees 5 m or taller in a 30 m pixel: felling, harvest of plantations, fire, wind or slips. It does not say why, and harvest-and-replant in plantation forest shows as loss.</div>';
+    }
+    if (sec.key === 'canopy') body = '<p style="font-size:12.5px;margin:0 0 8px;">' + coverHa(sec.tall) + ' ha (' + coverPct(sec.tall, total).toFixed(0) + '%) is 3 m or taller' + (sec.mean != null ? '; mean ' + sec.mean.toFixed(1) + ' m, 95th percentile ' + sec.p95.toFixed(0) + ' m' : '') + '.</p>' + coverShareBlock(sec.rows, total) +
+      '<div class="field-hint" style="margin:6px 0 0;">Modelled from satellite imagery trained on spaceborne LiDAR (GEDI); typical error is several metres, and tall forest is often underestimated. In New Zealand, the LiDAR tab has measured heights where LiDAR has been flown.</div>';
+    if (sec.key === 'water') {
+      const w = sec.water, rows = [['Under water at some point', w.ever], ['Permanent water (all 12 months in 2021)', w.permanent], ['Seasonal water (some months in 2021)', w.seasonal], ['Water lost since 1984', w.lost], ['New water since 1984', w.gained]].filter(([, v]) => (v || 0) >= 0.05);
+      body = '<table class="stats-table"><tr><th></th><th ' + R + '>ha</th><th ' + R + '>%</th></tr>' + rows.map(([l, v]) => '<tr><td>' + l + '</td><td ' + R + '>' + coverHa(v) + '</td><td ' + R + '>' + coverPct(v, total).toFixed(1) + '</td></tr>').join('') + '</table>' +
+        '<div class="field-hint" style="margin:6px 0 0;">From every Landsat image since 1984. Open water only: water under a canopy, or in channels narrower than about 30 m, is missed.</div>';
+    }
+    if (sec.key === 'fire') body = '<table class="stats-table"><tr><th>Year</th><th ' + R + '>Burned area mapped</th><th ' + R + '>Days with a fire detected</th></tr>' +
+      sec.burnRows.map(r => '<tr><td>' + r.year + '</td><td ' + R + '>' + (r.ha >= COVER_MIN_BURN_HA ? coverHa(r.ha) + ' ha' : '–') + '</td><td ' + R + '>' + (r.days || '–') + '</td></tr>').join('') + '</table>' +
+      '<div class="field-hint" style="margin:6px 0 0;">Burned area is mapped on 500 m cells, so fires of a few hectares are usually missed. A fire detection is a 1 km cell with a hot spot seen from orbit; it can be a burn-off, a slash pile or a fire just outside the area.</div>';
+    return '<div class="table-card"><div class="card-title">' + escHtml(sec.title) + '</div>' + body + '</div>';
+  }).join('');
+  document.getElementById('coverCheckedCard').style.display = rep0.quiet.length ? '' : 'none';
+  document.getElementById('coverChecked').innerHTML = '<ul style="font-size:12.5px;margin:0 0 0 18px;padding:0;">' + rep0.quiet.map(q => '<li>' + escHtml(q) + '</li>').join('') + '</ul>';
+  document.getElementById('coverNotes').innerHTML =
+    '<p>These are global layers made from satellite imagery, at 10 to 500 m. They are good at telling forest from pasture, finding clearance, water and large fires, and poor at native against exotic, scrub against young forest, or anything smaller than a few pixels. A section only appears when it has something to say for this area; everything checked is in the CSV either way.</p>';
+}
+
+document.getElementById('coverAreaSel').addEventListener('change', (e) => {
+  if (!coverResults) return;
+  coverResults.shownId = Number(e.target.value);
+  renderCover();
+});
+
+document.getElementById('coverCsvBtn').addEventListener('click', () => {
+  const C = coverResults;
+  if (!C) return;
+  const out = [['area', 'section', 'item', 'hectares', 'percent_of_area', 'detail'].join(',')];
+  C.areas.forEach(a => C.byArea[a.id].report.csv.forEach(r => out.push([a.name, r.section, r.item, r.ha.toFixed(3), r.pct.toFixed(2), r.detail].map(csvCell).join(','))));
+  const name = C.areas.length === 1 ? C.areas[0].name.replace(/[^\w-]+/g, '_') : C.areas.length + '_areas';
+  downloadText(name + '_land_cover.csv', out.join('\n') + '\n', 'text/csv');
+});
+
+// Map layers, clipped to the areas.
+function coverLegend(items) {
+  document.getElementById('coverLegend').innerHTML = items.map(([color, label]) => '<div><span class="legend-sw" style="background:' + color + '"></span>' + escHtml(label) + '</div>').join('');
+}
+function drawCoverMap() {
+  if (coverTileLayer) { map.removeLayer(coverTileLayer); coverTileLayer = null; }
+  coverLegend([]);
+  const which = document.getElementById('coverLayerSel').value;
+  if (which === 'none' || !areas.length) return;
+  if (!eeReady) { coverLegend([['#ffffff', 'Needs Earth Engine: unlock on the Infrared tab.']]); return; }
+  const fc = ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry))));
+  let img, vis, legend;
+  if (which === 'worldcover') {
+    img = ee.ImageCollection('ESA/WorldCover/v200').first().select('Map').remap(COVER_WORLDCOVER.map(c => c[0]), COVER_WORLDCOVER.map((c, k) => k));
+    vis = { min: 0, max: COVER_WORLDCOVER.length - 1, palette: COVER_WORLDCOVER.map(c => c[2].slice(1)) };
+    legend = COVER_WORLDCOVER.map(c => [c[2], c[1]]);
+  } else if (which === 'dw') {
+    img = coverDwYear(fc.geometry(), COVER_DW_LAST);
+    vis = { min: 0, max: 8, palette: COVER_DW.map(c => c[1].slice(1)) };
+    legend = COVER_DW.map(c => [c[1], c[0] + ', ' + COVER_DW_LAST]);
+  } else if (which === 'loss') {
+    const h = ee.Image(COVER_HANSEN);
+    img = h.select('lossyear').updateMask(h.select('loss')).add(2000);
+    vis = { min: 2001, max: COVER_HANSEN_LAST, palette: ['ffff00', 'ff8800', 'ff0000', '8b0045'] };
+    legend = [['#ffff00', 'Lost 2001'], ['#ff8800', ''], ['#ff0000', ''], ['#8b0045', 'Lost ' + COVER_HANSEN_LAST]];
+  } else if (which === 'canopy') {
+    const c = ee.Image(COVER_CANOPY);
+    img = c.updateMask(c.gte(3));
+    vis = { min: 3, max: 35, palette: ['d9ef8b', '91cf60', '1a9850', '006837', '00301a'] };
+    legend = [['#d9ef8b', '3 m'], ['#1a9850', '15 m'], ['#00301a', '35 m and over']];
+  } else if (which === 'water') {
+    const o = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
+    img = o.updateMask(o.gt(0));
+    vis = { min: 0, max: 100, palette: ['ffcccc', '99d8ff', '0050c8'] };
+    legend = [['#ffcccc', 'Water now and then'], ['#99d8ff', 'Half the time'], ['#0050c8', 'Always water']];
+  } else {
+    const years = []; for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) years.push(y);
+    img = ee.ImageCollection(years.map(y => coverBurnImage(y).multiply(y).selfMask().rename('y'))).max();
+    vis = { min: COVER_FIRE_FIRST, max: CURRENT_YEAR, palette: ['ffe066', 'ff8c00', 'b30000'] };
+    legend = [['#ffe066', 'Burned ' + COVER_FIRE_FIRST], ['#ff8c00', ''], ['#b30000', 'Burned ' + CURRENT_YEAR]];
+  }
+  coverLegend(legend.filter(l => l[1]));
+  const runId = ++coverRunId;
+  img.clip(fc).getMapId(vis, (mapId, err) => {
+    if (runId !== coverRunId || document.getElementById('coverLayerSel').value !== which) return;
+    if (err) { setCoverStatus('error', 'Map layer failed: ' + err); return; }
+    coverTileLayer = L.tileLayer(mapId.urlFormat, { pane: 'coverPane', opacity: coverOpacity, maxZoom: 22 }).addTo(map);
+  });
+}
+document.getElementById('coverLayerSel').addEventListener('change', drawCoverMap);
+document.getElementById('coverOpacity').addEventListener('input', (e) => {
+  coverOpacity = Number(e.target.value) / 100;
+  document.getElementById('coverOpacityVal').textContent = e.target.value + '%';
+  if (coverTileLayer) coverTileLayer.setOpacity(coverOpacity);
+});
+syncCoverControls();
 
 function setAppTab(tab) {
   appTab = tab;
@@ -5913,19 +7186,26 @@ function setAppTab(tab) {
   });
   document.querySelector('.sidebar').classList.toggle('lidar-mode', tab === 'lidar');
   document.getElementById('resultsPane').classList.toggle('lidar-mode', tab === 'lidar');
-  document.querySelector('.sidebar').classList.toggle('forest-mode', tab === 'forest');
-  document.getElementById('resultsPane').classList.toggle('forest-mode', tab === 'forest');
+  document.querySelector('.sidebar').classList.toggle('climate-mode', tab === 'climate');
+  document.getElementById('resultsPane').classList.toggle('climate-mode', tab === 'climate');
+  document.querySelector('.sidebar').classList.toggle('physical-mode', tab === 'physical');
+  document.getElementById('resultsPane').classList.toggle('physical-mode', tab === 'physical');
+  map.getPane('physicalPane').style.display = tab === 'physical' ? '' : 'none';
+  document.querySelector('.sidebar').classList.toggle('cover-mode', tab === 'cover');
+  document.getElementById('resultsPane').classList.toggle('cover-mode', tab === 'cover');
+  map.getPane('coverPane').style.display = tab === 'cover' ? '' : 'none';
   map.getPane('lidarPane').style.display = tab === 'lidar' ? '' : 'none';
-  map.getPane('forestPane').style.display = tab === 'forest' ? '' : 'none';
   map.closePopup();
   if (tab === 'lidar') lidarAreasChanged();
-  if (tab === 'forest') forestAreasChanged();
+  if (tab === 'climate') climateAreasChanged();
+  if (tab === 'physical') physicalAreasChanged();
+  if (tab === 'cover') coverAreasChanged();
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'forest') setAppTab(t); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
@@ -5965,7 +7245,9 @@ function onEeInitSuccess() {
   document.getElementById('eeSignedIn').style.display = 'flex';
   setStatus('info', '');
   updateRunEnabled();
-  syncForestControls();
+  syncClimateControls();
+  syncPhysicalControls();
+  syncCoverControls();
 }
 
 async function fetchEeToken(key) {

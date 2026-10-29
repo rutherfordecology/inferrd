@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.46.0 — 2026-10-30
+
+- **New Land cover tab.** Checks each area against global Earth Engine
+  layers: ESA WorldCover land cover (2021, 10 m), Dynamic World change
+  from 2016 to last year (10 m), Hansen / UMD tree cover loss by year
+  since 2001 (30 m), ETH canopy height (2020, 10 m), JRC Global Surface
+  Water since 1984 (30 m), and MODIS burned area and FIRMS fire
+  detections since 2001. Only findings that matter for the area are
+  shown (tree loss over ~0.2 ha, a class moving 3 points or more, at
+  least 5% of the area 3 m or taller, any water, any fire); what was
+  checked and found nothing is listed in one line each, and all of it
+  goes in the CSV. Each layer can also be shown on the map, clipped to
+  the areas.
+
+## v0.45.0 — 2026-10-30
+
+- **New Climate tab.** ERA5-Land (ECMWF's land reanalysis, ~9 km, from
+  1950) on Earth Engine, averaged over each area and 6 km around it. It
+  gives the 1991–2020 normals (rainfall, mean temperature, warmest and
+  coldest month, frost days, days of 25 °C or more, wet and heavy-rain
+  days, growing degree-days), an average-year chart, each month of the
+  chosen years against its normal with the rainfall of the 12 months to
+  then, every year since 1950 with a Mann–Kendall trend, a year-by-year
+  table and a CSV. NIWA (now Earth Sciences NZ) station data isn't used:
+  DataHub needs its own registration and licence and has no open API.
+- **New Physical tab.** Geology from GNS Science's 1:250 000 QMAP (2023)
+  in New Zealand (units with rock type, age and description, mapped
+  landslides, faults within 1 km and whether they are active), or
+  Macrostrat elsewhere; MPI's Erosion Susceptibility Classification with
+  Land Use Capability class, subclass and unit; terrain (elevation, LUC
+  slope classes, aspect) from the Copernicus 30 m DEM; and SoilGrids soil
+  properties to 1 m. Geology and erosion need no key; terrain and soil use
+  Earth Engine. Map layers for each, a point popup and a CSV.
+- **Forest type tab removed.** The global forest typology model wasn't
+  accurate enough here to be worth showing.
+
 ## v0.44.0 — 2026-10-30
 
 - **LiDAR: power lines and pylons are left out of vegetation height.** A

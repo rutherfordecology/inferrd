@@ -228,6 +228,57 @@ tab is used).
 Heights are as flown, include buildings and wires, and are smoothed by the
 1 m grid. Data © Toitū Te Whenua LINZ, CC BY 4.0.
 
+### Climate tab
+
+ERA5-Land (ECMWF's land reanalysis, ~9 km cells, 1950 to a few months ago)
+on Earth Engine, so it needs the access key. Each area is averaged with
+6 km around it, so even a small area holds at least one cell.
+
+- **Normals (1991–2020):** rainfall, mean temperature, warmest and coldest
+  month, wettest and driest month, frost days, days of 25 °C or more, wet
+  days (1 mm+), heavy-rain days (25 mm+), growing degree-days above 10 °C.
+- **Average year:** monthly rainfall bars and mean temperature line.
+- **Month by month** for the years picked: each month's rainfall and
+  temperature against its normal, with the rainfall of the 12 months to then.
+- **Since 1950:** yearly rainfall and mean temperature, with a Theil–Sen
+  trend where the Mann–Kendall test (Hamed–Rao corrected) gives p < 0.05.
+- A year-by-year table and a CSV of every month and year.
+
+A 9 km cell smooths the terrain, so totals in hill country can be well off a
+local gauge; it is for comparing with normal and for timing. NZ station
+records are in Earth Sciences New Zealand's (formerly NIWA's) DataHub, which
+needs its own registration and licence, so they aren't used.
+
+### Land cover tab
+
+Checks each drawn area against global Earth Engine layers (needs the
+access key): ESA WorldCover land cover (2021), Dynamic World land cover
+change since 2016, Hansen tree cover loss by year since 2001, ETH canopy
+height (2020), JRC surface water since 1984, and MODIS / FIRMS fire since
+2001. Land cover is always reported; the rest only when they find
+something for the area. Everything checked goes in the CSV.
+
+### Physical tab
+
+Geology, terrain, erosion-prone land and soils for each area.
+
+- **Geology:** in New Zealand, GNS Science's 1:250 000 QMAP (2023 edition)
+  units clipped to the area (rock type, age, terrane, description, link to
+  the stratigraphic lexicon), mapped landslides, and faults within 1 km with
+  their activity; read from GNS's ArcGIS feature service, no key. Elsewhere,
+  Macrostrat (CC BY 4.0) sampled at up to 49 points across the area.
+- **Erosion and land capability (NZ):** MPI's Erosion Susceptibility
+  Classification (2018) with the LUC class, subclass and unit it is built
+  on, plus class 8e, gully, tunnel-gully and earthflow flags; read from
+  MPI's feature service, no key.
+- **Terrain:** Copernicus GLO-30 elevation percentiles, slope in the LUC
+  slope classes A–G, and aspect (Earth Engine).
+- **Soil:** SoilGrids 2.0 (250 m) clay, silt, sand, stones, pH, organic
+  carbon, nitrogen, CEC and bulk density at five depths to 1 m, with the
+  USDA texture class (Earth Engine).
+- Map layers (geology with faults, erosion susceptibility, LUC class,
+  slope, aspect, elevation), a point popup and a CSV of every table.
+
 ### Reference layers (shared with occurd.)
 
 **Projects ▾ → Layers** unlocks occurd.'s reference layers with the Layers
