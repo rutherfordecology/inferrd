@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.43.1 — 2026-10-29
+
+- The base colour (header, buttons, selection, rules) is now a warmer
+  brown-orange, #693f1b, in place of #7a2e0a.
+
 ## v0.43.0 — 2026-10-29
 
 - **Visual restyle to the Rutherford Ecology style guide.** inferrd.'s
