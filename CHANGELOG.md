@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.47.0 — 2026-10-30
+
+- **Map layers list, across every tab.** One list at the bottom left of
+  the map, like layers in Photoshop: an eye and an opacity slider for
+  each layer, and drag a row to move it up or down. It holds the
+  Infrared index preview, change map and condition trend, the LiDAR
+  layer, the Physical layers (geology, faults, mapped landslides,
+  erosion susceptibility, LUC, slope, aspect, elevation) and the Land
+  cover layers. Layers stay on the map when you change tab, so they can
+  be combined; several can be on at once. A layer is only listed once it
+  has something to show, and Land cover layers only when that check
+  found something. Order, opacity and on/off are remembered in this
+  browser. The separate opacity sliders and "Show on map" pickers on the
+  Infrared, LiDAR, Physical and Land cover tabs are gone.
+
 ## v0.46.0 — 2026-10-30
 
 - **New Land cover tab.** Checks each area against global Earth Engine

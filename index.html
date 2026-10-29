@@ -70,6 +70,25 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 #lidarPanel, #climatePanel, #physicalPanel, #coverPanel { display: flex; flex-direction: column; flex: 1; }
 .phys-bar { display: flex; height: 14px; overflow: hidden; background: var(--surface2); }
 .phys-sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
+/* Map layers list (one for every tab) */
+.mstack { background: var(--white); border: 1px solid var(--rule); width: 300px; max-width: calc(100vw - 24px); font-family: var(--font-sans); font-size: 12.5px; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+.mstack-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 7px 10px; font: 600 11px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); cursor: pointer; text-align: left; }
+.mstack-head .n { font-weight: 400; color: var(--text3); letter-spacing: normal; text-transform: none; }
+.mstack-head .chev { margin-left: auto; color: var(--text3); }
+.mstack-list { list-style: none; margin: 0; padding: 0 8px 6px; max-height: 46vh; overflow-y: auto; border-top: 1px solid var(--rule); }
+.mstack-row { display: grid; grid-template-columns: 12px 24px 16px minmax(0, 1fr) 64px; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.mstack-row.off .mstack-name, .mstack-row.off .mstack-sw { opacity: 0.4; }
+.mstack-row.drop-above { box-shadow: inset 0 2px 0 var(--base); }
+.mstack-row.drop-below { box-shadow: inset 0 -2px 0 var(--base); }
+.mstack-row.dragging { opacity: 0.4; }
+.mstack-grip { cursor: grab; color: var(--text3); font-size: 11px; line-height: 1; user-select: none; text-align: center; }
+.mstack-eye { width: 24px; height: 22px; border: 1px solid var(--rule); background: var(--white); color: var(--text); cursor: pointer; display: grid; place-items: center; padding: 0; }
+.mstack-eye svg { width: 15px; height: 15px; }
+.mstack-sw { width: 14px; height: 10px; display: inline-block; border: 1px solid rgba(0,0,0,0.15); }
+.mstack-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mstack-name small { color: var(--text3); font-size: 10.5px; margin-left: 4px; }
+.mstack-row input[type=range] { width: 64px; min-width: 0; margin: 0; }
+.mstack-key { padding: 3px 0 7px 48px; border-bottom: 1px solid var(--rule); font-size: 11.5px; color: var(--text2); display: flex; flex-direction: column; gap: 2px; }
 .swatch-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
 .legend-sw { display: inline-block; width: 11px; height: 11px; border-radius: 0; margin-right: 6px; vertical-align: -1px; }
 .lidar-legend { margin-top: 8px; }
@@ -368,11 +387,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <select id="layerYearSel"></select>
           <button class="tool-btn" id="layerToggleBtn" type="button">Show</button>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-          <label for="layerOpacity" style="margin:0;font-size:12px;font-weight:400;text-transform:none;letter-spacing:normal;color:var(--text2);">Opacity</label>
-          <input type="range" id="layerOpacity" min="0" max="100" value="85" style="flex:1;">
-          <span id="layerOpacityVal" style="font-size:11px;color:var(--text3);min-width:30px;text-align:right;">85%</span>
-        </div>
         <div class="tool-row" id="scaleModeRow" style="margin-top:6px;">
           <button class="tool-btn active" id="scaleFixed" data-scale="fixed" type="button">Standard scale</button>
           <button class="tool-btn" id="scaleAuto" data-scale="auto" type="button">This area's range</button>
@@ -571,13 +585,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <span class="mode-desc">Latest survey less the earliest</span>
           </button>
         </div>
-        <div class="field" style="margin-top:0.7rem;">
-          <label>Opacity</label>
-          <div class="range-row">
-            <input type="range" id="lidarOpacity" min="0" max="100" step="5" value="100">
-            <span class="range-val" id="lidarOpacityVal">100%</span>
-          </div>
-        </div>
         <div class="field" id="lidarShowField" style="margin-top:0.7rem;display:none;">
           <label>Show on map</label>
           <select id="lidarShowSel"></select>
@@ -652,27 +659,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field">
-          <label>Show on map</label>
-          <select id="coverLayerSel">
-            <option value="none">Nothing</option>
-            <option value="worldcover">Land cover 2021 (WorldCover)</option>
-            <option value="dw">Land cover last year (Dynamic World)</option>
-            <option value="loss">Tree cover loss by year</option>
-            <option value="canopy">Canopy height</option>
-            <option value="water">Surface water</option>
-            <option value="burn">Burned area</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Opacity</label>
-          <div class="range-row">
-            <input type="range" id="coverOpacity" min="0" max="100" step="5" value="75">
-            <span class="range-val" id="coverOpacityVal">75%</span>
-          </div>
-        </div>
-        <div class="swatch-legend" id="coverLegend"></div>
-        <div class="field-hint">Layers show inside your areas only.</div>
+        <div class="field-hint" style="margin:0;">What was found goes in the <strong>Map layers</strong> list on the map, with the layers from the other tabs: switch each on or off, fade it, and drag it up or down. Only layers that found something for your areas are listed.</div>
       </div>
 
       <div class="sidebar-footer">
@@ -697,27 +684,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field">
-          <label>Show on map</label>
-          <select id="physicalLayerSel">
-            <option value="geology">Geology</option>
-            <option value="esc">Erosion susceptibility (NZ)</option>
-            <option value="luc">Land use capability class (NZ)</option>
-            <option value="slope">Slope</option>
-            <option value="aspect">Aspect</option>
-            <option value="elev">Elevation</option>
-            <option value="none">Nothing</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>Opacity</label>
-          <div class="range-row">
-            <input type="range" id="physicalOpacity" min="0" max="100" step="5" value="70">
-            <span class="range-val" id="physicalOpacityVal">70%</span>
-          </div>
-        </div>
-        <div class="swatch-legend" id="physicalLegend"></div>
-        <div class="field-hint">Click the map inside an area for what is mapped there.</div>
+        <div class="field-hint" style="margin:0;">What was found goes in the <strong>Map layers</strong> list on the map, with the layers from the other tabs: switch each on or off, fade it, and drag it up or down. Click the map inside an area for what is mapped there.</div>
       </div>
 
       <div class="sidebar-footer">
@@ -1129,6 +1096,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Climate tab</h3>
     <p>The <strong>Climate</strong> tab gives each drawn area's climate from ERA5-Land, ECMWF's land reanalysis (a weather model run over the observations, about 9 km cells, hourly from 1950 to a few months ago), averaged over the area and 6 km around it. It runs on Earth Engine, so it needs the access key from the Infrared tab. It shows the 1991–2020 normals (rainfall, mean temperature, frost days, hot days, wet and heavy-rain days, growing degree-days), each month of the years you pick against its normal with the rainfall of the 12 months to then, every year since 1950 with a Mann–Kendall trend, and a table and CSV. Use it to check whether a change in the vegetation signal lines up with a drought, a wet spell or a cold year. A 9 km cell smooths the terrain, so totals in hill country can be well off a local rain gauge: it is for timing and for comparing with normal. Station records for New Zealand are with Earth Sciences New Zealand's (formerly NIWA's) DataHub, which needs its own registration and licence, so inferrd. doesn't use them.</p>
 
+    <h3>Map layers</h3>
+    <p>Every map layer, from every tab, goes in one <strong>Map layers</strong> list at the bottom left of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down, so it draws over or under the others. Layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. A layer is only listed once it has something to show: the index preview, change map and condition trend once you show them, LiDAR once loaded, and the Physical and Land cover layers once those tabs have checked the areas (and only those that found something). The list remembers its order, opacities and what is on in this browser.</p>
+
     <h3>Land cover tab</h3>
     <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: land cover in 2021 (ESA WorldCover, 10 m), change in land cover from 2016 to last year (Dynamic World, 10 m), tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m), surface water since 1984 (EC JRC Global Surface Water, 30 m), and fire since 2001 (MODIS burned area, 500 m, and FIRMS fire detections, 1 km). Land cover is always shown; the others only when they find something for that area, such as tree loss of more than about two pixels, a class moving by 3 percentage points or more, vegetation 3 m or taller over at least 5% of the area, any surface water, or any fire. What was checked and found nothing is listed in one line each, and everything goes in the CSV. These layers are good at forest against pasture, clearance, water and large fires, and poor at native against exotic or at anything a few pixels across.</p>
 
@@ -1198,7 +1168,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.46.0';
+const APP_VERSION = 'v0.47.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1348,6 +1318,199 @@ map.createPane('areaHalo');
 map.getPane('areaHalo').style.zIndex = 390;
 map.getPane('areaHalo').style.pointerEvents = 'none';
 const areaHalos = L.layerGroup().addTo(map);
+
+/* ---------------------------------------------------------------------
+   Map layers — one list for every tab, like layers in Photoshop. Each
+   layer has its own map pane, so it has its own eye and opacity and stacks
+   in list order (drag a row to move it). Layers stay on the map when you
+   change tab, so LiDAR heights can sit over geology, or tree loss over an
+   index preview. A layer is only listed once it has something to show.
+
+   Two kinds of layer: ones a tab draws itself and just hands a pane to
+   (present(key, true) when there is something in it), and ones the list
+   draws on demand from a draw() function (refresh(prefix) when the data
+   behind them changes).
+   --------------------------------------------------------------------- */
+const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const mapStack = (() => {
+  const E = {};   // key -> layer entry
+  let order = []; // keys, top of the map first
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('inferrd.mapLayers') || '{}') || {}; } catch (e) {}
+  const savedOrder = Array.isArray(saved.order) ? saved.order : [];
+  let open = saved.open !== false, dragKey = null;
+  const save = () => {
+    try { localStorage.setItem('inferrd.mapLayers', JSON.stringify({ open, order, state: Object.fromEntries(Object.values(E).map(e => [e.key, { on: e.on, op: e.op }])) })); } catch (err) {}
+  };
+  const avail = (e) => e.draw ? !!e.available() : e.present;
+  const nameOf = (e) => typeof e.name === 'function' ? e.name() : e.name;
+  function applyPane(e) {
+    const p = map.getPane(e.pane);
+    p.style.opacity = e.op;
+    p.style.display = e.on ? '' : 'none';
+  }
+  function restack() {
+    // Below the area halos (390) and outlines; above the aerial.
+    order.forEach((k, i) => { map.getPane(E[k].pane).style.zIndex = 385 - i; });
+  }
+
+  const box = L.DomUtil.create('div', 'mstack');
+  box.innerHTML = '<button class="mstack-head" type="button" aria-expanded="true">Map layers <span class="n"></span><span class="chev"></span></button><ul class="mstack-list"></ul>';
+  L.DomEvent.disableClickPropagation(box);
+  L.DomEvent.disableScrollPropagation(box);
+  const head = box.querySelector('.mstack-head'), list = box.querySelector('.mstack-list');
+  const Ctl = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => box });
+  new Ctl().addTo(map);
+  head.addEventListener('click', () => { open = !open; save(); render(); });
+
+  function render() {
+    const shown = order.filter(k => avail(E[k]));
+    box.style.display = shown.length ? '' : 'none';
+    head.querySelector('.n').textContent = shown.length ? shown.filter(k => E[k].on).length + ' of ' + shown.length + ' on' : '';
+    head.querySelector('.chev').textContent = open ? '▾' : '▸';
+    head.setAttribute('aria-expanded', String(open));
+    list.style.display = open ? '' : 'none';
+    if (!open) return;
+    list.innerHTML = shown.map(k => {
+      const e = E[k], nm = nameOf(e);
+      let key = '';
+      if (e.on && (e.note || (e.legend && e.legend.length))) key = '<li class="mstack-key">' + (e.note ? '<div>' + escHtml(e.note) + '</div>' : '') +
+        (e.legend || []).map(([c, l]) => '<div><span class="legend-sw" style="background:' + c + '"></span>' + escHtml(l) + '</div>').join('') + '</li>';
+      return '<li class="mstack-row' + (e.on ? '' : ' off') + '" data-key="' + k + '">' +
+        '<span class="mstack-grip" title="Drag to move up or down">⋮⋮</span>' +
+        '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + escHtml(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
+        '<span class="mstack-sw" style="background:' + e.swatch + '"></span>' +
+        '<span class="mstack-name" title="' + escHtml(nm + ' (' + e.tab + ')') + '">' + escHtml(nm) + '<small>' + escHtml(e.tab) + '</small></span>' +
+        '<input type="range" min="0" max="100" step="5" value="' + Math.round(e.op * 100) + '" aria-label="' + escHtml(nm) + ' opacity" title="Opacity ' + Math.round(e.op * 100) + '%"></li>' + key;
+    }).join('');
+  }
+  list.addEventListener('click', (ev) => {
+    const b = ev.target.closest('.mstack-eye');
+    if (!b) return;
+    const e = E[b.closest('.mstack-row').dataset.key];
+    e.on = !e.on;
+    applyPane(e);
+    if (e.on && e.draw && e.stale) draw(e);
+    save();
+    render();
+  });
+  list.addEventListener('input', (ev) => {
+    if (ev.target.type !== 'range') return;
+    const e = E[ev.target.closest('.mstack-row').dataset.key];
+    e.op = Number(ev.target.value) / 100;
+    ev.target.title = 'Opacity ' + ev.target.value + '%';
+    applyPane(e);
+    save();
+  });
+  // Drag a row above or below another, by its grip (so the opacity
+  // slider still slides).
+  list.addEventListener('pointerdown', (ev) => {
+    const g = ev.target.closest('.mstack-grip');
+    if (g) g.closest('.mstack-row').draggable = true;
+  });
+  const clearMarks = () => list.querySelectorAll('.drop-above, .drop-below, .dragging').forEach(r => r.classList.remove('drop-above', 'drop-below', 'dragging'));
+  list.addEventListener('dragstart', (ev) => {
+    const row = ev.target.closest && ev.target.closest('.mstack-row');
+    if (!row) return;
+    dragKey = row.dataset.key;
+    row.classList.add('dragging');
+    ev.dataTransfer.effectAllowed = 'move';
+    try { ev.dataTransfer.setData('text/plain', dragKey); } catch (err) {}
+  });
+  list.addEventListener('dragover', (ev) => {
+    const row = ev.target.closest('.mstack-row');
+    if (!dragKey || !row) return;
+    ev.preventDefault();
+    const r = row.getBoundingClientRect(), below = ev.clientY > r.top + r.height / 2;
+    list.querySelectorAll('.drop-above, .drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below'));
+    if (row.dataset.key !== dragKey) row.classList.add(below ? 'drop-below' : 'drop-above');
+  });
+  list.addEventListener('drop', (ev) => {
+    const row = ev.target.closest('.mstack-row');
+    if (!dragKey || !row) return;
+    ev.preventDefault();
+    const target = row.dataset.key, below = row.classList.contains('drop-below');
+    if (target !== dragKey) {
+      order.splice(order.indexOf(dragKey), 1);
+      order.splice(order.indexOf(target) + (below ? 1 : 0), 0, dragKey);
+      restack();
+      save();
+    }
+    dragKey = null;
+    render();
+  });
+  list.addEventListener('dragend', () => { dragKey = null; clearMarks(); list.querySelectorAll('[draggable]').forEach(r => { r.draggable = false; }); });
+
+  async function draw(e) {
+    const run = ++e.run;
+    if (e.layer) { map.removeLayer(e.layer); e.layer = null; }
+    e.legend = null;
+    e.note = '';
+    e.stale = true;
+    if (!e.on || !avail(e)) { render(); return; }
+    e.stale = false;
+    e.note = 'Loading…';
+    render();
+    try {
+      const r = await e.draw(e.pane);
+      if (run !== e.run) return;
+      e.note = (r && r.note) || '';
+      e.legend = (r && r.legend) || null;
+      if (r && r.layer) e.layer = r.layer.addTo(map);
+    } catch (err) {
+      if (run !== e.run) return;
+      e.note = 'Couldn\'t draw this layer: ' + (err && err.message ? err.message : err);
+      e.stale = true;
+    }
+    render();
+  }
+
+  return {
+    // o: { key, tab, name (text or function), swatch (CSS background), on, op, rank (lower is higher up),
+    //      pane (an existing pane to take over; else one is made), draw(pane) → { layer, legend, note }, available() }
+    add(o) {
+      const st = saved.state && saved.state[o.key] || {};
+      const e = Object.assign({ present: false, layer: null, legend: null, note: '', run: 0, stale: true }, o);
+      e.on = st.on != null ? st.on : !!o.on;
+      e.op = st.op != null ? st.op : o.op;
+      e.pane = o.pane || 'stk_' + o.key;
+      if (!map.getPane(e.pane)) map.createPane(e.pane);
+      map.getPane(e.pane).style.pointerEvents = 'none';
+      E[o.key] = e;
+      const pos = (k) => { const i = savedOrder.indexOf(k); return i >= 0 ? i : 1000 + E[k].rank; };
+      order = Object.keys(E).sort((a, b) => pos(a) - pos(b));
+      applyPane(e);
+      restack();
+      render();
+    },
+    // A tab's own layer has something in its pane (or nothing any more).
+    // Appearing switches it on: it was just asked for.
+    present(key, yes) {
+      const e = E[key];
+      if (!e || e.present === !!yes) return;
+      e.present = !!yes;
+      if (yes) { e.on = true; applyPane(e); save(); }
+      render();
+    },
+    // The data behind the drawn layers whose key starts with prefix changed.
+    refresh(prefix) {
+      Object.values(E).forEach(e => { if (e.draw && (!prefix || e.key.indexOf(prefix) === 0)) draw(e); });
+    },
+    render
+  };
+})();
+// Earth Engine image → tile layer in a pane, clipped to the drawn areas.
+function eeAreasFc() { return ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry)))); }
+function eeTileLayer(img, vis, pane, attribution) {
+  return new Promise((resolve, reject) => img.clip(eeAreasFc()).getMapId(vis, (mapId, err) => {
+    if (err) reject(new Error(err)); else resolve(L.tileLayer(mapId.urlFormat, { pane, maxZoom: 22, attribution: attribution || '' }));
+  }));
+}
+mapStack.add({ key: 'ir_index', tab: 'Infrared', rank: 40, op: 0.85, swatch: 'linear-gradient(90deg, #a50026, #fee08b, #006837)',
+  name: () => 'Index preview' + (typeof selectedIndices !== 'undefined' && selectedIndices[0] ? ': ' + selectedIndices[0] + ' ' + document.getElementById('layerYearSel').value : '') });
+mapStack.add({ key: 'ir_change', tab: 'Infrared', rank: 20, op: 0.9, swatch: 'linear-gradient(90deg, #d7191c, #fdae61, #1a9641)', name: 'Change between two dates' });
+mapStack.add({ key: 'ir_trend', tab: 'Infrared', rank: 30, op: 0.6, swatch: 'linear-gradient(90deg, #1a9850, #ffffbf, #d73027)', name: 'Condition trend' });
 const drawControl = new L.Control.Draw({
   draw: { polygon: { allowIntersection: false, showArea: true }, polyline: false, circle: false, circlemarker: false, marker: false, rectangle: true },
   edit: { featureGroup: drawnItems, remove: false }
@@ -1540,7 +1703,7 @@ let layersVisible = false;
 // "Hide" only zeroes the opacity so the tiles stay loaded — re-showing is
 // instant instead of another Earth Engine round trip.
 let layersHidden = false;
-let layerOpacity = 0.85;
+const layerOpacity = 1; // the Map layers list fades it
 // Black border on the index button whose tiles the preview is showing.
 function updatePreviewMarker() {
   const shown = layersVisible && !layersHidden ? selectedIndices[0] : null;
@@ -1552,12 +1715,6 @@ function applyLayerOpacity() {
   document.getElementById('layerToggleBtn').textContent = layersVisible && !layersHidden ? 'Hide' : 'Show';
   updatePreviewMarker();
 }
-document.getElementById('layerOpacity').addEventListener('input', (e) => {
-  layerOpacity = Number(e.target.value) / 100;
-  document.getElementById('layerOpacityVal').textContent = e.target.value + '%';
-  if (layersVisible) layersHidden = false; // dragging the slider while hidden brings the layer back
-  applyLayerOpacity();
-});
 
 // 'fixed' shares INDEX_VIS_PARAMS across every tile so colours mean the same
 // value everywhere (comparable across areas/years); 'auto' stretches to the
@@ -1574,6 +1731,7 @@ scaleButtons.forEach(btn => btn.addEventListener('click', () => {
 function hideIndexLayers() {
   indexMapLayers.forEach(l => map.removeLayer(l));
   indexMapLayers = [];
+  mapStack.present('ir_index', false);
   layersVisible = false;
   layersHidden = false;
   updatePreviewMarker();
@@ -1621,9 +1779,11 @@ function showIndexLayers() {
           lastErr = err;
           console.warn('[inferrd map preview] getMapId failed:', err);
         } else if (layersVisible) { // guard: user may have clicked Hide while this was in flight
-          const layer = L.tileLayer(mapId.urlFormat, { opacity: effectiveLayerOpacity(), maxNativeZoom: 20, maxZoom: 22 });
+          const layer = L.tileLayer(mapId.urlFormat, { pane: 'stk_ir_index', opacity: effectiveLayerOpacity(), maxNativeZoom: 20, maxZoom: 22 });
           layer.addTo(map);
           indexMapLayers.push(layer);
+          mapStack.present('ir_index', true);
+          mapStack.render();
           drawnItems.bringToFront();
         }
         if (pending === 0) {
@@ -1774,6 +1934,7 @@ function hideChangeLayers() {
   clearWhenOverlays();
   changeLayers.forEach(l => map.removeLayer(l));
   changeLayers = [];
+  mapStack.present('ir_change', false);
   changeVisible = false;
   document.getElementById('changeToggleBtn').textContent = 'Show change';
   document.getElementById('changeLegend').style.display = 'none';
@@ -1885,9 +2046,10 @@ function showChangeLayers() {
             renderSummaries();
             return;
           }
-          const layer = L.tileLayer(mapId.urlFormat, { opacity: 0.9, maxNativeZoom: 20, maxZoom: 22 });
+          const layer = L.tileLayer(mapId.urlFormat, { pane: 'stk_ir_change', maxNativeZoom: 20, maxZoom: 22 });
           layer.addTo(map);
           changeLayers.push(layer);
+          mapStack.present('ir_change', true);
           drawnItems.bringToFront();
         });
 
@@ -2096,6 +2258,7 @@ function setCondKindShown(kind, on) {
   try { localStorage.setItem('inferrd.condShown', JSON.stringify(condShown)); } catch (e) {}
   const lg = condKindLayers[kind];
   if (lg) { if (on) lg.addTo(map); else map.removeLayer(lg); }
+  if (kind === 'trend_map') mapStack.present('ir_trend', on && !!lg);
   renderCondToggles();
 }
 function renderCondToggles() {
@@ -2334,6 +2497,7 @@ function hideConditionLayers() {
   if (conditionLayer) { map.removeLayer(conditionLayer); conditionLayer = null; }
   Object.values(condKindLayers).forEach(l => map.removeLayer(l));
   condKindLayers = {};
+  mapStack.present('ir_trend', false);
   if (typeof clearSpotChart === 'function') clearSpotChart();
   if (typeof clearValidationSample === 'function') clearValidationSample(); // its points belong to the spots just dropped
   const legend = document.getElementById('conditionLegend');
@@ -2960,8 +3124,8 @@ function showConditionResults(area, s, trendRows, res, series, images, ctrl) {
   if (images && images.trendClass) {
     images.trendClass.getMapId({ min: 1, max: 3, palette: [TREND_COLORS.improving, TREND_COLORS.stable, TREND_COLORS.declining].map(x => x.slice(1)) }, (m, err) => {
       if (err || !m || lastCondition.area !== area) return;
-      condKindLayers.trend_map = L.tileLayer(m.urlFormat, { opacity: 0.6, maxNativeZoom: 20, maxZoom: 22 });
-      if (condIsShown('trend_map')) { condKindLayers.trend_map.addTo(map); drawnItems.bringToFront(); }
+      condKindLayers.trend_map = L.tileLayer(m.urlFormat, { pane: 'stk_ir_trend', maxNativeZoom: 20, maxZoom: 22 });
+      if (condIsShown('trend_map')) { condKindLayers.trend_map.addTo(map); mapStack.present('ir_trend', true); }
     });
   }
 
@@ -4784,8 +4948,9 @@ const SURVEY_COLORS = ['#2c5f8a', '#c28a00', '#c9184a'];
 const SURVEY_DASHES = ['', '6 3', '2 2'];
 
 map.createPane('lidarPane');
-map.getPane('lidarPane').style.zIndex = 350; // above Earth Engine tiles, below the area outlines
-map.getPane('lidarPane').style.pointerEvents = 'none';
+const LIDAR_LAYER_NAMES = { height: 'vegetation height', dem: 'bare ground', dsm: 'surface', elev: 'elevation', change: 'height change' };
+mapStack.add({ key: 'lidar', tab: 'LiDAR', rank: 10, op: 1, pane: 'lidarPane', swatch: 'linear-gradient(90deg, #ffffcc, #41ab5d, #004529)',
+  name: () => 'LiDAR ' + (LIDAR_LAYER_NAMES[lidarLayer] || lidarLayer) });
 
 function setLidarStatus(kind, msg) {
   const el = document.getElementById('lidarStatus');
@@ -5042,6 +5207,7 @@ function lidarAreasChanged() {
 function removeLidarOverlay(d) {
   if (d.overlay) { map.removeLayer(d.overlay); d.overlay = null; }
   if (d.overlayUrl) { URL.revokeObjectURL(d.overlayUrl); d.overlayUrl = null; }
+  mapStack.present('lidar', lidarSets.some(x => x.overlay));
 }
 function clearLidar() {
   lidarRunId++;
@@ -5318,7 +5484,9 @@ function renderLidarSet(d, hLut, eLut, cLut) {
     const url = URL.createObjectURL(blob);
     const bounds = L.latLngBounds([s, w], [nn, e]);
     if (d.overlay) { d.overlay.setUrl(url); d.overlay.setBounds(bounds); }
-    else { d.overlay = L.imageOverlay(url, bounds, { pane: 'lidarPane', opacity: lidarOpacity(), interactive: false }).addTo(map); lidarSharpen(); }
+    else { d.overlay = L.imageOverlay(url, bounds, { pane: 'lidarPane', interactive: false }).addTo(map); lidarSharpen(); }
+    mapStack.present('lidar', true);
+    mapStack.render();
     if (d.overlayUrl) setTimeout(URL.revokeObjectURL.bind(URL, d.overlayUrl), 1000);
     d.overlayUrl = url;
   }, 'image/png');
@@ -5334,11 +5502,6 @@ function lidarSharpen() {
 }
 map.on('zoomend', lidarSharpen);
 
-function lidarOpacity() { return Number(document.getElementById('lidarOpacity').value) / 100; }
-document.getElementById('lidarOpacity').addEventListener('input', () => {
-  document.getElementById('lidarOpacityVal').textContent = Math.round(lidarOpacity() * 100) + '%';
-  lidarSets.forEach(d => { if (d.overlay) d.overlay.setOpacity(lidarOpacity()); });
-});
 const lidarSchemeSel = document.getElementById('lidarScheme');
 lidarSchemeSel.innerHTML = Object.entries(LIDAR_SCHEMES).map(([k, s]) => '<option value="' + k + '"' + (k === lidarScheme ? ' selected' : '') + '>' + s.name + '</option>').join('');
 lidarSchemeSel.addEventListener('change', () => {
@@ -6284,13 +6447,6 @@ const PHYS_DEPTHS = ['0-5cm', '5-15cm', '15-30cm', '30-60cm', '60-100cm'];
 let physicalBusy = false;
 let physicalRunId = 0;
 let physicalResults = null; // { keys, areas, byArea: { [id]: { terrain, geology, faults, slides, esc, soil, errors } }, shownId }
-let physicalLayer = null;
-let physicalTileLayer = null;
-let physicalOpacity = 0.7;
-
-map.createPane('physicalPane');
-map.getPane('physicalPane').style.zIndex = 350;
-map.getPane('physicalPane').style.display = 'none';
 
 function setPhysicalStatus(kind, msg) {
   const el = document.getElementById('physicalStatus');
@@ -6320,7 +6476,7 @@ function clearPhysical() {
   physicalRunId++;
   physicalBusy = false;
   physicalResults = null;
-  clearPhysicalMap();
+  mapStack.refresh('phys_');
   document.getElementById('physicalContent').style.display = 'none';
   document.getElementById('physicalEmpty').style.display = '';
 }
@@ -6492,7 +6648,6 @@ async function physicalRun() {
   const list = areas.slice(), runId = ++physicalRunId;
   physicalBusy = true;
   syncPhysicalControls();
-  clearPhysicalMap();
   const byArea = {};
   try {
     for (let k = 0; k < list.length; k++) {
@@ -6512,7 +6667,7 @@ async function physicalRun() {
     }
     physicalResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
     renderPhysical();
-    drawPhysicalMap();
+    mapStack.refresh('phys_');
     const errs = list.flatMap(a => byArea[a.id].errors);
     setPhysicalStatus(errs.length ? 'warning' : '', errs.length ? 'Some parts didn\'t load: ' + errs.join('; ') : '');
     expandResultsPane();
@@ -6709,85 +6864,71 @@ document.getElementById('physicalAreaSel').addEventListener('change', (e) => {
   if (!physicalResults) return;
   physicalResults.shownId = Number(e.target.value);
   renderPhysical();
+  mapStack.refresh('phys_geology');
 });
 
-// Map: clipped vector layers, or Earth Engine tiles inside the areas.
-function clearPhysicalMap() {
-  if (physicalLayer) { map.removeLayer(physicalLayer); physicalLayer = null; }
-  if (physicalTileLayer) { map.removeLayer(physicalTileLayer); physicalTileLayer = null; }
-  document.getElementById('physicalLegend').innerHTML = '';
-}
-function physLegend(items) {
-  document.getElementById('physicalLegend').innerHTML = items.map(([color, label]) => '<div><span class="legend-sw" style="background:' + color + '"></span>' + escHtml(label) + '</div>').join('');
-}
-function drawPhysicalMap() {
-  clearPhysicalMap();
-  const which = document.getElementById('physicalLayerSel').value;
-  if (which === 'none') return;
-  if (which === 'slope' || which === 'aspect' || which === 'elev') {
-    if (!eeReady) { physLegend([['#ffffff', 'Needs Earth Engine: unlock on the Infrared tab.']]); return; }
-    if (!areas.length) return;
-    const dem = physDem(), slope = ee.Terrain.slope(dem);
-    const clip = ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry))));
-    let img, vis, legend;
-    if (which === 'slope') {
-      img = physSlopeClass(slope); vis = { min: 1, max: PHYS_SLOPE_CLASSES.length, palette: PHYS_SLOPE_CLASSES.map(c => c.color.slice(1)) };
-      legend = PHYS_SLOPE_CLASSES.map(c => [c.color, c.label + ', ' + c.desc]);
-    } else if (which === 'aspect') {
-      img = physAspectClass(slope, ee.Terrain.aspect(dem)); vis = { min: 0, max: 8, palette: ['dddddd'].concat(PHYS_ASPECT_COLORS.map(c => c.slice(1))) };
-      legend = [['#dddddd', 'Flat']].concat(PHYS_ASPECTS.map((d, k) => [PHYS_ASPECT_COLORS[k], 'Facing ' + d]));
-    } else {
-      const R0 = physicalResults && physicalResults.byArea[physicalResults.shownId].terrain;
-      const lo = R0 ? R0.elev.DEM_min : 0, hi = R0 ? R0.elev.DEM_max : 1500;
-      img = dem; vis = { min: lo, max: Math.max(lo + 1, hi), palette: ['3a7d44', 'a3c46c', 'f0e08a', 'c99a5b', '8c5a3c', 'f5f0ea'] };
-      legend = [['#3a7d44', Math.round(lo) + ' m'], ['#f0e08a', ''], ['#f5f0ea', Math.round(hi) + ' m']];
-    }
-    physLegend(legend);
-    const runId = physicalRunId;
-    img.clip(clip).getMapId(vis, (mapId, err) => {
-      if (runId !== physicalRunId || document.getElementById('physicalLayerSel').value !== which) return;
-      if (err) { setPhysicalStatus('error', 'Map layer failed: ' + err); return; }
-      physicalTileLayer = L.tileLayer(mapId.urlFormat, { pane: 'physicalPane', opacity: physicalOpacity, maxZoom: 22, attribution: 'Copernicus GLO-30 DEM, ESA' }).addTo(map);
-    });
-    return;
-  }
-  if (!physicalResults) return;
-  const feats = [];
-  physicalResults.areas.forEach(a => {
-    const P = physicalResults.byArea[a.id];
-    if (which === 'geology' && P.geology) {
-      if (P.geology.source === 'qmap') {
-        P.geology.units.forEach(u => feats.push({ type: 'Feature', geometry: u.geometry, properties: { color: u.color, name: u.props.mapname } }));
-        P.geology.slides.forEach(u => feats.push({ type: 'Feature', geometry: u.geometry, properties: { color: '#000000', name: 'Landslide: ' + u.props.mapname, hatch: true } }));
-        P.geology.faults.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: { line: true, active: f.props.activity === 'active', name: (f.props.name || 'Fault') + ' (' + (f.props.activity || '') + ')' } }));
-      } else {
-        P.geology.points.forEach(pt => { if (pt.unit) feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [pt.lng, pt.lat] }, properties: { color: pt.unit.color, name: pt.unit.name } }); });
-      }
-    }
-    if ((which === 'esc' || which === 'luc') && P.esc) P.esc.forEach(f => feats.push({ type: 'Feature', geometry: f.geometry, properties: which === 'esc'
-      ? { color: (PHYS_ESC_CLASSES.find(c => c.key === f.escClass) || { color: '#bbbbbb' }).color, name: (f.escClass || 'Not classified') + ' erosion susceptibility' }
-      : { color: f.lucClass ? PHYS_LUC_COLORS[f.lucClass] : '#bbbbbb', name: 'LUC ' + (f.luc || 'not classified') } }));
+// Map layers. Each one is listed only when the areas have it: faults and
+// landslides only where mapped, erosion and LUC only in New Zealand.
+const physEach = () => physicalResults ? physicalResults.areas.map(a => physicalResults.byArea[a.id]) : [];
+const physQmap = () => physEach().filter(P => P.geology && P.geology.source === 'qmap').map(P => P.geology);
+function physVector(pane, feats, style) {
+  return L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+    pane, interactive: false, style,
+    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 6, pane, fillColor: f.properties.color, color: '#333', weight: 1, fillOpacity: 1 })
   });
-  physicalLayer = L.geoJSON({ type: 'FeatureCollection', features: feats }, {
-    pane: 'physicalPane', interactive: false,
-    style: (f) => f.properties.line
-      ? { color: f.properties.active ? '#d00000' : '#333333', weight: f.properties.active ? 2.5 : 1.5, dashArray: f.properties.active ? '' : '5 4', opacity: 0.95 }
-      : { color: f.properties.hatch ? '#000000' : '#555555', weight: f.properties.hatch ? 1.5 : 0.6, dashArray: f.properties.hatch ? '3 3' : '', fillColor: f.properties.color, fillOpacity: f.properties.hatch ? 0 : physicalOpacity },
-    pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 6, pane: 'physicalPane', fillColor: f.properties.color, color: '#333', weight: 1, fillOpacity: physicalOpacity })
-  }).addTo(map);
-  if (which === 'geology') {
-    const R1 = physicalResults.byArea[physicalResults.shownId], units = R1 && R1.geology ? physRows(R1).units.slice(0, 10) : [];
-    physLegend(units.map(u => [u.color, u.label]).concat(R1 && R1.geology && R1.geology.source === 'qmap' ? [['#d00000', 'Active fault'], ['#333333', 'Inactive fault (dashed)']] : []));
-  } else if (which === 'esc') physLegend(PHYS_ESC_CLASSES.map(c => [c.color, c.key]));
-  else physLegend(PHYS_LUC_COLORS.slice(1).map((c, k) => [c, 'Class ' + (k + 1) + ', ' + PHYS_LUC_NAMES[k + 1]]));
 }
-document.getElementById('physicalLayerSel').addEventListener('change', drawPhysicalMap);
-document.getElementById('physicalOpacity').addEventListener('input', (e) => {
-  physicalOpacity = Number(e.target.value) / 100;
-  document.getElementById('physicalOpacityVal').textContent = e.target.value + '%';
-  if (physicalTileLayer) physicalTileLayer.setOpacity(physicalOpacity);
-  if (physicalLayer) physicalLayer.eachLayer(l => { if (l.setStyle && l.feature && !l.feature.properties.line && !l.feature.properties.hatch) l.setStyle({ fillOpacity: physicalOpacity }); });
-});
+mapStack.add({ key: 'phys_faults', tab: 'Physical', rank: 300, on: true, op: 1, swatch: 'linear-gradient(180deg, transparent 40%, #d00000 40% 60%, transparent 60%)', name: 'Faults',
+  available: () => physQmap().some(g => g.faults.length),
+  draw: (pane) => ({
+    layer: physVector(pane, physQmap().flatMap(g => g.faults.map(f => ({ type: 'Feature', geometry: f.geometry, properties: { active: f.props.activity === 'active' } }))),
+      (f) => ({ color: f.properties.active ? '#d00000' : '#333333', weight: f.properties.active ? 2.5 : 1.5, dashArray: f.properties.active ? '' : '5 4' })),
+    legend: [['#d00000', 'Active fault'], ['#333333', 'Inactive fault (dashed)']]
+  }) });
+mapStack.add({ key: 'phys_slides', tab: 'Physical', rank: 310, on: true, op: 1, swatch: 'repeating-linear-gradient(45deg, #000 0 2px, #fff 2px 4px)', name: 'Mapped landslides',
+  available: () => physQmap().some(g => g.slides.length),
+  draw: (pane) => ({
+    layer: physVector(pane, physQmap().flatMap(g => g.slides.map(u => ({ type: 'Feature', geometry: u.geometry, properties: {} }))), () => ({ color: '#000000', weight: 1.5, dashArray: '3 3', fillOpacity: 0 })),
+    legend: [['#000000', 'Landslide deposit (dashed outline)']]
+  }) });
+mapStack.add({ key: 'phys_geology', tab: 'Physical', rank: 320, on: true, op: 0.7, swatch: 'linear-gradient(90deg, #f4a582, #92c5de, #d6c99a)', name: 'Geology',
+  available: () => physEach().some(P => P.geology && (P.geology.source === 'qmap' ? P.geology.units.length : P.geology.points.some(pt => pt.unit))),
+  draw: (pane) => {
+    const feats = [];
+    physEach().forEach(P => {
+      if (!P.geology) return;
+      if (P.geology.source === 'qmap') P.geology.units.forEach(u => feats.push({ type: 'Feature', geometry: u.geometry, properties: { color: u.color } }));
+      else P.geology.points.forEach(pt => { if (pt.unit) feats.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [pt.lng, pt.lat] }, properties: { color: pt.unit.color } }); });
+    });
+    const R1 = physicalResults.byArea[physicalResults.shownId];
+    return { layer: physVector(pane, feats, (f) => ({ color: '#555555', weight: 0.6, fillColor: f.properties.color, fillOpacity: 1 })),
+      legend: R1 && R1.geology ? physRows(R1).units.slice(0, 10).map(u => [u.color, u.label]) : [] };
+  } });
+const physEscFeats = (fn) => physEach().flatMap(P => (P.esc || []).map(f => ({ type: 'Feature', geometry: f.geometry, properties: { color: fn(f) } })));
+const physFill = (f) => ({ color: '#555555', weight: 0.6, fillColor: f.properties.color, fillOpacity: 1 });
+mapStack.add({ key: 'phys_esc', tab: 'Physical', rank: 330, op: 0.7, swatch: 'linear-gradient(90deg, #1a9850, #fee08b, #d73027)', name: 'Erosion susceptibility',
+  available: () => physEach().some(P => P.esc && P.esc.length),
+  draw: (pane) => ({ layer: physVector(pane, physEscFeats(f => (PHYS_ESC_CLASSES.find(c => c.key === f.escClass) || { color: '#bbbbbb' }).color), physFill), legend: PHYS_ESC_CLASSES.map(c => [c.color, c.key]) }) });
+mapStack.add({ key: 'phys_luc', tab: 'Physical', rank: 340, op: 0.7, swatch: 'linear-gradient(90deg, #1a9850, #fee08b, #a50026)', name: 'Land use capability class',
+  available: () => physEach().some(P => P.esc && P.esc.length),
+  draw: (pane) => ({ layer: physVector(pane, physEscFeats(f => f.lucClass ? PHYS_LUC_COLORS[f.lucClass] : '#bbbbbb'), physFill),
+    legend: PHYS_LUC_COLORS.slice(1).map((c, k) => [c, 'Class ' + (k + 1) + ', ' + PHYS_LUC_NAMES[k + 1]]) }) });
+const physHasTerrain = () => eeReady && physEach().some(P => P.terrain);
+mapStack.add({ key: 'phys_slope', tab: 'Physical', rank: 350, op: 0.7, swatch: 'linear-gradient(90deg, ' + PHYS_SLOPE_CLASSES.map(c => c.color).join(', ') + ')', name: 'Slope',
+  available: physHasTerrain,
+  draw: (pane) => eeTileLayer(physSlopeClass(ee.Terrain.slope(physDem())), { min: 1, max: PHYS_SLOPE_CLASSES.length, palette: PHYS_SLOPE_CLASSES.map(c => c.color.slice(1)) }, pane, 'Copernicus GLO-30 DEM, ESA')
+    .then(layer => ({ layer, legend: PHYS_SLOPE_CLASSES.map(c => [c.color, c.label + ', ' + c.desc]) })) });
+mapStack.add({ key: 'phys_aspect', tab: 'Physical', rank: 360, op: 0.7, swatch: 'conic-gradient(' + PHYS_ASPECT_COLORS.join(', ') + ')', name: 'Aspect',
+  available: physHasTerrain,
+  draw: (pane) => { const dem = physDem(); return eeTileLayer(physAspectClass(ee.Terrain.slope(dem), ee.Terrain.aspect(dem)), { min: 0, max: 8, palette: ['dddddd'].concat(PHYS_ASPECT_COLORS.map(c => c.slice(1))) }, pane, 'Copernicus GLO-30 DEM, ESA')
+    .then(layer => ({ layer, legend: [['#dddddd', 'Flat']].concat(PHYS_ASPECTS.map((d, k) => [PHYS_ASPECT_COLORS[k], 'Facing ' + d])) })); } });
+mapStack.add({ key: 'phys_elev', tab: 'Physical', rank: 370, op: 0.7, swatch: 'linear-gradient(90deg, #3a7d44, #f0e08a, #8c5a3c, #f5f0ea)', name: 'Elevation',
+  available: physHasTerrain,
+  draw: (pane) => {
+    const T = physEach().filter(P => P.terrain).map(P => P.terrain.elev);
+    const lo = Math.min(...T.map(t => t.DEM_min)), hi = Math.max(lo + 1, ...T.map(t => t.DEM_max));
+    return eeTileLayer(physDem(), { min: lo, max: hi, palette: ['3a7d44', 'a3c46c', 'f0e08a', 'c99a5b', '8c5a3c', 'f5f0ea'] }, pane, 'Copernicus GLO-30 DEM, ESA')
+      .then(layer => ({ layer, legend: [['#3a7d44', Math.round(lo) + ' m'], ['#f0e08a', Math.round((lo + hi) / 2) + ' m'], ['#f5f0ea', Math.round(hi) + ' m']] }));
+  } });
 
 // What is mapped at a clicked point, from what was loaded.
 map.on('click', (e) => {
@@ -6869,13 +7010,6 @@ const COVER_CANOPY_CLASSES = [[3, 5, '3–5 m', '#d9ef8b'], [5, 10, '5–10 m', 
 let coverBusy = false;
 let coverRunId = 0;
 let coverResults = null; // { keys, areas, byArea: { [id]: { areaHa, raw, report } }, shownId }
-let coverTileLayer = null;
-let coverOpacity = 0.75;
-
-map.createPane('coverPane');
-map.getPane('coverPane').style.zIndex = 350;
-map.getPane('coverPane').style.pointerEvents = 'none';
-map.getPane('coverPane').style.display = 'none';
 
 function setCoverStatus(kind, msg) {
   const el = document.getElementById('coverStatus');
@@ -6898,7 +7032,6 @@ function syncCoverControls() {
 function coverAreasChanged() {
   renderTabAreaList('coverAreaList', 'coverAreaEmpty');
   if (coverResults && coverResults.keys !== areas.map(areaKey).join('|')) clearCover();
-  if (document.getElementById('coverLayerSel').value !== 'none') drawCoverMap();
   syncCoverControls();
 }
 
@@ -6906,6 +7039,7 @@ function clearCover() {
   coverRunId++;
   coverBusy = false;
   coverResults = null;
+  mapStack.refresh('cover_');
   document.getElementById('coverContent').style.display = 'none';
   document.getElementById('coverEmpty').style.display = '';
 }
@@ -6974,6 +7108,7 @@ async function coverRun() {
     }
     coverResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
     renderCover();
+    mapStack.refresh('cover_');
     setCoverStatus('', '');
     expandResultsPane();
   } catch (err) {
@@ -7120,61 +7255,36 @@ document.getElementById('coverCsvBtn').addEventListener('click', () => {
   downloadText(name + '_land_cover.csv', out.join('\n') + '\n', 'text/csv');
 });
 
-// Map layers, clipped to the areas.
-function coverLegend(items) {
-  document.getElementById('coverLegend').innerHTML = items.map(([color, label]) => '<div><span class="legend-sw" style="background:' + color + '"></span>' + escHtml(label) + '</div>').join('');
-}
-function drawCoverMap() {
-  if (coverTileLayer) { map.removeLayer(coverTileLayer); coverTileLayer = null; }
-  coverLegend([]);
-  const which = document.getElementById('coverLayerSel').value;
-  if (which === 'none' || !areas.length) return;
-  if (!eeReady) { coverLegend([['#ffffff', 'Needs Earth Engine: unlock on the Infrared tab.']]); return; }
-  const fc = ee.FeatureCollection(areas.map(a => ee.Feature(ee.Geometry(a.geojson.geometry))));
-  let img, vis, legend;
-  if (which === 'worldcover') {
-    img = ee.ImageCollection('ESA/WorldCover/v200').first().select('Map').remap(COVER_WORLDCOVER.map(c => c[0]), COVER_WORLDCOVER.map((c, k) => k));
-    vis = { min: 0, max: COVER_WORLDCOVER.length - 1, palette: COVER_WORLDCOVER.map(c => c[2].slice(1)) };
-    legend = COVER_WORLDCOVER.map(c => [c[2], c[1]]);
-  } else if (which === 'dw') {
-    img = coverDwYear(fc.geometry(), COVER_DW_LAST);
-    vis = { min: 0, max: 8, palette: COVER_DW.map(c => c[1].slice(1)) };
-    legend = COVER_DW.map(c => [c[1], c[0] + ', ' + COVER_DW_LAST]);
-  } else if (which === 'loss') {
-    const h = ee.Image(COVER_HANSEN);
-    img = h.select('lossyear').updateMask(h.select('loss')).add(2000);
-    vis = { min: 2001, max: COVER_HANSEN_LAST, palette: ['ffff00', 'ff8800', 'ff0000', '8b0045'] };
-    legend = [['#ffff00', 'Lost 2001'], ['#ff8800', ''], ['#ff0000', ''], ['#8b0045', 'Lost ' + COVER_HANSEN_LAST]];
-  } else if (which === 'canopy') {
-    const c = ee.Image(COVER_CANOPY);
-    img = c.updateMask(c.gte(3));
-    vis = { min: 3, max: 35, palette: ['d9ef8b', '91cf60', '1a9850', '006837', '00301a'] };
-    legend = [['#d9ef8b', '3 m'], ['#1a9850', '15 m'], ['#00301a', '35 m and over']];
-  } else if (which === 'water') {
-    const o = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence');
-    img = o.updateMask(o.gt(0));
-    vis = { min: 0, max: 100, palette: ['ffcccc', '99d8ff', '0050c8'] };
-    legend = [['#ffcccc', 'Water now and then'], ['#99d8ff', 'Half the time'], ['#0050c8', 'Always water']];
-  } else {
-    const years = []; for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) years.push(y);
-    img = ee.ImageCollection(years.map(y => coverBurnImage(y).multiply(y).selfMask().rename('y'))).max();
-    vis = { min: COVER_FIRE_FIRST, max: CURRENT_YEAR, palette: ['ffe066', 'ff8c00', 'b30000'] };
-    legend = [['#ffe066', 'Burned ' + COVER_FIRE_FIRST], ['#ff8c00', ''], ['#b30000', 'Burned ' + CURRENT_YEAR]];
-  }
-  coverLegend(legend.filter(l => l[1]));
-  const runId = ++coverRunId;
-  img.clip(fc).getMapId(vis, (mapId, err) => {
-    if (runId !== coverRunId || document.getElementById('coverLayerSel').value !== which) return;
-    if (err) { setCoverStatus('error', 'Map layer failed: ' + err); return; }
-    coverTileLayer = L.tileLayer(mapId.urlFormat, { pane: 'coverPane', opacity: coverOpacity, maxZoom: 22 }).addTo(map);
-  });
-}
-document.getElementById('coverLayerSel').addEventListener('change', drawCoverMap);
-document.getElementById('coverOpacity').addEventListener('input', (e) => {
-  coverOpacity = Number(e.target.value) / 100;
-  document.getElementById('coverOpacityVal').textContent = e.target.value + '%';
-  if (coverTileLayer) coverTileLayer.setOpacity(coverOpacity);
-});
+// Map layers, clipped to the areas. As in the report, each is listed only
+// when it found something in at least one area; land cover always is.
+const coverShown = (key) => !!coverResults && Object.values(coverResults.byArea).some(A => A.report.show.some(sec => sec.key === key));
+const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Land cover', available: () => eeReady && coverShown(o.section) }, o, {
+  draw: (pane) => eeTileLayer(o.img(), o.vis, pane).then(layer => ({ layer, legend: o.legend }))
+}));
+coverLayer({ key: 'cover_loss', section: 'loss', rank: 200, on: true, op: 1, name: 'Tree cover loss by year', swatch: 'linear-gradient(90deg, #ffff00, #ff0000, #8b0045)',
+  img: () => { const h = ee.Image(COVER_HANSEN); return h.select('lossyear').updateMask(h.select('loss')).add(2000); },
+  vis: { min: 2001, max: COVER_HANSEN_LAST, palette: ['ffff00', 'ff8800', 'ff0000', '8b0045'] },
+  legend: [['#ffff00', 'Lost 2001'], ['#ff0000', 'Lost ' + Math.round((2001 + COVER_HANSEN_LAST) / 2)], ['#8b0045', 'Lost ' + COVER_HANSEN_LAST]] });
+coverLayer({ key: 'cover_burn', section: 'fire', rank: 210, on: true, op: 0.8, name: 'Burned area by year', swatch: 'linear-gradient(90deg, #ffe066, #ff8c00, #b30000)',
+  img: () => { const years = []; for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) years.push(y); return ee.ImageCollection(years.map(y => coverBurnImage(y).multiply(y).selfMask().rename('y'))).max(); },
+  vis: { min: COVER_FIRE_FIRST, max: CURRENT_YEAR, palette: ['ffe066', 'ff8c00', 'b30000'] },
+  legend: [['#ffe066', 'Burned ' + COVER_FIRE_FIRST], ['#b30000', 'Burned ' + CURRENT_YEAR]] });
+coverLayer({ key: 'cover_water', section: 'water', rank: 220, on: true, op: 0.8, name: 'Surface water', swatch: 'linear-gradient(90deg, #ffcccc, #99d8ff, #0050c8)',
+  img: () => { const o = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence'); return o.updateMask(o.gt(0)); },
+  vis: { min: 0, max: 100, palette: ['ffcccc', '99d8ff', '0050c8'] },
+  legend: [['#ffcccc', 'Water now and then'], ['#99d8ff', 'Half the time'], ['#0050c8', 'Always water']] });
+coverLayer({ key: 'cover_canopy', section: 'canopy', rank: 230, op: 0.8, name: 'Canopy height 2020', swatch: 'linear-gradient(90deg, #d9ef8b, #1a9850, #00301a)',
+  img: () => { const c = ee.Image(COVER_CANOPY); return c.updateMask(c.gte(3)); },
+  vis: { min: 3, max: 35, palette: ['d9ef8b', '91cf60', '1a9850', '006837', '00301a'] },
+  legend: [['#d9ef8b', '3 m'], ['#1a9850', '15 m'], ['#00301a', '35 m and over']] });
+coverLayer({ key: 'cover_dw', section: 'dw', rank: 240, op: 0.7, name: 'Land cover ' + COVER_DW_LAST + ' (Dynamic World)', swatch: 'linear-gradient(90deg, #397d49, #88b053, #e49635, #c4281b)',
+  img: () => coverDwYear(eeAreasFc().geometry(), COVER_DW_LAST),
+  vis: { min: 0, max: 8, palette: COVER_DW.map(c => c[1].slice(1)) },
+  legend: COVER_DW.map(c => [c[1], c[0]]) });
+coverLayer({ key: 'cover_worldcover', section: 'worldcover', rank: 250, op: 0.7, name: 'Land cover 2021 (WorldCover)', swatch: 'linear-gradient(90deg, #006400, #ffbb22, #ffff4c, #fa0000)',
+  img: () => ee.ImageCollection('ESA/WorldCover/v200').first().select('Map').remap(COVER_WORLDCOVER.map(c => c[0]), COVER_WORLDCOVER.map((c, k) => k)),
+  vis: { min: 0, max: COVER_WORLDCOVER.length - 1, palette: COVER_WORLDCOVER.map(c => c[2].slice(1)) },
+  legend: COVER_WORLDCOVER.map(c => [c[2], c[1]]) });
 syncCoverControls();
 
 function setAppTab(tab) {
@@ -7190,11 +7300,8 @@ function setAppTab(tab) {
   document.getElementById('resultsPane').classList.toggle('climate-mode', tab === 'climate');
   document.querySelector('.sidebar').classList.toggle('physical-mode', tab === 'physical');
   document.getElementById('resultsPane').classList.toggle('physical-mode', tab === 'physical');
-  map.getPane('physicalPane').style.display = tab === 'physical' ? '' : 'none';
   document.querySelector('.sidebar').classList.toggle('cover-mode', tab === 'cover');
   document.getElementById('resultsPane').classList.toggle('cover-mode', tab === 'cover');
-  map.getPane('coverPane').style.display = tab === 'cover' ? '' : 'none';
-  map.getPane('lidarPane').style.display = tab === 'lidar' ? '' : 'none';
   map.closePopup();
   if (tab === 'lidar') lidarAreasChanged();
   if (tab === 'climate') climateAreasChanged();
@@ -7248,6 +7355,7 @@ function onEeInitSuccess() {
   syncClimateControls();
   syncPhysicalControls();
   syncCoverControls();
+  mapStack.refresh();
 }
 
 async function fetchEeToken(key) {

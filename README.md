@@ -249,6 +249,13 @@ local gauge; it is for comparing with normal and for timing. NZ station
 records are in Earth Sciences New Zealand's (formerly NIWA's) DataHub, which
 needs its own registration and licence, so they aren't used.
 
+### Map layers
+
+Every tab's map layers go in one list at the bottom left of the map:
+switch each on or off, set its opacity, and drag it up or down. Layers
+stay on when you change tab, so they can be combined, and a layer is
+only listed once it has something to show.
+
 ### Land cover tab
 
 Checks each drawn area against global Earth Engine layers (needs the
