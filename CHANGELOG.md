@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.43.0 — 2026-10-29
+
+- **Visual restyle to the Rutherford Ecology style guide.** inferrd.'s
+  dark orange stays the working colour (header, buttons, selection,
+  rules). Square corners throughout, no drop shadows, a white background,
+  and thin rules in place of tinted boxes and cards. Secondary text is a
+  darker grey so it reads more easily. Status messages now say "Error:" or
+  "Warning:" instead of relying on colour. Map, chart and legend data
+  colours (index ramps, condition and trend classes, LiDAR and forest-type
+  ramps, area colours) are unchanged.
+
 ## v0.42.0 — 2026-10-29
 
 - **New Forest type tab.** It shows Google and Nature Trace's global 10 m
