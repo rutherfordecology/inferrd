@@ -67,7 +67,33 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .results-pane.physical-mode > :not(#physicalResults), .results-pane:not(.physical-mode) > #physicalResults { display: none !important; }
 .sidebar.cover-mode > :not(#coverPanel), .sidebar:not(.cover-mode) > #coverPanel { display: none !important; }
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
-#lidarPanel, #climatePanel, #physicalPanel, #coverPanel { display: flex; flex-direction: column; flex: 1; }
+.sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
+.results-pane.report-mode > :not(#reportResults), .results-pane:not(.report-mode) > #reportResults { display: none !important; }
+#reportPanel textarea, #reportPanel input[type=text] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); }
+#reportPanel textarea { resize: vertical; line-height: 1.45; }
+.rpt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+.rpt-file { position: relative; overflow: hidden; display: inline-block; cursor: pointer; }
+.rpt-file input { position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.rpt-list { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; }
+.rpt-item { border: 1px solid var(--rule); padding: 5px 7px; font-size: 12px; }
+.rpt-item-head { display: flex; gap: 6px; align-items: baseline; }
+.rpt-item-head .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.rpt-item-head .m { color: var(--text3); font-size: 11px; white-space: nowrap; }
+.rpt-x { cursor: pointer; color: var(--text3); background: none; border: none; padding: 0 2px; font-size: 12px; }
+.rpt-item pre { white-space: pre-wrap; font-family: var(--font-sans); font-size: 12px; max-height: 240px; overflow: auto; margin: 6px 0 0; color: var(--text2); }
+.rpt-slider { margin-bottom: 9px; }
+.rpt-slider label { display: flex; justify-content: space-between; font-size: 12px; color: var(--text); margin-bottom: 2px; text-transform: none; letter-spacing: normal; font-weight: 500; }
+.rpt-slider label span { color: var(--text2); font-weight: 400; }
+.rpt-slider input { width: 100%; }
+.rpt-checks label { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--text2); margin: 3px 0; cursor: pointer; text-transform: none; letter-spacing: normal; font-weight: 400; }
+.rpt-area-head { margin: 16px 0 2px; font-size: 14px; font-weight: 600; }
+.rpt-section { margin: 10px 0 2px; font: 600 10.5px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2); }
+.rpt-fact { display: grid; grid-template-columns: 18px 36px minmax(0, 1fr); gap: 6px; padding: 5px 0; border-bottom: 1px solid var(--rule); font-size: 12.5px; align-items: start; }
+.rpt-fact input { margin: 2px 0 0; }
+.rpt-fact .id { color: var(--text3); font-size: 11px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.rpt-fact .src { display: block; color: var(--text3); font-size: 11px; margin-top: 1px; }
+.rpt-fact.out .tx { color: var(--text3); text-decoration: line-through; }
+#lidarPanel, #climatePanel, #physicalPanel, #coverPanel, #reportPanel { display: flex; flex-direction: column; flex: 1; }
 .phys-bar { display: flex; height: 14px; overflow: hidden; background: var(--surface2); }
 .phys-sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
 /* Map layers list (one for every tab) */
@@ -281,6 +307,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
     <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
+    <button class="app-tab" id="tabReport" data-tab="report" type="button" role="tab" aria-selected="false" title="Build a report: brief, emails, areas, and a fact sheet from the other tabs and occurd.">Report</button>
   </nav>
   <div class="header-right">
     <div id="projectsDropWrap" style="position:relative;">
@@ -642,6 +669,67 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <div id="reportPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Report</div>
+        <div class="half"><select id="rptProjectSel" aria-label="Report"></select><button class="tool-btn" id="rptNewBtn" type="button">New report</button></div>
+        <div class="field" style="margin-top:8px;"><label for="rptTitle">Title</label><input type="text" id="rptTitle" autocomplete="off"></div>
+        <div class="field-hint" style="margin:0;">Kept in this browser only; nothing on this tab is sent anywhere. <a href="#" id="rptDeleteBtn">Delete this report</a></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Brief</div>
+        <textarea id="rptBrief" rows="7" placeholder="Paste the project brief: what the client asked for, the purpose, the deadline…"></textarea>
+        <div class="rpt-row"><label class="tool-btn rpt-file">Add from a file<input type="file" id="rptBriefFile" accept=".docx,.pdf,.txt,.md,.eml"></label><span class="field-hint" style="margin:0;">Word, PDF, text or email</span></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Emails</div>
+        <div class="field-hint" style="margin:0 0 6px;">The clarifying emails, in any order; they're sorted by date where they have one.</div>
+        <textarea id="rptEmailPaste" rows="4" placeholder="Paste an email here, with its From, Date and Subject lines if you have them"></textarea>
+        <div class="rpt-row"><button class="tool-btn" id="rptEmailAdd" type="button">Add pasted email</button><label class="tool-btn rpt-file">Add files<input type="file" id="rptEmailFile" accept=".eml,.txt,.docx,.pdf" multiple></label></div>
+        <div class="rpt-list" id="rptEmailList"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">4 · Areas</div>
+        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Load KML or KMZ<input type="file" id="rptKmlFile" accept=".kml,.kmz" multiple></label></div>
+        <div id="reportAreaList"></div>
+        <div class="poly-empty" id="reportAreaEmpty">No areas yet: load a KML, or draw on the map</div>
+        <div class="field-hint" style="margin:6px 0 0;">Each polygon placemark becomes an area, named as in the file. While this report is open its areas are the ones on the map, on every tab.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">5 · Species from occurd.</div>
+        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add occurd. CSV<input type="file" id="rptOccurdFile" accept=".csv" multiple></label></div>
+        <div class="rpt-list" id="rptOccurdList"></div>
+        <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">6 · Writing</div>
+        <div id="rptSliders"></div>
+        <div class="field" style="margin-top:4px;"><label for="rptAudience">Who is it for?</label><input type="text" id="rptAudience" placeholder="e.g. the landowner and their family; the council's biodiversity team" autocomplete="off"></div>
+        <div class="field-hint" style="margin:0;">Used when the draft is written, a later stage.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">7 · Your voice</div>
+        <div class="field-hint" style="margin:0 0 6px;">A few reports you've written, so the draft can sound like you, and your own notes on how you write. You'll see and correct the style read from them before it's used.</div>
+        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Add past reports<input type="file" id="rptVoiceFile" accept=".docx,.pdf,.txt,.md" multiple></label></div>
+        <div class="rpt-list" id="rptVoiceList"></div>
+        <textarea id="rptVoiceNotes" rows="5" style="margin-top:6px;" placeholder="How you write, in your own words: what you always do, never do, words you use and avoid…"></textarea>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">8 · Fact sheet</div>
+        <div class="rpt-checks" id="rptChecks"></div>
+        <button class="run-btn" id="rptRunBtn" type="button" disabled>Gather the facts</button>
+        <div class="status-bar" id="reportStatus"></div>
+        <div class="field-hint" style="margin:6px 0 0;">Runs the checks on the other tabs for these areas (or uses their results if they're already there for the same areas), and reads the occurd. files. The results also stay on those tabs and on the map.</div>
+      </div>
+    </div>
+
     <div id="coverPanel">
       <div class="sidebar-section">
         <div class="section-label">1 · Earth Engine</div>
@@ -740,6 +828,27 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <div class="interp-card">
             <div class="card-title">Reading this</div>
             <div id="climateNotes"></div>
+          </div>
+        </div>
+      </div>
+      <div id="reportResults">
+        <div class="results-empty" id="reportEmpty">
+          <span class="big">✎</span>
+          Start a report: add the brief, emails and areas, then gather the facts.
+        </div>
+        <div id="reportContent" style="display:none">
+          <div class="metrics" id="reportMetrics"></div>
+          <div class="interp-card" id="reportRunCard" style="display:none">
+            <div class="card-title">What was gathered</div>
+            <div id="reportRunNotes"></div>
+          </div>
+          <div class="table-card" id="reportFactCard" style="display:none">
+            <div class="table-card-head">
+              <div class="card-title">Fact sheet</div>
+              <button class="dl-btn" id="rptCsvBtn" type="button">Download CSV</button>
+            </div>
+            <div class="field-hint" style="margin:0 0 4px;">Each line is a measured value and where it came from, with no interpretation. Untick anything that doesn't belong in this report. What the facts mean is yours to say: the next stage asks you, rather than guessing.</div>
+            <div id="reportFacts"></div>
           </div>
         </div>
       </div>
@@ -1096,6 +1205,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Climate tab</h3>
     <p>The <strong>Climate</strong> tab gives each drawn area's climate from ERA5-Land, ECMWF's land reanalysis (a weather model run over the observations, about 9 km cells, hourly from 1950 to a few months ago), averaged over the area and 6 km around it. It runs on Earth Engine, so it needs the access key from the Infrared tab. It shows the 1991–2020 normals (rainfall, mean temperature, frost days, hot days, wet and heavy-rain days, growing degree-days), each month of the years you pick against its normal with the rainfall of the 12 months to then, every year since 1950 with a Mann–Kendall trend, and a table and CSV. Use it to check whether a change in the vegetation signal lines up with a drought, a wet spell or a cold year. A 9 km cell smooths the terrain, so totals in hill country can be well off a local rain gauge: it is for timing and for comparing with normal. Station records for New Zealand are with Earth Sciences New Zealand's (formerly NIWA's) DataHub, which needs its own registration and licence, so inferrd. doesn't use them.</p>
 
+    <h3>Report tab</h3>
+    <p>The <strong>Report</strong> tab gathers what a report is built from, and keeps the judgement calls with you. Each report holds the project brief, the clarifying emails (pasted, or as .eml, Word, PDF or text files), its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn), species records exported from occurd., your writing settings (length, tone, reading level and who it's for) and samples of your own writing with your notes on how you write. Reports are kept in this browser only, and nothing on this tab is sent anywhere.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported. Untick any fact that doesn't belong. The fact sheet and everything else in the report can be downloaded; questions about what the facts mean, and the draft, come in later stages.</p>
+
     <h3>Map layers</h3>
     <p>Every map layer, from every tab, goes in one <strong>Map layers</strong> list at the bottom left of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down, so it draws over or under the others. Layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. A layer is only listed once it has something to show: the index preview, change map and condition trend once you show them, LiDAR once loaded, and the Physical and Land cover layers once those tabs have checked the areas (and only those that found something). The list remembers its order, opacities and what is on in this browser.</p>
 
@@ -1168,7 +1281,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.47.0';
+const APP_VERSION = 'v0.48.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1604,6 +1717,7 @@ function renderAreaList() {
   climateAreasChanged();
   physicalAreasChanged();
   coverAreasChanged();
+  reportAreasChanged();
   hideIndexLayers(); // areas changed — any layer already shown no longer matches
   hideChangeLayers();
   hideConditionLayers();
@@ -4781,7 +4895,7 @@ map.on(L.Draw.Event.CREATED, (e) => {
 const LAYER_SELECT_MAX = 40;
 let qeiiFeaturesUnder = () => []; // set by the QEII layer below
 async function addAreasUnder(drawn) {
-  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : setStatus)(kind, msg);
+  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
   const found = qeiiFeaturesUnder(drawn.geojson).map(f => ({
     geometry: f.geometry, name: f.properties.CovNumber ? 'Covenant ' + f.properties.CovNumber : 'QEII covenant',
     meta: { source: 'QEII National Trust covenant', properties: f.properties }
@@ -4813,7 +4927,7 @@ async function addAreasUnder(drawn) {
   say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' inside your shape: ' + names.slice(0, 6).join(', ') +
     (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '.');
   // One click to drop the drawn shape and keep only what it picked up.
-  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : 'statusBar');
+  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : appTab === 'report' ? 'reportStatus' : 'statusBar');
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dl-btn';
@@ -4858,6 +4972,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
   climateAreasChanged();
   physicalAreasChanged();
   coverAreasChanged();
+  reportAreasChanged();
 });
 // The black centre line follows the shape while it is being reshaped, and
 // snaps back with it when an edit is cancelled.
@@ -5167,7 +5282,7 @@ function syncLidarControls() {
 }
 
 function renderLidarAreaList() { renderTabAreaList('lidarAreaList', 'lidarAreaEmpty'); }
-// The LiDAR, Climate, Physical and Land cover tabs list the shared areas the same way.
+// The LiDAR, Climate, Physical, Land cover and Report tabs list the shared areas the same way.
 function renderTabAreaList(listId, emptyId) {
   const list = document.getElementById(listId);
   document.getElementById(emptyId).style.display = areas.length ? 'none' : 'block';
@@ -6148,7 +6263,7 @@ function climateRun() {
     return;
   }
   const wait = (ms) => { if (runId === climateRunId) setClimateStatus('info', 'Earth Engine is busy; trying again in ' + Math.round(ms / 1000) + ' s…'); };
-  Promise.all([eeEvaluate(monthlyFc, wait), eeEvaluate(idxFc, wait)]).then(([mRes, iRes]) => {
+  return Promise.all([eeEvaluate(monthlyFc, wait), eeEvaluate(idxFc, wait)]).then(([mRes, iRes]) => {
     if (runId !== climateRunId) return;
     const byArea = {};
     list.forEach(a => { byArea[a.id] = climateSeries(a.id, mRes.features, iRes.features); });
@@ -7287,6 +7402,640 @@ coverLayer({ key: 'cover_worldcover', section: 'worldcover', rank: 250, op: 0.7,
   legend: COVER_WORLDCOVER.map(c => [c[2], c[1]]) });
 syncCoverControls();
 
+/* ---------------------------------------------------------------------
+   Report tab — gathers what a report is built from, and keeps the human
+   calls with the human. A report holds the brief, the clarifying emails,
+   its areas (from KML), species records exported from occurd., writing
+   settings and samples of the author's own writing; "Gather the facts"
+   turns the other tabs' results and the occurd. files into a fact sheet:
+   numbered statements of measured values, each with its source, and no
+   interpretation. Reports are kept in this browser (IndexedDB) and
+   nothing on this tab is sent anywhere.
+   --------------------------------------------------------------------- */
+const RPT_SLIDERS = [
+  ['length', 'Length', ['One page', 'Short', 'Standard', 'Detailed', 'Full technical']],
+  ['tone', 'Tone', ['Formal', 'Measured', 'Plain', 'Relaxed', 'Casual']],
+  ['level', 'Reading level', ['Anyone (about age 12)', 'General public', 'Landowner or practitioner', 'Professional', 'Specialist']]
+];
+const RPT_CHECKS = [
+  ['physical', 'Physical: geology, faults, erosion, LUC; terrain and soil with Earth Engine'],
+  ['cover', 'Land cover, tree loss, canopy height, water, fire (Earth Engine)'],
+  ['climate', 'Climate, ERA5-Land (Earth Engine)'],
+  ['lidar', 'LiDAR, where it is loaded on the LiDAR tab'],
+  ['occurd', 'Species, from the occurd. files']
+];
+const RPT_SRC = {
+  area: 'Boundary as loaded or drawn; area on the ellipsoid (turf.js)',
+  dem: 'Copernicus GLO-30 DEM (ESA), 30 m',
+  qmap: 'GNS Science QMAP 1:250 000 geological map of New Zealand, 2023',
+  macrostrat: 'Macrostrat geological map, sampled at 49 points in the area',
+  esc: 'MPI Erosion Susceptibility Classification and NZ Land Resource Inventory LUC',
+  soil: 'SoilGrids 2.0 (ISRIC), modelled, 250 m',
+  worldcover: 'ESA WorldCover 2021, 10 m',
+  dw: 'Dynamic World (Google / WRI), 10 m, most common class each year',
+  loss: 'Hansen et al. Global Forest Change (University of Maryland), 30 m',
+  canopy: 'ETH Zürich global canopy height 2020 (Lang et al. 2023), 10 m',
+  water: 'EC JRC Global Surface Water 1984–2021, 30 m',
+  fire: 'MODIS MCD64A1 burned area (500 m) and FIRMS fire detections (1 km), NASA',
+  climate: 'ERA5-Land (ECMWF / Copernicus) on Earth Engine, ~9 km, the area and 6 km around it',
+  lidar: 'LINZ LiDAR (Toitū Te Whenua), 1 m',
+  checked: 'Checked on the Land cover tab; nothing over its reporting threshold'
+};
+let rpt = null;            // the open report
+let rptList = [];          // { id, title, updated } of every report
+let rptBusy = false;
+let rptLoadingAreas = false;
+let rptSaveTimer = null;
+let rptOpenEmail = null, rptOpenSample = null;
+
+function setReportStatus(kind, msg) {
+  const el = document.getElementById('reportStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// Storage: one IndexedDB object per report.
+let rptDbPromise = null;
+function rptDb() {
+  if (!rptDbPromise) rptDbPromise = new Promise((resolve, reject) => {
+    const r = indexedDB.open('inferrd-reports', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('projects', { keyPath: 'id' });
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  return rptDbPromise;
+}
+async function rptStore(mode, fn) {
+  const db = await rptDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('projects', mode), q = fn(tx.objectStore('projects'));
+    tx.oncomplete = () => resolve(q && q.result);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+function rptSave() {
+  if (!rpt) return;
+  rpt.updated = new Date().toISOString();
+  clearTimeout(rptSaveTimer);
+  const doc = rpt;
+  rptSaveTimer = setTimeout(() => {
+    rptStore('readwrite', st => st.put(doc)).catch(err => setReportStatus('error', 'Couldn\'t save the report in this browser: ' + (err && err.message ? err.message : err)));
+  }, 400);
+  const item = rptList.find(x => x.id === rpt.id);
+  if (item) { item.title = rpt.title; item.updated = rpt.updated; }
+}
+function rptNew() {
+  const now = new Date().toISOString();
+  return { id: 'r' + Date.now().toString(36), title: 'New report', created: now, updated: now, brief: '', emails: [], areas: [], occurd: [],
+    sliders: { length: 3, tone: 3, level: 3 }, audience: '', voice: { samples: [], notes: '' },
+    checks: { physical: true, cover: true, climate: true, lidar: true, occurd: true }, facts: [], factsAt: null, factsFor: null, factsNotes: [] };
+}
+const rptWords = (t) => (String(t || '').match(/\S+/g) || []).length;
+const rptAreaList = () => areas.map(a => ({ name: a.name, geometry: a.geojson.geometry }));
+const rptAreasMatch = (list) => list.length === areas.length && list.every((x, i) => x.name === areas[i].name && JSON.stringify(x.geometry) === JSON.stringify(areas[i].geojson.geometry));
+
+// Opening a report puts its areas on the map (in place of what is there,
+// after asking); a report with no areas yet takes the map's.
+async function rptOpen(id) {
+  const doc = await rptStore('readonly', st => st.get(id));
+  if (!doc) return;
+  if (doc.areas.length && areas.length && !rptAreasMatch(doc.areas) &&
+      !confirm('Open "' + doc.title + '"? Its ' + doc.areas.length + (doc.areas.length === 1 ? ' area replaces' : ' areas replace') + ' the ' + areas.length + ' on the map.')) {
+    rptFillForm();
+    return;
+  }
+  rpt = doc;
+  try { localStorage.setItem('inferrd.report', id); } catch (e) {}
+  if (doc.areas.length && !rptAreasMatch(doc.areas)) {
+    rptLoadingAreas = true;
+    areas.slice().forEach(a => removeArea(a.id));
+    doc.areas.forEach(x => addAreaFromGeometry(x.geometry, x.name));
+    rptLoadingAreas = false;
+    if (areas.length) map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
+  } else if (!doc.areas.length && areas.length) {
+    doc.areas = rptAreaList();
+    rptSave();
+  }
+  rptFillForm();
+  renderReport();
+}
+async function rptInit() {
+  try {
+    const all = await rptStore('readonly', st => st.getAll());
+    rptList = all.map(x => ({ id: x.id, title: x.title, updated: x.updated })).sort((a, b) => b.updated.localeCompare(a.updated));
+  } catch (err) {
+    setReportStatus('error', 'This browser won\'t keep reports (private window, or site storage blocked), so a report lasts only until the page closes.');
+  }
+  let last = null;
+  try { last = localStorage.getItem('inferrd.report'); } catch (e) {}
+  if (!rptList.length) {
+    rpt = rptNew();
+    rpt.areas = rptAreaList();
+    rptList.push({ id: rpt.id, title: rpt.title, updated: rpt.updated });
+    rptSave();
+    rptFillForm();
+    renderReport();
+  } else await rptOpen(rptList.some(x => x.id === last) ? last : rptList[0].id);
+}
+
+function rptFillForm() {
+  const sel = document.getElementById('rptProjectSel');
+  sel.innerHTML = rptList.map(x => '<option value="' + x.id + '"' + (rpt && x.id === rpt.id ? ' selected' : '') + '>' + escHtml(x.title || 'Untitled') + '</option>').join('');
+  if (!rpt) return;
+  document.getElementById('rptTitle').value = rpt.title;
+  document.getElementById('rptBrief').value = rpt.brief;
+  document.getElementById('rptAudience').value = rpt.audience || '';
+  document.getElementById('rptVoiceNotes').value = rpt.voice.notes || '';
+  document.getElementById('rptSliders').innerHTML = RPT_SLIDERS.map(([k, label, stops]) =>
+    '<div class="rpt-slider"><label for="rptS_' + k + '">' + label + ' <span id="rptSV_' + k + '">' + stops[rpt.sliders[k] - 1] + '</span></label>' +
+    '<input type="range" id="rptS_' + k + '" data-k="' + k + '" min="1" max="5" step="1" value="' + rpt.sliders[k] + '"></div>').join('');
+  document.getElementById('rptChecks').innerHTML = RPT_CHECKS.map(([k, label]) =>
+    '<label><input type="checkbox" data-k="' + k + '"' + (rpt.checks[k] !== false ? ' checked' : '') + '>' + label + '</label>').join('');
+  rptRenderLists();
+}
+
+function rptRenderLists() {
+  const fmtDate = (d) => { const t = Date.parse(d); return t ? new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : ''; };
+  const emails = rpt.emails.slice().sort((a, b) => (Date.parse(a.date) || 0) - (Date.parse(b.date) || 0));
+  document.getElementById('rptEmailList').innerHTML = emails.map(e =>
+    '<div class="rpt-item" data-id="' + e.id + '"><div class="rpt-item-head"><span class="t" data-open="email" title="Show or hide">' + escHtml(e.subject || e.body.slice(0, 60) || 'Email') + '</span>' +
+    '<span class="m">' + escHtml([e.from ? e.from.replace(/\s*<[^>]*>/, '') : '', fmtDate(e.date)].filter(Boolean).join(' · ')) + '</span><button class="rpt-x" type="button" data-del="email" title="Remove">✕</button></div>' +
+    (rptOpenEmail === e.id ? '<pre>' + escHtml(e.body) + '</pre>' : '') + '</div>').join('');
+  document.getElementById('rptVoiceList').innerHTML = rpt.voice.samples.map(v =>
+    '<div class="rpt-item" data-id="' + v.id + '"><div class="rpt-item-head"><span class="t" data-open="sample" title="Show or hide">' + escHtml(v.name) + '</span><span class="m">' + rptWords(v.text).toLocaleString() + ' words</span>' +
+    '<button class="rpt-x" type="button" data-del="sample" title="Remove">✕</button></div>' + (rptOpenSample === v.id ? '<pre>' + escHtml(v.text.slice(0, 20000)) + '</pre>' : '') + '</div>').join('');
+  document.getElementById('rptOccurdList').innerHTML = rpt.occurd.map(f =>
+    '<div class="rpt-item" data-id="' + f.id + '"><div class="rpt-item-head"><span class="t">' + escHtml(f.name) + '</span><span class="m">' +
+    (f.kind === 'records' ? f.rows.length.toLocaleString() + ' records' : f.rows.length.toLocaleString() + ' species') + (f.hasStatus ? '' : ', no NZTCS status') + '</span>' +
+    '<button class="rpt-x" type="button" data-del="occurd" title="Remove">✕</button></div></div>').join('');
+}
+
+function syncReportControls() {
+  const run = document.getElementById('rptRunBtn');
+  run.disabled = !rpt || !areas.length || rptBusy;
+  run.textContent = rptBusy ? 'Gathering…' : 'Gather the facts';
+}
+
+function reportAreasChanged() {
+  renderTabAreaList('reportAreaList', 'reportAreaEmpty');
+  if (rpt && !rptLoadingAreas && !rptAreasMatch(rpt.areas)) {
+    rpt.areas = rptAreaList();
+    rptSave();
+    renderReport();
+  }
+  syncReportControls();
+}
+
+// Reading files: Word, PDF, email and text.
+let rptPdfPromise = null;
+function rptLoadPdf() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!rptPdfPromise) rptPdfPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    sc.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; resolve(window.pdfjsLib); };
+    sc.onerror = () => { rptPdfPromise = null; reject(new Error('could not load the PDF reader')); };
+    document.head.appendChild(sc);
+  });
+  return rptPdfPromise;
+}
+function rptQp(t) {
+  const out = [];
+  for (let i = 0; i < t.length; i++) {
+    if (t[i] === '=' && /^[0-9A-F]{2}$/i.test(t.substr(i + 1, 2))) { out.push(parseInt(t.substr(i + 1, 2), 16)); i += 2; }
+    else out.push(...new TextEncoder().encode(t[i]));
+  }
+  return Uint8Array.from(out);
+}
+function rptParseEml(raw) {
+  const split = (t) => { const i = t.search(/\r?\n\r?\n/); return i < 0 ? [t, ''] : [t.slice(0, i), t.slice(i).replace(/^\r?\n\r?\n/, '')]; };
+  const headers = (h) => { const o = {}; h.replace(/\r?\n[ \t]+/g, ' ').split(/\r?\n/).forEach(l => { const i = l.indexOf(':'); if (i > 0) o[l.slice(0, i).trim().toLowerCase()] = l.slice(i + 1).trim(); }); return o; };
+  const words = (t) => (t || '').replace(/=\?([^?]+)\?([bq])\?([^?]*)\?=/gi, (m0, cs, enc, txt) => {
+    try { return new TextDecoder(cs).decode(enc.toLowerCase() === 'b' ? Uint8Array.from(atob(txt), c => c.charCodeAt(0)) : rptQp(txt.replace(/_/g, ' '))); } catch (e) { return txt; }
+  });
+  const body = (h, b) => {
+    const ct = h['content-type'] || 'text/plain', bm = /boundary="?([^";]+)"?/i.exec(ct);
+    if (/multipart\//i.test(ct) && bm) {
+      const parts = b.split('--' + bm[1]).slice(1).filter(x => !/^--/.test(x)).map(x => { const [ph, pb] = split(x.replace(/^\r?\n/, '')); return body(headers(ph), pb); });
+      return parts.find(x => x.plain && x.text.trim()) || parts.find(x => x.text.trim()) || { text: '' };
+    }
+    const te = (h['content-transfer-encoding'] || '').toLowerCase(), cs = (/charset="?([^";\s]+)/i.exec(ct) || [0, 'utf-8'])[1];
+    const bytes = te === 'base64' ? Uint8Array.from(atob(b.replace(/\s+/g, '')), c => c.charCodeAt(0)) : te === 'quoted-printable' ? rptQp(b.replace(/=\r?\n/g, '')) : new TextEncoder().encode(b);
+    let text;
+    try { text = new TextDecoder(te === 'base64' || te === 'quoted-printable' ? cs : 'utf-8').decode(bytes); } catch (e) { text = new TextDecoder().decode(bytes); }
+    if (/text\/html/i.test(ct)) return { text: new DOMParser().parseFromString(text, 'text/html').body.innerText || '' };
+    return { text, plain: true };
+  };
+  const [hh, bb] = split(raw), h = headers(hh);
+  return { from: words(h.from), date: h.date || '', subject: words(h.subject), body: body(h, bb).text.trim() };
+}
+// A pasted email: From / Sent / Date / Subject lines at the top, if there.
+function rptParsePasted(t) {
+  const lines = t.replace(/\r/g, '').split('\n'), e = { from: '', date: '', subject: '' };
+  let i = 0;
+  for (; i < Math.min(lines.length, 12); i++) {
+    const m = /^\s*(from|sent|date|subject|to|cc)\s*:\s*(.*)$/i.exec(lines[i]);
+    if (m) { const k = m[1].toLowerCase(); if (k === 'from') e.from = m[2]; else if (k === 'sent' || k === 'date') e.date = m[2]; else if (k === 'subject') e.subject = m[2]; }
+    else if (lines[i].trim() || i === 0) break;
+  }
+  e.body = lines.slice(i).join('\n').trim();
+  return e;
+}
+async function rptFileText(file) {
+  const n = file.name.toLowerCase();
+  if (n.endsWith('.docx')) {
+    const JSZip = await loadJSZip(), zip = await JSZip.loadAsync(file), f = zip.file('word/document.xml');
+    if (!f) throw new Error(file.name + ' isn\'t a Word document');
+    const doc = new DOMParser().parseFromString(await f.async('string'), 'application/xml');
+    return [...doc.getElementsByTagName('w:p')].map(pp => [...pp.getElementsByTagName('w:t')].map(t => t.textContent).join('')).filter(t => t.trim()).join('\n\n');
+  }
+  if (n.endsWith('.pdf')) {
+    const pdfjs = await rptLoadPdf(), pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise, pages = [];
+    for (let i = 1; i <= pdf.numPages; i++) pages.push((await (await pdf.getPage(i)).getTextContent()).items.map(it => it.str + (it.hasEOL ? '\n' : '')).join(''));
+    return pages.join('\n\n').trim();
+  }
+  if (n.endsWith('.eml')) return rptParseEml(await file.text()).body;
+  if (/\.(txt|md|csv)$/.test(n) || (file.type || '').startsWith('text/')) return (await file.text()).trim();
+  throw new Error('can\'t read ' + file.name + ' (Word .docx, PDF, .eml or text only; old .doc and Outlook .msg files need saving as one of those first)');
+}
+
+// KML / KMZ: each placemark with polygons becomes an area.
+async function rptReadKml(file) {
+  let text;
+  if (/\.kmz$/i.test(file.name)) {
+    const JSZip = await loadJSZip(), zip = await JSZip.loadAsync(file), f = Object.values(zip.files).find(x => /\.kml$/i.test(x.name));
+    if (!f) throw new Error(file.name + ' has no KML inside');
+    text = await f.async('string');
+  } else text = await file.text();
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error(file.name + ' isn\'t valid KML');
+  const ring = (el) => {
+    const c = el && el.getElementsByTagName('coordinates')[0];
+    if (!c) return null;
+    const pts = c.textContent.trim().split(/\s+/).map(t => t.split(',').map(Number)).filter(q => q.length >= 2 && isFinite(q[0]) && isFinite(q[1])).map(q => [q[0], q[1]]);
+    if (pts.length && (pts[0][0] !== pts[pts.length - 1][0] || pts[0][1] !== pts[pts.length - 1][1])) pts.push(pts[0].slice());
+    return pts.length >= 4 ? pts : null;
+  };
+  const out = [];
+  let skipped = 0;
+  const base = file.name.replace(/\.km[lz]$/i, '');
+  [...doc.getElementsByTagName('Placemark')].forEach((pm, i) => {
+    const polys = [...pm.getElementsByTagName('Polygon')].map(pg => {
+      const outer = ring(pg.getElementsByTagName('outerBoundaryIs')[0]);
+      return outer ? [outer].concat([...pg.getElementsByTagName('innerBoundaryIs')].map(ring).filter(Boolean)) : null;
+    }).filter(Boolean);
+    if (!polys.length) { skipped++; return; }
+    const nameEl = [...pm.children].find(c => c.localName === 'name');
+    out.push({ name: (nameEl && nameEl.textContent.trim()) || base + ' ' + (i + 1), geometry: polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys } });
+  });
+  return { out, skipped };
+}
+
+// occurd. CSV exports, used as they are. Only the columns the fact sheet
+// reads are kept.
+function rptCsv(text) {
+  const rows = [];
+  let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function rptReadOccurd(name, text) {
+  const body = text.replace(/^﻿/, '').split(/\r?\n/).filter((l, i, all) => !(l.startsWith('#') && all.slice(0, i).every(x => x.startsWith('#')))).join('\n');
+  const rows = rptCsv(body).filter(r => r.some(c => c.trim()));
+  if (rows.length < 2) throw new Error(name + ' has no rows');
+  const head = rows[0].map(h => h.trim()), col = (k) => head.indexOf(k);
+  const kind = col('gbifID') >= 0 || col('decimalLatitude') >= 0 ? 'records' : col('records') >= 0 && col('scientificName') >= 0 ? 'checklist' : null;
+  if (!kind) throw new Error(name + ' doesn\'t look like an occurd. records or checklist CSV');
+  const get = (r, k) => { const i = col(k); return i >= 0 ? (r[i] || '').trim() : ''; };
+  const hasStatus = col('nztcs_status') >= 0;
+  const out = rows.slice(1).map(r => kind === 'records'
+    ? { sp: get(r, 'species') || get(r, 'scientificName'), vn: get(r, 'vernacularName'), year: Number(get(r, 'year')) || null, poly: get(r, 'polygon_name'), kingdom: get(r, 'kingdom'), st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') }
+    : { sp: get(r, 'scientificName'), vn: get(r, 'vernacularName'), group: get(r, 'taxonGroup'), kingdom: get(r, 'kingdom'), n: Number(get(r, 'records')) || 0, st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') });
+  return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, rows: out.filter(x => x.sp) };
+}
+
+/* Fact sheet. Statements of measured values only: numbers, units, dates
+   and names as the source gives them, never what they mean. */
+const rptPct = (v, t) => t > 0 ? 100 * v / t : 0;
+const rptP = (v, t) => { const x = rptPct(v, t); return x >= 10 ? x.toFixed(0) : x.toFixed(1); };
+const rptHa = (v) => (v >= 100 ? Math.round(v).toLocaleString() : fmtHa(v)) + ' ha';
+function rptBuildFacts() {
+  const F = [], key = areas.map(areaKey).join('|');
+  const add = (area, section, item, text, source) => F.push({ key: area + '|' + section + '|' + item, area, section, text, source });
+  areas.forEach(a => {
+    const A = a.name, tot = turf.area(a.geojson) / 1e4;
+    add(A, 'Area', 'size', A + ' covers ' + rptHa(tot) + '.', RPT_SRC.area);
+    // Physical
+    const P = rpt.checks.physical && physicalResults && physicalResults.keys === key ? physicalResults.byArea[a.id] : null;
+    if (P) {
+      const R = physRows(P), t = P.terrain;
+      if (t && t.elev) {
+        add(A, 'Terrain', 'elevation', 'Elevation ' + Math.round(t.elev.DEM_min) + '–' + Math.round(t.elev.DEM_max) + ' m above sea level, median ' + Math.round(t.elev.DEM_p50) + ' m.', RPT_SRC.dem);
+        if (t.slope && t.slope.slope_p50 != null) add(A, 'Terrain', 'slope', 'Median slope ' + Math.round(t.slope.slope_p50) + '°; 90% of the area is under ' + Math.round(t.slope.slope_p90) + '°.', RPT_SRC.dem);
+        R.slope.filter(r => rptPct(r.ha, tot) >= 1).forEach(r => add(A, 'Terrain', 'slope class ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) is LUC slope class ' + r.label + ' (' + r.detail + ').', RPT_SRC.dem));
+        const asp = R.aspect.filter(r => rptPct(r.ha, tot) >= 5).sort((x, y) => y.ha - x.ha);
+        if (asp.length) add(A, 'Terrain', 'aspect', 'Aspect: ' + asp.map(r => (r.label.startsWith('Flat') ? 'flat' : 'facing ' + r.label) + ' ' + rptP(r.ha, tot) + '%').join(', ') + '.', RPT_SRC.dem);
+      }
+      const g = P.geology;
+      if (g) {
+        const src = g.source === 'qmap' ? RPT_SRC.qmap : RPT_SRC.macrostrat;
+        R.units.filter(u => rptPct(u.ha, tot) >= 1).forEach(u => add(A, 'Geology', 'unit ' + u.label, rptHa(u.ha) + ' (' + rptP(u.ha, tot) + '%) is mapped as ' + u.label +
+          ([u.props.mainrock, u.props.geolhist].filter(Boolean).length ? ' (' + [u.props.mainrock, u.props.geolhist].filter(Boolean).join(', ') + ')' : '') + '.', src));
+        (g.faultGroups || []).forEach(f => add(A, 'Geology', 'fault ' + (f.props.name || 'unnamed') + ' ' + f.props.activity,
+          ((f.props.name || '').trim() ? 'The ' + f.props.name.trim() + (/fault/i.test(f.props.name) ? '' : ' fault') : 'An unnamed fault') + ' (mapped as ' + (f.props.activity || 'activity not given') + ') ' +
+          (f.dist === 0 ? 'crosses the area.' : f.dist === f.dist ? 'lies ' + Math.round(f.dist) + ' m from the area.' : 'is within ' + PHYS_FAULT_NEAR_M / 1000 + ' km of the area.'), RPT_SRC.qmap));
+        if (g.slides && g.slides.length) add(A, 'Geology', 'landslides', g.slides.length + (g.slides.length === 1 ? ' mapped landslide deposit' : ' mapped landslide deposits') + ', ' + rptHa(g.slides.reduce((s2, f) => s2 + f.ha, 0)) + ' within the area.', RPT_SRC.qmap);
+      }
+      R.esc.filter(r => rptPct(r.ha, tot) >= 1).forEach(r => add(A, 'Erosion and land use capability', 'esc ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) is ' + (r.label.startsWith('Not') ? r.label.toLowerCase() : r.label.toLowerCase() + ' erosion susceptibility') + '.', RPT_SRC.esc));
+      R.luc.filter(r => rptPct(r.ha, tot) >= 1).forEach(r => add(A, 'Erosion and land use capability', 'luc ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) is LUC ' + r.label.toLowerCase() + ' (' + r.detail + ').', RPT_SRC.esc));
+      R.sub.filter(r => rptPct(r.ha, tot) >= 1).forEach(r => add(A, 'Erosion and land use capability', 'luc sub ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) has LUC subclass ' + r.label.replace(' · ', ' (') + ') as its main limitation.', RPT_SRC.esc));
+      if (P.soil) {
+        const w = { '0-5cm': 5, '5-15cm': 10, '15-30cm': 15 }, top = {};
+        PHYS_SOIL.forEach(sp => {
+          let sum = 0, n = 0;
+          Object.entries(w).forEach(([d, k]) => { const v = P.soil[sp.k + '_' + d + '_mean']; if (v != null) { sum += k * v / sp.div; n += k; } });
+          if (n) top[sp.k] = sum / n;
+        });
+        const parts = PHYS_SOIL.filter(sp => top[sp.k] != null).map(sp => sp.label.toLowerCase() + ' ' + (sp.k === 'phh2o' ? top[sp.k].toFixed(1) : top[sp.k] >= 10 ? Math.round(top[sp.k]) : top[sp.k].toFixed(2)) + (sp.unit ? (sp.unit.startsWith('%') ? '' : ' ') + sp.unit : ''));
+        if (parts.length) add(A, 'Soil', 'topsoil', 'Modelled topsoil, 0–30 cm: ' + parts.join('; ') + (top.sand != null && top.clay != null ? '; USDA texture ' + physTexture(top.sand, top.clay) : '') + '.', RPT_SRC.soil);
+      }
+      (P.errors || []).forEach(e => add(A, 'Not checked', 'physical ' + e, 'Physical: ' + e + '.', 'inferrd. Physical tab'));
+    }
+    // Land cover
+    const C = rpt.checks.cover && coverResults && coverResults.keys === key ? coverResults.byArea[a.id] : null;
+    if (C) {
+      C.report.show.forEach(sec => {
+        if (sec.key === 'worldcover') sec.rows.forEach(r => add(A, 'Land cover', 'wc ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) ' + r.label.toLowerCase() + ', 2021.', RPT_SRC.worldcover));
+        if (sec.key === 'dw') sec.shifts.forEach(r => add(A, 'Land cover', 'dw ' + r.label, r.label + ': ' + rptHa(r.a) + ' in ' + COVER_DW_FIRST + ', ' + rptHa(r.b) + ' in ' + COVER_DW_LAST + ' (' + (r.dPts > 0 ? '+' : '−') + Math.abs(r.dPts).toFixed(0) + ' percentage points of the area).', RPT_SRC.dw));
+        if (sec.key === 'loss') {
+          add(A, 'Tree cover loss', 'total', rptHa(sec.lossTotal) + ' of tree cover loss mapped, 2001–' + COVER_HANSEN_LAST + (sec.tree2000 >= 0.5 ? '; the area had ' + rptHa(sec.tree2000) + ' with 30% or more tree cover in 2000' : '') + '.', RPT_SRC.loss);
+          if (sec.lossRows.length) add(A, 'Tree cover loss', 'by year', 'Tree cover loss by year: ' + sec.lossRows.map(r => r.year + ' ' + rptHa(r.ha)).join('; ') + '.', RPT_SRC.loss);
+          if (sec.gain >= COVER_MIN_LOSS_HA) add(A, 'Tree cover loss', 'gain', rptHa(sec.gain) + ' gained tree cover, 2000–2012.', RPT_SRC.loss);
+        }
+        if (sec.key === 'canopy') {
+          add(A, 'Canopy height', 'tall', rptHa(sec.tall) + ' (' + rptP(sec.tall, tot) + '%) has vegetation 3 m or taller, 2020' + (sec.mean != null ? '; mean ' + sec.mean.toFixed(1) + ' m, 95th percentile ' + sec.p95.toFixed(0) + ' m' : '') + '.', RPT_SRC.canopy);
+          add(A, 'Canopy height', 'classes', 'Canopy height classes, 2020: ' + sec.rows.map(r => r.label + ' ' + rptP(r.ha, tot) + '%').join(', ') + ' of the area.', RPT_SRC.canopy);
+        }
+        if (sec.key === 'water') [['ever', 'under open water at some point, 1984–2021'], ['permanent', 'permanent water in 2021'], ['seasonal', 'seasonal water in 2021'], ['lost', 'water lost since 1984'], ['gained', 'new water since 1984']]
+          .forEach(([k, label]) => { const v = sec.water[k] || 0; if (v >= 0.05) add(A, 'Surface water', k, rptHa(v) + ' (' + rptP(v, tot) + '%) ' + label + '.', RPT_SRC.water); });
+        if (sec.key === 'fire') add(A, 'Fire', 'years', 'Fire, ' + COVER_FIRE_FIRST + '–' + CURRENT_YEAR + ': ' + sec.burnRows.map(r => r.year + ' (' + [r.ha >= COVER_MIN_BURN_HA ? rptHa(r.ha) + ' burned area mapped' : '', r.days ? r.days + (r.days === 1 ? ' day' : ' days') + ' with a fire detected' : ''].filter(Boolean).join(', ') + ')').join('; ') + '.', RPT_SRC.fire);
+      });
+      C.report.quiet.forEach((q, i) => add(A, 'Checked, nothing found', 'cover ' + i + ' ' + q.slice(0, 30), q, RPT_SRC.checked));
+    }
+    // Climate
+    const K = rpt.checks.climate && lastClimate && lastClimate.keys === key ? lastClimate.byArea[a.id] : null;
+    if (K && K.months.length) {
+      const N = K.normals, I = K.idxNorm, nm = CLIMATE_NORMAL.join('–');
+      add(A, 'Climate', 'normals', 'Average year ' + nm + ': ' + Math.round(N.yearRain).toLocaleString() + ' mm of rain; mean temperature ' + N.yearTemp.toFixed(1) + ' °C.', RPT_SRC.climate);
+      const months = N.temp.map((v, m) => [m, v]).slice(1);
+      const warm = months.reduce((x, y) => y[1] > x[1] ? y : x), cold = months.reduce((x, y) => y[1] < x[1] ? y : x);
+      const wet = N.rain.map((v, m) => [m, v]).slice(1).reduce((x, y) => y[1] > x[1] ? y : x), dry = N.rain.map((v, m) => [m, v]).slice(1).reduce((x, y) => y[1] < x[1] ? y : x);
+      add(A, 'Climate', 'months', 'Warmest month ' + MONTH_NAMES[warm[0] - 1] + ' (mean ' + warm[1].toFixed(1) + ' °C), coolest ' + MONTH_NAMES[cold[0] - 1] + ' (' + cold[1].toFixed(1) + ' °C); wettest ' + MONTH_NAMES[wet[0] - 1] + ' (' + Math.round(wet[1]) + ' mm), driest ' + MONTH_NAMES[dry[0] - 1] + ' (' + Math.round(dry[1]) + ' mm), ' + nm + '.', RPT_SRC.climate);
+      const d = (v) => v === v ? Math.round(v) : '–';
+      add(A, 'Climate', 'days', 'Average year ' + nm + ': ' + d(I.frost) + ' frost days, ' + d(I.hot) + ' days reaching ' + CLIMATE_HOT_C + ' °C, ' + d(I.heavy) + ' days with ' + CLIMATE_HEAVY_MM + ' mm of rain or more, ' + d(I.gdd).toLocaleString() + ' growing degree-days above ' + CLIMATE_GDD_BASE_C + ' °C.', RPT_SRC.climate);
+      const ys = K.years;
+      if (ys.length >= 10) [['temp', 'annual mean temperature', '°C', 2], ['rain', 'annual rainfall', 'mm', 0]].forEach(([k, label, unit, dp]) => {
+        const mk = mannKendall(ys.map(y => y[k]), ys.map(y => y.y)), span = ys[0].y + '–' + ys[ys.length - 1].y;
+        add(A, 'Climate', 'trend ' + k, mk.p < 0.05
+          ? 'Trend in ' + label + ', ' + span + ': ' + (mk.senSlope > 0 ? '+' : '−') + Math.abs(mk.senSlope * 10).toFixed(dp) + ' ' + unit + ' per decade (Sen\'s slope; Mann–Kendall p = ' + (mk.p < 0.001 ? '< 0.001' : mk.p.toFixed(3)) + ').'
+          : 'No trend in ' + label + ', ' + span + ', at p < 0.05 (Mann–Kendall p = ' + mk.p.toFixed(2) + ').', RPT_SRC.climate);
+      });
+    }
+    // LiDAR, as loaded on its tab
+    if (rpt.checks.lidar) lidarSets.filter(dd => dd.key === areaKey(a) && dd.height).forEach(dd => {
+      const st = lidarStats(dd), sv = dd.survey, src = RPT_SRC.lidar + ': ' + sv.title + ', flown ' + surveyDates(sv);
+      add(A, 'LiDAR', 'height ' + sv.id, 'Vegetation height from LiDAR flown ' + surveyDates(sv) + ': mean ' + st.hMean.toFixed(1) + ' m, 95th percentile ' + st.p95.toFixed(1) + ' m, tallest ' + st.hMax.toFixed(1) + ' m.', src);
+      add(A, 'LiDAR', 'classes ' + sv.id, 'Vegetation height classes, LiDAR ' + surveyDates(sv) + ': ' + LIDAR_CLASSES.map((c, k) => [c, st.classN[k]]).filter(([, n]) => rptPct(n, st.withH) >= 1).map(([c, n]) => c.label + ' ' + rptP(n, st.withH) + '%').join(', ') + ' of the cells with a height.', src);
+      if (st.wires) add(A, 'LiDAR', 'wires ' + sv.id, Math.round(st.wires * st.cellHa * 10000).toLocaleString() + ' m² of cells left out of the heights as power lines or pylons.', src);
+    });
+  });
+  // occurd. files, as exported
+  if (rpt.checks.occurd) rpt.occurd.forEach(f => {
+    const src = 'occurd. export ' + f.name + ' (GBIF records' + (f.hasStatus ? '; NZTCS status as occurd. assigned it' : '') + ')';
+    const groups = new Map();
+    f.rows.forEach(r => {
+      const hit = f.kind === 'records' && r.poly ? areas.find(a => a.name === r.poly) : null;
+      const g = hit ? hit.name : f.kind === 'records' && r.poly ? 'Search area "' + r.poly + '"' : 'Whole occurd. search area';
+      if (!groups.has(g)) groups.set(g, []);
+      groups.get(g).push(r);
+    });
+    groups.forEach((rows, g) => {
+      const bySp = new Map();
+      rows.forEach(r => {
+        if (!bySp.has(r.sp)) bySp.set(r.sp, { sp: r.sp, vn: r.vn, n: 0, last: null, first: null, st: r.st, cat: r.cat, sy: r.sy, kingdom: r.kingdom });
+        const e = bySp.get(r.sp);
+        e.n += f.kind === 'records' ? 1 : r.n;
+        if (r.year) { e.last = Math.max(e.last || 0, r.year); e.first = Math.min(e.first || 9999, r.year); }
+        if (!e.vn && r.vn) e.vn = r.vn;
+      });
+      const sp = [...bySp.values()], nRec = sp.reduce((t, e) => t + e.n, 0);
+      const years = rows.map(r => r.year).filter(Boolean);
+      const y0 = years.length ? Math.min(...years) : null, y1 = years.length ? Math.max(...years) : null;
+      add(g, 'Species (occurd.)', f.id + ' totals', nRec.toLocaleString() + (nRec === 1 ? ' record of ' : ' records of ') + sp.length.toLocaleString() + (sp.length === 1 ? ' taxon' : ' taxa') + (y0 ? ', ' + (y0 === y1 ? y0 : y0 + '–' + y1) : '') + '.', src);
+      const king = new Map();
+      sp.forEach(e => king.set(e.kingdom || 'kingdom not given', (king.get(e.kingdom || 'kingdom not given') || 0) + 1));
+      if (king.size > 1) add(g, 'Species (occurd.)', f.id + ' kingdoms', 'Taxa by kingdom: ' + [...king.entries()].sort((x, y) => y[1] - x[1]).map(([k, n]) => k + ' ' + n).join(', ') + '.', src);
+      if (!f.hasStatus) { add(g, 'Species (occurd.)', f.id + ' no status', 'This occurd. export has no NZTCS status columns, so no threat statuses are listed from it.', src); return; }
+      // Listed on occurd.'s own category, or a Threatened or At Risk status
+      // name; "Not Threatened" must not match.
+      const listed = sp.filter(e => /^(threatened|at risk)$/i.test(e.cat.trim()) || /^(nationally (critical|endangered|vulnerable|increasing)|declining|recovering|relict|naturally uncommon)$/i.test(e.st.trim())).sort((x, y) => x.sp.localeCompare(y.sp));
+      listed.forEach(e => add(g, 'Species (occurd.)', f.id + ' ' + e.sp, e.sp + (e.vn ? ' (' + e.vn + ')' : '') + ': NZTCS ' + e.st + (e.cat && e.cat !== e.st ? ', ' + e.cat : '') + (e.sy ? ' (' + e.sy + ')' : '') + '; ' + e.n + (e.n === 1 ? ' record' : ' records') + (e.last ? ', ' + (e.first === e.last ? e.last : e.first + '–' + e.last) : '') + '.', src));
+      if (!listed.length) add(g, 'Species (occurd.)', f.id + ' none listed', 'No taxa in this export carry a Threatened or At Risk NZTCS status.', src);
+      const dd = sp.filter(e => /^data deficient$/i.test(e.st.trim()) || /^data deficient$/i.test(e.cat.trim()));
+      if (dd.length) add(g, 'Species (occurd.)', f.id + ' dd', 'Data Deficient in NZTCS: ' + dd.map(e => e.sp).join(', ') + '.', src);
+    });
+  });
+  const prev = new Map((rpt.facts || []).map(x => [x.key, x.include]));
+  F.forEach((x, i) => { x.id = 'F' + (i + 1); x.include = prev.has(x.key) ? prev.get(x.key) : true; });
+  return F;
+}
+
+async function rptRun() {
+  if (!rpt || !areas.length || rptBusy) return;
+  rptBusy = true;
+  syncReportControls();
+  const key = areas.map(areaKey).join('|'), notes = [], doc = rpt;
+  const step = async (k, label, needsEe, has, run) => {
+    if (doc.checks[k] === false) return;
+    if (needsEe && !eeReady) { notes.push(label + ': skipped; it needs the Earth Engine key (Infrared tab).'); return; }
+    if (!has()) { setReportStatus('info', label + '…'); try { await run(); } catch (e) {} }
+    notes.push(label + ': ' + (has() ? 'done.' : 'didn\'t finish; see its tab for why.'));
+  };
+  try {
+    await step('physical', 'Physical', false, () => !!(physicalResults && physicalResults.keys === key), physicalRun);
+    if (doc.checks.physical !== false && !eeReady) notes.push('Physical: terrain and soil left out without the Earth Engine key.');
+    await step('cover', 'Land cover', true, () => !!(coverResults && coverResults.keys === key), coverRun);
+    await step('climate', 'Climate', true, () => !!(lastClimate && lastClimate.keys === key), climateRun);
+    if (doc.checks.lidar !== false) {
+      const n = areas.filter(a => lidarSets.some(dd => dd.key === areaKey(a) && dd.height)).length;
+      notes.push('LiDAR: ' + (n ? 'from the LiDAR tab, ' + n + ' of ' + areas.length + (areas.length === 1 ? ' area.' : ' areas.') : 'not loaded; load it on the LiDAR tab to include it.'));
+    }
+    if (doc.checks.occurd !== false) notes.push('Species: ' + (doc.occurd.length ? doc.occurd.length + (doc.occurd.length === 1 ? ' occurd. file.' : ' occurd. files.') : 'no occurd. file added.'));
+    if (doc !== rpt) return;
+    doc.facts = rptBuildFacts();
+    doc.factsAt = new Date().toISOString();
+    doc.factsFor = key;
+    doc.factsNotes = notes;
+    rptSave();
+    setReportStatus('', '');
+    renderReport();
+    expandResultsPane();
+  } catch (err) {
+    setReportStatus('error', 'Couldn\'t gather the facts: ' + (err && err.message ? err.message : err));
+  } finally {
+    rptBusy = false;
+    syncReportControls();
+  }
+}
+
+function rptRenderMetrics() {
+  const inc = rpt.facts.filter(x => x.include).length;
+  const m = [['Brief', rptWords(rpt.brief).toLocaleString() + ' words'], ['Emails', String(rpt.emails.length)], ['Areas', String(rpt.areas.length)],
+    ['occurd. files', String(rpt.occurd.length)], ['Your writing', rpt.voice.samples.length + (rpt.voice.samples.length === 1 ? ' report' : ' reports')], ['Facts', rpt.facts.length ? inc + ' of ' + rpt.facts.length : '–']];
+  document.getElementById('reportMetrics').innerHTML = m.map(([l, v]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
+}
+function renderReport() {
+  if (!rpt) return;
+  document.getElementById('reportEmpty').style.display = 'none';
+  document.getElementById('reportContent').style.display = '';
+  rptRenderMetrics();
+  const stale = rpt.facts.length && rpt.factsFor !== areas.map(areaKey).join('|');
+  document.getElementById('reportRunCard').style.display = rpt.facts.length ? '' : 'none';
+  document.getElementById('reportRunNotes').innerHTML = (stale ? '<p style="font-size:12.5px;margin:0 0 6px;"><strong>The areas have changed since these facts were gathered.</strong> Gather them again before using them.</p>' : '') +
+    '<p style="font-size:12.5px;margin:0 0 4px;color:var(--text2);">Gathered ' + (rpt.factsAt ? new Date(rpt.factsAt).toLocaleString() : '') + '.</p>' +
+    '<ul style="font-size:12.5px;margin:0 0 0 18px;padding:0;">' + (rpt.factsNotes || []).map(n => '<li>' + escHtml(n) + '</li>').join('') + '</ul>';
+  document.getElementById('reportFactCard').style.display = rpt.facts.length ? '' : 'none';
+  let html = '', lastArea = null, lastSec = null;
+  rpt.facts.forEach(x => {
+    if (x.area !== lastArea) { html += '<div class="rpt-area-head">' + escHtml(x.area) + '</div>'; lastArea = x.area; lastSec = null; }
+    if (x.section !== lastSec) { html += '<div class="rpt-section">' + escHtml(x.section) + '</div>'; lastSec = x.section; }
+    html += '<label class="rpt-fact' + (x.include ? '' : ' out') + '"><input type="checkbox" data-id="' + x.id + '"' + (x.include ? ' checked' : '') + '><span class="id">' + x.id + '</span><span><span class="tx">' + escHtml(x.text) + '</span><span class="src">' + escHtml(x.source) + '</span></span></label>';
+  });
+  document.getElementById('reportFacts').innerHTML = html;
+}
+
+// Wiring
+document.getElementById('rptProjectSel').addEventListener('change', (e) => rptOpen(e.target.value));
+document.getElementById('rptNewBtn').addEventListener('click', () => {
+  const keep = areas.length && confirm('Start the new report with the ' + areas.length + (areas.length === 1 ? ' area' : ' areas') + ' on the map? (Cancel starts it with none.)');
+  if (!keep) { rptLoadingAreas = true; areas.slice().forEach(a => removeArea(a.id)); rptLoadingAreas = false; }
+  rpt = rptNew();
+  rpt.areas = rptAreaList();
+  rptList.unshift({ id: rpt.id, title: rpt.title, updated: rpt.updated });
+  try { localStorage.setItem('inferrd.report', rpt.id); } catch (e) {}
+  rptSave();
+  rptFillForm();
+  renderReport();
+  document.getElementById('rptTitle').select();
+});
+document.getElementById('rptDeleteBtn').addEventListener('click', async (e) => {
+  e.preventDefault();
+  if (!rpt || !confirm('Delete "' + rpt.title + '" from this browser? Its brief, emails, files and facts go with it, and this can\'t be undone.')) return;
+  const id = rpt.id;
+  clearTimeout(rptSaveTimer);
+  try { await rptStore('readwrite', st => st.delete(id)); } catch (err) {}
+  rptList = rptList.filter(x => x.id !== id);
+  rpt = null;
+  if (rptList.length) await rptOpen(rptList[0].id);
+  else { rpt = rptNew(); rpt.areas = rptAreaList(); rptList.push({ id: rpt.id, title: rpt.title, updated: rpt.updated }); rptSave(); rptFillForm(); renderReport(); }
+});
+document.getElementById('rptTitle').addEventListener('input', (e) => {
+  if (!rpt) return;
+  rpt.title = e.target.value;
+  rptSave();
+  const o = document.querySelector('#rptProjectSel option[value="' + rpt.id + '"]');
+  if (o) o.textContent = rpt.title || 'Untitled';
+});
+document.getElementById('rptBrief').addEventListener('input', (e) => { if (rpt) { rpt.brief = e.target.value; rptSave(); renderReport(); } });
+document.getElementById('rptAudience').addEventListener('input', (e) => { if (rpt) { rpt.audience = e.target.value; rptSave(); } });
+document.getElementById('rptVoiceNotes').addEventListener('input', (e) => { if (rpt) { rpt.voice.notes = e.target.value; rptSave(); } });
+document.getElementById('rptSliders').addEventListener('input', (e) => {
+  const k = e.target.dataset.k;
+  if (!rpt || !k) return;
+  rpt.sliders[k] = Number(e.target.value);
+  document.getElementById('rptSV_' + k).textContent = RPT_SLIDERS.find(x => x[0] === k)[2][rpt.sliders[k] - 1];
+  rptSave();
+});
+document.getElementById('rptChecks').addEventListener('change', (e) => { const k = e.target.dataset.k; if (rpt && k) { rpt.checks[k] = e.target.checked; rptSave(); } });
+// Files, one at a time, with any failure named in the status.
+async function rptEachFile(input, fn) {
+  const files = [...input.files];
+  input.value = '';
+  const errs = [];
+  for (const f of files) {
+    setReportStatus('info', 'Reading ' + f.name + '…');
+    try { await fn(f); } catch (err) { errs.push(err && err.message ? err.message : String(err)); }
+  }
+  setReportStatus(errs.length ? 'error' : '', errs.join('; '));
+  if (rpt) { rptSave(); rptRenderLists(); renderReport(); }
+}
+document.getElementById('rptBriefFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
+  const t = await rptFileText(f);
+  rpt.brief = (rpt.brief.trim() ? rpt.brief.trim() + '\n\n' : '') + t;
+  document.getElementById('rptBrief').value = rpt.brief;
+}));
+document.getElementById('rptEmailAdd').addEventListener('click', () => {
+  const box = document.getElementById('rptEmailPaste');
+  if (!rpt || !box.value.trim()) return;
+  rpt.emails.push(Object.assign({ id: 'e' + Date.now().toString(36) }, rptParsePasted(box.value)));
+  box.value = '';
+  rptSave(); rptRenderLists(); renderReport();
+});
+document.getElementById('rptEmailFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
+  const em = /\.eml$/i.test(f.name) ? rptParseEml(await f.text()) : Object.assign({ subject: f.name }, rptParsePasted(await rptFileText(f)));
+  rpt.emails.push(Object.assign({ id: 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5) }, em));
+}));
+document.getElementById('rptVoiceFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
+  const t = await rptFileText(f);
+  if (!t.trim()) throw new Error(f.name + ' has no text (a scanned PDF?)');
+  rpt.voice.samples.push({ id: 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name: f.name, text: t });
+}));
+document.getElementById('rptOccurdFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => { rpt.occurd.push(rptReadOccurd(f.name, await f.text())); }));
+document.getElementById('rptKmlFile').addEventListener('change', (e) => rptEachFile(e.target, async (f) => {
+  const { out, skipped } = await rptReadKml(f);
+  if (!out.length) throw new Error(f.name + ' has no polygons' + (skipped ? ' (' + skipped + ' points or lines left out)' : ''));
+  out.forEach(x => addAreaFromGeometry(x.geometry, x.name));
+  map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
+  if (skipped) throw new Error(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
+}));
+['rptEmailList', 'rptVoiceList', 'rptOccurdList'].forEach(id => document.getElementById(id).addEventListener('click', (e) => {
+  const item = e.target.closest('.rpt-item');
+  if (!item || !rpt) return;
+  const del = e.target.dataset.del, open = e.target.dataset.open, iid = item.dataset.id;
+  if (del === 'email') rpt.emails = rpt.emails.filter(x => x.id !== iid);
+  else if (del === 'sample') rpt.voice.samples = rpt.voice.samples.filter(x => x.id !== iid);
+  else if (del === 'occurd') rpt.occurd = rpt.occurd.filter(x => x.id !== iid);
+  else if (open === 'email') rptOpenEmail = rptOpenEmail === iid ? null : iid;
+  else if (open === 'sample') rptOpenSample = rptOpenSample === iid ? null : iid;
+  else return;
+  if (del) { rptSave(); renderReport(); }
+  rptRenderLists();
+}));
+document.getElementById('reportFacts').addEventListener('change', (e) => {
+  const x = rpt && rpt.facts.find(f => f.id === e.target.dataset.id);
+  if (!x) return;
+  x.include = e.target.checked;
+  e.target.closest('.rpt-fact').classList.toggle('out', !x.include);
+  rptSave();
+  rptRenderMetrics();
+});
+document.getElementById('rptCsvBtn').addEventListener('click', () => {
+  if (!rpt || !rpt.facts.length) return;
+  const out = [['id', 'include', 'area', 'section', 'fact', 'source'].join(',')].concat(rpt.facts.map(x => [x.id, x.include ? 'yes' : 'no', x.area, x.section, x.text, x.source].map(csvCell).join(',')));
+  downloadText((rpt.title || 'report').replace(/[^\w-]+/g, '_') + '_facts.csv', out.join('\n') + '\n', 'text/csv');
+});
+document.getElementById('rptRunBtn').addEventListener('click', rptRun);
+rptInit();
+
 function setAppTab(tab) {
   appTab = tab;
   document.querySelectorAll('.app-tab').forEach(b => {
@@ -7302,17 +8051,20 @@ function setAppTab(tab) {
   document.getElementById('resultsPane').classList.toggle('physical-mode', tab === 'physical');
   document.querySelector('.sidebar').classList.toggle('cover-mode', tab === 'cover');
   document.getElementById('resultsPane').classList.toggle('cover-mode', tab === 'cover');
+  document.querySelector('.sidebar').classList.toggle('report-mode', tab === 'report');
+  document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
   map.closePopup();
   if (tab === 'lidar') lidarAreasChanged();
   if (tab === 'climate') climateAreasChanged();
   if (tab === 'physical') physicalAreasChanged();
   if (tab === 'cover') coverAreasChanged();
+  if (tab === 'report') reportAreasChanged();
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover') setAppTab(t); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
@@ -7355,6 +8107,7 @@ function onEeInitSuccess() {
   syncClimateControls();
   syncPhysicalControls();
   syncCoverControls();
+  syncReportControls();
   mapStack.refresh();
 }
 

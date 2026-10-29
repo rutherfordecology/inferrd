@@ -249,6 +249,14 @@ local gauge; it is for comparing with normal and for timing. NZ station
 records are in Earth Sciences New Zealand's (formerly NIWA's) DataHub, which
 needs its own registration and licence, so they aren't used.
 
+### Report tab
+
+Gathers what a report is built from: the brief, clarifying emails, areas
+from KML or KMZ, species records exported from occurd., writing settings
+and samples of your own writing. "Gather the facts" runs the other tabs'
+checks and builds a fact sheet of measured values with their sources and
+no interpretation. Kept in the browser; nothing is sent anywhere.
+
 ### Map layers
 
 Every tab's map layers go in one list at the bottom left of the map:

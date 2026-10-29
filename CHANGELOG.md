@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.48.0 — 2026-10-30
+
+- **New Report tab, stages 1 and 2 of the report maker.** A report holds
+  the project brief (typed, pasted, or read from Word, PDF, text or email
+  files), the clarifying emails (pasted, or .eml, Word, PDF or text files,
+  sorted by date), its areas (from KML or KMZ files, one area per polygon
+  placemark, or drawn), species records exported from occurd., writing
+  settings (length, tone, reading level, who it's for) and samples of the
+  author's own reports with notes on how they write. Reports are kept in
+  this browser (IndexedDB), several at once; nothing on the tab is sent
+  anywhere.
+- **Fact sheet.** "Gather the facts" runs the Physical, Land cover and
+  Climate checks on the report's areas (or reuses results already there),
+  takes LiDAR from the LiDAR tab where loaded, and reads the occurd. files
+  as exported, NZTCS statuses included (the report does no species
+  matching of its own). The result is a numbered list of measured values,
+  each with its source and no interpretation, grouped by area and section;
+  any fact can be unticked, and the list downloads as CSV. What the facts
+  mean is left to the author: asking about it is the next stage.
+- Climate runs can now be waited on by other code (no change on the
+  Climate tab).
+
 ## v0.47.0 — 2026-10-30
 
 - **Map layers list, across every tab.** One list at the bottom left of
