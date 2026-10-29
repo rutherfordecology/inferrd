@@ -586,6 +586,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <span class="range-val" id="lidarEmergentMVal" style="min-width:44px;">auto</span>
           </div>
         </div>
+        <label style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin:0.2rem 0 0.6rem;" title="Leaves out cells far above everything around them and too narrow to be a tree crown: power lines, pylons, masts. A tall tree's crown is wide enough to stay in."><input type="checkbox" id="lidarWireChk" checked style="margin-top:2px;">Leave out power lines and pylons</label>
         <div class="lidar-legend" id="lidarLegend"></div>
         <button class="run-btn" id="lidarRunBtn" type="button" disabled>Load LiDAR</button>
         <div class="status-bar" id="lidarStatus"></div>
@@ -1018,7 +1019,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.43.1';
+const APP_VERSION = 'v0.44.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4571,6 +4572,16 @@ let lidarEmergentM = null; // null: the tallest 10% of the cover over 2 m
 try { const s = localStorage.getItem('inferrd.lidarScheme'); if (LIDAR_SCHEMES[s]) lidarScheme = s; } catch (e) {}
 const LIDAR_ELEV_RAMP =[[0, '#3a7d44'], [0.25, '#a3c46c'], [0.5, '#f0e08a'], [0.75, '#c99a5b'], [0.9, '#8c5a3c'], [1, '#f5f0ea']];
 const LIDAR_SPIKE_M = 100; // taller than any NZ tree: birds, wires, return errors
+// Power lines and pylons: a cell is left out when fewer than a quarter of
+// the cells within ~3 m come within LIDAR_WIRE_CLOSE_M of it (too narrow
+// for a crown: a wire is a line one cell wide, a pylon a thin lattice)
+// and it stands over LIDAR_WIRE_ABOVE_M above the middle of them. An
+// emergent tree's crown is several metres across, so its top has plenty
+// of near neighbours and stays in.
+const LIDAR_WIRE_CLOSE_M = 5;
+const LIDAR_WIRE_ABOVE_M = 10;
+let lidarWires = true;
+try { lidarWires = localStorage.getItem('inferrd.lidarWires') !== '0'; } catch (e) {}
 
 let appTab = 'infrared';
 let lidarSurveyKey = null;   // the areas the survey list was found for, see lidarAreasKey()
@@ -5160,6 +5171,19 @@ lidarEmergentEl.addEventListener('input', () => {
   renderLidarLegend();
 });
 lidarEmergentEl.addEventListener('change', () => { if (lidarSets.length) { renderLidarLayers(); renderLidarResultsAll(); } });
+const lidarWireEl = document.getElementById('lidarWireChk');
+lidarWireEl.checked = lidarWires;
+lidarWireEl.addEventListener('change', () => {
+  lidarWires = lidarWireEl.checked;
+  try { localStorage.setItem('inferrd.lidarWires', lidarWires ? '1' : '0'); } catch (e) {}
+  if (!lidarSets.length) return;
+  lidarSets.forEach(lidarApplyWires);
+  lidarComputeChange();
+  lidarPool = lidarPooled();
+  map.closePopup();
+  renderLidarLayers();
+  renderLidarResultsAll();
+});
 document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => b.addEventListener('click', () => {
   if (b.disabled || b.dataset.layer === lidarLayer) return;
   lidarLayer = b.dataset.layer;
@@ -5273,21 +5297,22 @@ async function lidarLoad() {
       if (runId !== lidarRunId) return;
       await new Promise(r => setTimeout(r, 0));
       const mask = lidarMask(polys, g);
-      let height = null;
+      let heightRaw = null, wires = null;
       if (dsm) {
-        height = new Float32Array(dem.length);
+        heightRaw = new Float32Array(dem.length);
         for (let i = 0; i < dem.length; i++) {
           const v = dsm[i] - dem[i];
-          height[i] = v !== v || v > LIDAR_SPIKE_M ? NaN : Math.max(0, v);
+          heightRaw[i] = v !== v || v > LIDAR_SPIKE_M ? NaN : Math.max(0, v);
         }
+        wires = lidarWireCells(heightRaw, mask, g);
       }
-      const d = { key: areaKey(a), areaId: a.id, areaIdx: k, areaName: a.name, geojson: a.geojson, survey, surveyIdx: sk, surveyShort: shortOf(sk), grid: g, dem, dsm, height, mask,
+      const d = { key: areaKey(a), areaId: a.id, areaIdx: k, areaName: a.name, geojson: a.geojson, survey, surveyIdx: sk, surveyShort: shortOf(sk), grid: g, dem, dsm, heightRaw, wires, height: null, mask,
         // Over time with one area, each survey has its own colour; with
         // several areas, each area keeps its colour and surveys get dashes.
         color: multiSurvey && !multiArea ? SURVEY_COLORS[sk] : a.color, dash: multiSurvey && multiArea ? SURVEY_DASHES[sk] : '',
         label: multiSurvey ? (multiArea ? a.name + ' · ' : '') + shortOf(sk) : a.name,
         elevRange: lidarPercentileOf(dem, mask, [0.02, 0.98]) };
-      d.stats = lidarStats(d);
+      lidarApplyWires(d);
       sets.push(d);
     }
     // Each area's surveys together, oldest first.
@@ -5313,9 +5338,64 @@ async function lidarLoad() {
 }
 document.getElementById('lidarRunBtn').addEventListener('click', lidarLoad);
 
+// Cells inside the area that look like power lines or pylons (see
+// LIDAR_WIRE_CLOSE_M), as a 0/1 mask over the grid.
+function lidarWireCells(h, mask, g) {
+  const W = g.W, H = g.H, r = Math.max(1, Math.round(3 / g.res)), out = new Uint8Array(h.length), win = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, v = h[i];
+    if (!mask[i] || !(v > LIDAR_WIRE_ABOVE_M)) continue;
+    let n = 0, close = 0;
+    for (let yy = Math.max(0, y - r); yy <= Math.min(H - 1, y + r); yy++) for (let xx = Math.max(0, x - r); xx <= Math.min(W - 1, x + r); xx++) {
+      const u = h[yy * W + xx];
+      if (u !== u || (yy === y && xx === x)) continue;
+      n++; if (u >= v - LIDAR_WIRE_CLOSE_M) close++;
+    }
+    if (!n || close >= n / 4) continue;
+    win.length = 0;
+    for (let yy = Math.max(0, y - r); yy <= Math.min(H - 1, y + r); yy++) for (let xx = Math.max(0, x - r); xx <= Math.min(W - 1, x + r); xx++) {
+      const u = h[yy * W + xx];
+      if (u === u) win.push(u);
+    }
+    win.sort((p, q) => p - q);
+    if (v - win[win.length >> 1] > LIDAR_WIRE_ABOVE_M) out[i] = 1;
+  }
+  // The top of a spiky crown can fail that test, but it sits just above
+  // a crown cell that passed; a wire is far above everything beside it.
+  // Two steps, so a sagging wire can't be climbed back in cell by cell.
+  for (let pass = 0; pass < 2; pass++) {
+    const back = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!out[i]) continue;
+      let kept = false;
+      for (let yy = Math.max(0, y - 1); yy <= Math.min(H - 1, y + 1) && !kept; yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(W - 1, x + 1); xx++) {
+        const j = yy * W + xx;
+        if (!out[j] && h[j] === h[j] && h[i] - h[j] <= LIDAR_WIRE_CLOSE_M && h[j] > LIDAR_WIRE_ABOVE_M) { kept = true; break; }
+      }
+      if (kept) back.push(i);
+    }
+    back.forEach(i => { out[i] = 0; });
+  }
+  return out;
+}
+
+// Sets d.height from the raw heights, without the power-line cells when
+// that's ticked, and its stats.
+function lidarApplyWires(d) {
+  if (d.heightRaw) {
+    d.height = d.heightRaw;
+    if (lidarWires && d.wires.some(Boolean)) {
+      d.height = d.heightRaw.slice();
+      d.wires.forEach((w, i) => { if (w) d.height[i] = NaN; });
+    }
+  }
+  d.stats = lidarStats(d);
+}
+
 function lidarStats(d) {
   const g = d.grid, cellHa = g.res * g.res / 10000;
-  let inside = 0, withDem = 0, withH = 0, spikes = 0, zMin = Infinity, zMax = -Infinity, zSum = 0, hSum = 0, hMax = -Infinity, hMaxI = -1;
+  let inside = 0, withDem = 0, withH = 0, spikes = 0, wires = 0, zMin = Infinity, zMax = -Infinity, zSum = 0, hSum = 0, hMax = -Infinity, hMaxI = -1;
   const classN = LIDAR_CLASSES.map(() => 0);
   const fine = new Uint32Array(LIDAR_SPIKE_M * 10 + 1); // 0.1 m bins, for percentiles
   for (let i = 0; i < d.mask.length; i++) {
@@ -5325,14 +5405,14 @@ function lidarStats(d) {
     if (z === z) { withDem++; zSum += z; if (z < zMin) zMin = z; if (z > zMax) zMax = z; }
     if (!d.height) continue;
     const h = d.height[i];
-    if (h !== h) { if (z === z && d.dsm[i] === d.dsm[i]) spikes++; continue; }
+    if (h !== h) { if (z === z && d.dsm[i] === d.dsm[i]) { if (d.wires[i] && d.heightRaw[i] === d.heightRaw[i]) wires++; else spikes++; } continue; }
     withH++; hSum += h;
     if (h > hMax) { hMax = h; hMaxI = i; }
     classN[LIDAR_CLASSES.findIndex(c => h >= c.lo && h < c.hi)]++;
     fine[Math.min(fine.length - 1, Math.floor(h * 10))]++;
   }
   const pct = (p) => { let acc = 0; const target = p * withH; for (let k = 0; k < fine.length; k++) { acc += fine[k]; if (acc >= target) return k / 10; } return NaN; };
-  return { cellHa, inside, withDem, withH, spikes, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, hMax, hMaxI, p50: pct(0.5), p95: pct(0.95), classN, fine };
+  return { cellHa, inside, withDem, withH, spikes, wires, zMin, zMax, zMean: zSum / withDem, hMean: hSum / withH, hMax, hMaxI, p50: pct(0.5), p95: pct(0.95), classN, fine };
 }
 
 // Emergents cut-off. from: the height where pink starts (the slider's, or
@@ -5540,6 +5620,7 @@ function renderLidarCompareChart() {
 function renderLidarNotes() {
   const ls = loadedSurveys(), anyH = lidarSets.some(d => d.height), res = lidarSets[0].grid.res;
   const spikes = lidarSets.reduce((t, d) => t + d.stats.spikes, 0);
+  const wires = lidarSets.reduce((t, d) => t + d.stats.wires, 0);
   const gaps = lidarSets.filter(d => d.stats.withDem < d.stats.inside);
   const notes = [
     '<p>' + ls.map(s => '<strong>' + escHtml(s.title) + '</strong>, flown ' + surveyDates(s)).join('; ') + '. Heights are for ' + (ls.length > 1 ? 'those dates' : 'then') + ', not now: anything cleared, planted or grown since won\'t show.</p>',
@@ -5549,6 +5630,7 @@ function renderLidarNotes() {
     lidarSets.length > 1 ? '<p>Each area is measured on its own; where areas overlap (a drawn box and the covenants inside it), the overlap counts in each.</p>' : '',
     res > 1 ? '<p>' + (lidarSets.length > 1 ? 'These areas were' : 'This area was') + ' read at ' + res + ' m to keep ' + (lidarSets.length > 1 ? 'them' : 'it') + ' manageable in the browser, which smooths heights further. Smaller or fewer areas give full 1 m detail.</p>' : '',
     spikes ? '<p>' + spikes.toLocaleString() + ' cells over ' + LIDAR_SPIKE_M + ' m tall were left out as noise (birds, wires or stray returns).</p>' : '',
+    wires ? '<p>' + wires.toLocaleString() + ' cells (' + fmtHa(wires * lidarSets[0].stats.cellHa) + ' ha) were left out as power lines or pylons: over ' + LIDAR_WIRE_ABOVE_M + ' m above the cells around them and too narrow for a tree crown. Untick "Leave out power lines and pylons" to put them back. A very slim lone tree, such as a young poplar, can be caught too; wires sagging close to the canopy are not.</p>' : '',
     gaps.length ? '<p>No LiDAR in this survey for part of ' + gaps.map(d => escHtml(d.areaName) + ' (' + lpc(d.stats.inside - d.stats.withDem, d.stats.inside) + ')').join(', ') + ': outside the flown area, or water.</p>' : ''
   ];
   document.getElementById('lidarNotes').innerHTML = notes.join('');
@@ -5584,16 +5666,17 @@ map.on('click', (e) => {
     const c = Math.floor((q[0] - g.x0) / g.res), r = Math.floor((g.y1 - q[1]) / g.res);
     if (c < 0 || r < 0 || c >= g.W || r >= g.H || !d.mask[r * g.W + c]) continue;
     const i = r * g.W + c, m = (v) => v === v ? v.toFixed(1) + ' m' : 'no data';
+    const hm = (x) => x.height[i] !== x.height[i] && x.wires && x.wires[i] && lidarWires ? 'left out: power line or pylon (' + x.heightRaw[i].toFixed(1) + ' m)' : m(x.height[i]);
     const row = (k2, v) => '<tr><td style="color:var(--text3);padding-right:10px;">' + k2 + '</td><td style="text-align:right;font-weight:600;">' + v + '</td></tr>';
     const same = lidarSets.filter(x => x.areaId === d.areaId);  // this area in every loaded survey
     let body;
     if (same.length > 1) {
       const last = same[same.length - 1];
-      body = same.map(x => row('Height, ' + escHtml(x.surveyShort), x.height ? m(x.height[i]) : 'no DSM')).join('') +
+      body = same.map(x => row('Height, ' + escHtml(x.surveyShort), x.height ? hm(x) : 'no DSM')).join('') +
         (last.change ? row('Change', last.change[i] === last.change[i] ? (last.change[i] > 0 ? '+' : '') + last.change[i].toFixed(1) + ' m' : 'no data') : '') +
         row('Ground, ' + escHtml(last.surveyShort), m(last.dem[i]));
     } else {
-      body = row('Ground (DEM)', m(d.dem[i])) + (d.dsm ? row('Surface (DSM)', m(d.dsm[i])) + row('Vegetation height', m(d.height[i])) : '');
+      body = row('Ground (DEM)', m(d.dem[i])) + (d.dsm ? row('Surface (DSM)', m(d.dsm[i])) + row('Vegetation height', hm(d)) : '');
     }
     const multiArea = new Set(lidarSets.map(x => x.areaId)).size > 1;
     L.popup().setLatLng(e.latlng).setContent((multiArea ? '<div style="font-size:11.5px;color:var(--text2);margin-bottom:3px;">' + escHtml(d.areaName) + '</div>' : '') +

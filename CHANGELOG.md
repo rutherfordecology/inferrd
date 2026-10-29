@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.44.0 — 2026-10-30
+
+- **LiDAR: power lines and pylons are left out of vegetation height.** A
+  cell is dropped when it stands over 10 m above the middle of the cells
+  within ~3 m and fewer than a quarter of them come within 5 m of it:
+  too narrow to be a tree crown. Emergent trees keep their tops, since
+  their crowns are several metres wide, and the tip of a spiky crown that
+  sits just above the rest of it is put back. The notes say how many
+  cells were dropped, and clicking one shows "left out: power line or
+  pylon" with its height. "Leave out power lines and pylons" under Layer
+  (on by default) turns it off, without reloading. A very slim lone tree
+  in the open, such as a young poplar about 3 m across, can be caught too.
+
 ## v0.43.1 — 2026-10-29
 
 - The base colour (header, buttons, selection, rules) is now a warmer
