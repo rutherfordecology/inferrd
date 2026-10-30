@@ -1263,7 +1263,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.51.2';
+const APP_VERSION = 'v0.51.3';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -8283,10 +8283,13 @@ function buildYearComposite(region, year, maxCloudPct, indexName, startMonth, en
 // its 100 km tile and cloudy here). n_clear is the number of clear looks
 // the typical pixel of the area actually got: the median, over the area,
 // of each pixel's count of unmasked images. 20 m is plenty for a median.
+// An empty collection (a month still to come, or one with no scene under
+// the cloud limit) counts to a band-less image that unmask() rejects, so
+// it short-circuits to 0.
 function clearViews(col, indexName, region) {
-  const v = col.select(indexName).count().unmask(0).clip(region).reduceRegion({
+  const v = ee.Algorithms.If(col.size().gt(0), col.select(indexName).count().unmask(0).clip(region).reduceRegion({
     reducer: ee.Reducer.median(), geometry: region, scale: 20, maxPixels: 1e9, bestEffort: true, tileScale: 2
-  }).values().get(0);
+  }).values().get(0), 0);
   return ee.Algorithms.If(v, v, 0);
 }
 

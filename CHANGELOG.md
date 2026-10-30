@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.51.3 — 2026-10-30
+
+- **Monthly detail no longer fails in the current year.** With "Also fetch
+  monthly detail" ticked and the end year set to this year, every run failed
+  with "Image.unmask: If one image has no bands": the months still to come
+  (and any month with no scene under the cloud limit) have no images, and
+  counting clear views on an empty collection broke. Those months now count
+  0 clear views and show as gaps.
+
 ## v0.51.2 — 2026-10-30
 
 - **Change dates labelled From and To.** The two dates in "Change between
