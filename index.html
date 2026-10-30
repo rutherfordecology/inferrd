@@ -101,12 +101,29 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 #lidarPanel, #climatePanel, #physicalPanel, #coverPanel, #reportPanel { display: flex; flex-direction: column; flex: 1; }
 .phys-bar { display: flex; height: 14px; overflow: hidden; background: var(--surface2); }
 .phys-sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
-/* Map layers list (one for every tab) */
-.mstack { background: var(--white); border: 1px solid var(--rule); width: 300px; max-width: calc(100vw - 24px); font-family: var(--font-sans); font-size: 12.5px; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
-.mstack-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 7px 10px; font: 600 11px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); cursor: pointer; text-align: left; }
-.mstack-head .n { font-weight: 400; color: var(--text3); letter-spacing: normal; text-transform: none; }
-.mstack-head .chev { margin-left: auto; color: var(--text3); }
-.mstack-list { list-style: none; margin: 0; padding: 0 8px 6px; max-height: 46vh; overflow-y: auto; border-top: 1px solid var(--rule); }
+/* Layers panel (one for every layer and every tab), right of the map */
+.lpanel { background: var(--white); border: 1px solid var(--rule); width: 310px; max-width: calc(100vw - 24px); font-family: var(--font-sans); font-size: 12.5px; color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.15); display: flex; flex-direction: column; }
+.lpanel-head { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--rule); background: var(--surface2); }
+.lpanel-fold { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; line-height: 1; padding: 0 4px 0 0; }
+.lpanel.folded { width: 34px; }
+.lpanel.folded .lpanel-head { justify-content: center; padding: 8px 0; border-bottom: none; }
+.lpanel.folded .lpanel-head strong, .lpanel.folded .lpanel-body { display: none; }
+.lpanel-body { overflow-y: auto; padding: 0 10px 10px; min-height: 0; }
+.lpanel-h { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 9px 0 4px; font: 600 10.5px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); text-align: left; }
+.lpanel-tog { cursor: pointer; }
+.lpanel-h .n { font-weight: 400; color: var(--text3); letter-spacing: normal; text-transform: none; }
+.lpanel-h .chev, .lpanel-grp .chev { margin-left: auto; color: var(--text3); }
+.lpanel-grp { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 6px 0 3px; font: 600 10px var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text3); cursor: pointer; text-align: left; }
+.lpanel-grp .chev { order: 2; }
+.lpanel-sec + .lpanel-sec { border-top: 1px solid var(--rule); margin-top: 6px; }
+.lpanel-none, .lpanel-lock { font-size: 11.5px; color: var(--text3); line-height: 1.45; padding: 2px 0 4px; }
+.lpanel-cond { font-size: 11px; color: var(--text2); padding: 0 0 4px; }
+.lpanel-sub { font-size: 10px; color: var(--text3); margin: 2px 0; }
+.lpanel-foot { border-top: 1px solid var(--rule); margin-top: 8px; padding-top: 9px; }
+.lpanel-foot .run-btn { width: 100%; }
+.lpanel-msg { font-size: 11.5px; color: var(--text2); line-height: 1.45; margin-top: 6px; }
+.lpanel-msg a { color: var(--orange-dark); }
+.mstack-list { list-style: none; margin: 0; padding: 0; }
 .mstack-row { display: grid; grid-template-columns: 12px 24px 16px minmax(0, 1fr) 64px; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--rule); }
 .mstack-row.off .mstack-name, .mstack-row.off .mstack-sw { opacity: 0.4; }
 .mstack-row.drop-above { box-shadow: inset 0 2px 0 var(--base); }
@@ -180,14 +197,18 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .mode-btn.active { background: var(--white); border-color: var(--base); border-left: 4px solid var(--base); padding-left: 8px; }
 .mode-name { font-size: 13px; font-weight: 600; }
 .mode-btn.active .mode-name { color: var(--base); }
-/* occurd.'s Layers panel stays on screen in inferrd.: no ✕, and a chevron
-   on its left edge folds it to a strip at the right of the map. */
-#layersPanel #lyrClose { display: none; }
-#layersPanel.lyr-folded { width: 34px !important; overflow: hidden !important; }
-#layersPanel.lyr-folded > div:first-child > :not(#lyrSide), #layersPanel.lyr-folded > :not(:first-child) { display: none !important; }
-#layersPanel.lyr-folded > div:first-child { padding: 8px 0 !important; justify-content: center !important; border-bottom: none !important; }
-#lyrSide { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; line-height: 1; padding: 0 6px 0 0; }
-#layersPanel.lyr-folded #lyrSide { padding: 0; }
+/* Cut an area by a layer */
+.area-cut { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 12px; color: var(--orange-dark); line-height: 1; }
+.cut-dlg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100000; display: grid; place-items: center; padding: 16px; }
+.cut-dlg[hidden] { display: none; }
+.cut-box { background: var(--white); border: 1px solid var(--rule); width: 420px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 14px 16px; font-family: var(--font-sans); font-size: 12.5px; color: var(--text); }
+.cut-box label.f { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin: 10px 0 4px; }
+.cut-box select, .cut-box input[type=number] { font-size: 12.5px; font-family: var(--font-sans); padding: 4px 6px; border: 1px solid var(--border); }
+.cut-box select { width: 100%; }
+.cut-classes { display: flex; flex-direction: column; gap: 3px; max-height: 190px; overflow-y: auto; }
+.cut-classes label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.cut-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.cut-actions .run-btn { width: auto; padding: 7px 14px; margin: 0; }
 .leaflet-tooltip.cond-label { background: transparent; border: none; box-shadow: none; padding: 0; color: #fff; font-weight: 700; font-size: 12px; text-shadow: 0 0 3px #000, 0 0 3px #000; }
 .leaflet-tooltip.cond-label::before { display: none; }
 .mode-desc { font-size: 11.5px; color: var(--text2); line-height: 1.4; }
@@ -315,11 +336,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabReport" data-tab="report" type="button" role="tab" aria-selected="false" title="Build a report: brief, emails, areas, and a fact sheet from the other tabs and occurd.">Report</button>
   </nav>
   <div class="header-right">
-    <div id="projectsDropWrap" style="position:relative;">
-      <button id="projectsDropBtn" class="about-btn" title="Project-specific layers">Projects ▾</button>
-      <div id="projectsMenu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:0;z-index:99999;min-width:220px;overflow:hidden;"></div>
-    </div>
-    <span class="sep">|</span>
     <a href="https://occurd.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="about-btn">occurd. ↗</a>
     <span class="sep">|</span>
     <a href="https://buymeacoffee.com/rutherfordecology" target="_blank" rel="noopener" class="about-btn" style="color:rgba(255,255,255,0.85);font-weight:500;">☕ Buy me a coffee</a>
@@ -720,16 +736,15 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">2 · Areas</div>
-        <div class="instruction-box">Draw one or more areas, or add them from a layer, then check them. Only what turns out to matter for an area is reported; the rest is listed as checked.</div>
+        <div class="instruction-box">Draw one or more areas, or add them from a layer, then press <strong>Check areas against layers</strong> at the foot of the Layers panel. Only what turns out to matter for an area is reported; the rest is listed as checked.</div>
         <div id="coverAreaList"></div>
         <div class="poly-empty" id="coverAreaEmpty">No areas drawn yet</div>
-        <button class="run-btn" id="coverRunBtn" type="button" disabled>Check land cover</button>
         <div class="status-bar" id="coverStatus"></div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field-hint" style="margin:0;">What was found goes in the <strong>Map layers</strong> list on the map, with the layers from the other tabs: switch each on or off, fade it, and drag it up or down. Only layers that found something for your areas are listed.</div>
+        <div class="field-hint" style="margin:0;">The land cover layers are under <strong>Land cover</strong> in the Layers panel on the map, for your areas: switch each on or off, fade it, and drag it up or down. ✂ on an area cuts it to a land cover class, or by any other layer.</div>
       </div>
 
       <div class="sidebar-footer">
@@ -754,7 +769,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field-hint" style="margin:0;">What was found goes in the <strong>Map layers</strong> list on the map, with the layers from the other tabs: switch each on or off, fade it, and drag it up or down. Click the map inside an area for what is mapped there.</div>
+        <div class="field-hint" style="margin:0;">What was found goes under <strong>Physical</strong> in the Layers panel on the map: switch each layer on or off, fade it, and drag it up or down. Click the map inside an area for what is mapped there.</div>
       </div>
 
       <div class="sidebar-footer">
@@ -837,7 +852,15 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div id="coverResults">
         <div class="results-empty" id="coverEmpty">
           <span class="big">◌</span>
-          Draw an area and check its land cover.
+          Draw an area and check it against the layers.
+        </div>
+        <div class="table-card" id="refCheckCard" style="display:none">
+          <div class="table-card-head">
+            <div class="card-title" style="margin:0;">Reference layers</div>
+            <button class="dl-btn" id="refCheckCsvBtn" type="button">&#8595; Layer check CSV</button>
+          </div>
+          <div id="refCheckBody"></div>
+          <div class="field-hint" style="margin:6px 0 0;">Every area against every reference layer. Published GIS layers, not the legal plan maps: confirm anything decisive against the operative plan. The CSV has a row for every area and layer, including those with nothing.</div>
         </div>
         <div id="coverContent" style="display:none">
           <div class="table-card-head" id="coverAreaHead" style="display:none;margin-bottom:8px;">
@@ -1191,8 +1214,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
     <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery.</p>
 
-    <h3>Map layers</h3>
-    <p>Every map layer, from every tab, goes in one <strong>Map layers</strong> list at the bottom left of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down, so it draws over or under the others. Layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. A layer is only listed once it has something to show: the index preview, change map and condition trend once you show them, LiDAR once loaded, and the Physical and Land cover layers once those tabs have checked the areas (and only those that found something). The list remembers its order, opacities and what is on in this browser.</p>
+    <h3>Layers</h3>
+    <p>Every layer is in one <strong>Layers</strong> panel on the right of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down among its own kind, so it draws over or under the others. The chevron folds the panel to the side. It has three parts. <strong>This tab</strong> lists the data layers the open tab makes: the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, and the six Land cover layers whenever there are areas. <strong>Other tabs</strong> (folded) lists what the other tabs have made; those layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. <strong>Reference layers</strong> are occurd.'s polygon layers, the same on every tab (below). Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
+    <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the land cover layers (land cover, change, tree loss, canopy height, surface water and fire) and against every reference layer. The results are on the Land cover tab, each with its CSV.</p>
+    <p><strong>Cut an area by a layer:</strong> ✂ on an area keeps only the part of it inside a layer, or only the part outside, as a new area named after both; the original stays. It can be any tab's layer: a WorldCover or Dynamic World class, canopy over a height, tree cover loss, surface water, a slope class or elevation band, or a reference layer's shapes. Earth Engine layers are cut at their own pixels (10 or 30 m). "Cut areas to this" in a reference-layer popup cuts each area that touches that one shape.</p>
 
     <h3>Land cover tab</h3>
     <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: land cover in 2021 (ESA WorldCover, 10 m), change in land cover from 2016 to last year (Dynamic World, 10 m), tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m), surface water since 1984 (EC JRC Global Surface Water, 30 m), and fire since 2001 (MODIS burned area, 500 m, and FIRMS fire detections, 1 km). Land cover is always shown; the others only when they find something for that area, such as tree loss of more than about two pixels, a class moving by 3 percentage points or more, vegetation 3 m or taller over at least 5% of the area, any surface water, or any fire. What was checked and found nothing is listed in one line each, and everything goes in the CSV. These layers are good at forest against pasture, clearance, water and large fires, and poor at native against exotic or at anything a few pixels across.</p>
@@ -1208,8 +1233,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
 
     <h3>Reference layers</h3>
-    <p><strong>Draw to select:</strong> with the QEII layer on, or the Layers panel open, drawing a shape also adds each covenant it overlaps, and each area of the ticked layers lying within it, as its own area. Your drawn shape is kept.</p>
-    <p><strong>Projects ▾ → Layers</strong> (password protected) adds occurd.'s reference layers to the map: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants and Gisborne District Council plan layers. The panel can also check each drawn area against every layer and download the result as a CSV. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a covenant or layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
+    <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
+    <p><strong>Reference layers</strong> (password protected, in the Layers panel) are occurd.'s layers: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants, NIWA river catchments and Gisborne District Council plan layers. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
 
     <h3>Your data, your account</h3>
     <p>inferrd. runs in your browser and talks to Google Earth Engine through a shared Rutherford Ecology service account. An access key is swapped, via a small Cloudflare Worker, for a short-lived read-only token — there is no Google sign-in. The boundaries you draw and your results stay in your browser and are never stored on a server.</p>
@@ -1263,7 +1288,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.51.3';
+const APP_VERSION = 'v0.52.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1415,30 +1440,49 @@ map.getPane('areaHalo').style.pointerEvents = 'none';
 const areaHalos = L.layerGroup().addTo(map);
 
 /* ---------------------------------------------------------------------
-   Map layers — one list for every tab, like layers in Photoshop. Each
-   layer has its own map pane, so it has its own eye and opacity and stacks
-   in list order (drag a row to move it). Layers stay on the map when you
-   change tab, so LiDAR heights can sit over geology, or tree loss over an
-   index preview. A layer is only listed once it has something to show.
+   Layers — one panel on the right of the map for every layer, in three
+   parts:
+     · this tab: the data layers the open tab makes (index preview, LiDAR,
+       land cover, geology…), and on Infrared the condition-check spots;
+     · other tabs: data layers the other tabs have made, folded away. They
+       stay on the map when you change tab, so LiDAR heights can sit over
+       geology, or tree loss over an index preview;
+     · reference: occurd.'s polygon layers (GDC plan layers, QEII
+       covenants, NIWA catchments, LRIS layers), the same on every tab and
+       unlocked with the Layers password.
+   Like layers in Photoshop, each layer has its own map pane, so it has its
+   own eye and opacity and stacks in list order (drag a row by its grip to
+   move it among its own kind). Reference outlines always sit above the
+   data layers, and both below the areas. At the foot, Check areas tests
+   every area against the land cover layers and every reference layer.
 
-   Two kinds of layer: ones a tab draws itself and just hands a pane to
-   (present(key, true) when there is something in it), and ones the list
-   draws on demand from a draw() function (refresh(prefix) when the data
-   behind them changes).
+   Two kinds of data layer: ones a tab draws itself and just hands a pane
+   to (present(key, true) when there is something in it), and ones the
+   panel draws on demand from a draw() function (refresh(prefix) when the
+   data behind them changes). Reference layers (addRef) are drawn by
+   occurd.'s layers.js into their row's pane.
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', report: 'Report' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('inferrd.mapLayers') || '{}') || {}; } catch (e) {}
   const savedOrder = Array.isArray(saved.order) ? saved.order : [];
-  let open = saved.open !== false, dragKey = null;
+  // Folded parts: other tabs start folded. Folded reference groups are
+  // shared with occurd.'s own Layers panel.
+  const fold = Object.assign({ other: true }, saved.fold || {});
+  let groupsClosed = [];
+  try { groupsClosed = JSON.parse(localStorage.getItem('occurd_layers_closed') || '[]') || []; } catch (e) {}
+  let curTab = 'Infrared', refActive = false, dragKey = null;
   const save = () => {
-    try { localStorage.setItem('inferrd.mapLayers', JSON.stringify({ open, order, state: Object.fromEntries(Object.values(E).map(e => [e.key, { on: e.on, op: e.op }])) })); } catch (err) {}
+    try { localStorage.setItem('inferrd.mapLayers', JSON.stringify({ fold, order, state: Object.fromEntries(Object.values(E).map(e => [e.key, { on: e.on, op: e.op }])) })); } catch (err) {}
   };
-  const avail = (e) => e.draw ? !!e.available() : e.present;
+  // Its own escape: this runs before the page's escHtml is defined.
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const avail = (e) => e.ref ? refActive : e.draw ? !!e.available() : e.present;
   const nameOf = (e) => typeof e.name === 'function' ? e.name() : e.name;
   function applyPane(e) {
     const p = map.getPane(e.pane);
@@ -1446,51 +1490,105 @@ const mapStack = (() => {
     p.style.display = e.on ? '' : 'none';
   }
   function restack() {
-    // Below the area halos (390) and outlines; above the aerial.
-    order.forEach((k, i) => { map.getPane(E[k].pane).style.zIndex = 385 - i; });
+    // Reference outlines above the data layers; all below the area halos (390).
+    order.filter(k => E[k].ref).forEach((k, i) => { map.getPane(E[k].pane).style.zIndex = 385 - i; });
+    order.filter(k => !E[k].ref).forEach((k, i) => { map.getPane(E[k].pane).style.zIndex = 355 - i; });
   }
 
-  const box = L.DomUtil.create('div', 'mstack');
-  box.innerHTML = '<button class="mstack-head" type="button" aria-expanded="true">Map layers <span class="n"></span><span class="chev"></span></button><ul class="mstack-list"></ul>';
+  const box = L.DomUtil.create('div', 'lpanel');
+  box.innerHTML =
+    '<div class="lpanel-head"><button class="lpanel-fold" type="button"></button><strong>Layers</strong></div>' +
+    '<div class="lpanel-body">' +
+      '<div class="lpanel-sec"><div class="lpanel-h" data-h="tab"></div><div class="lpanel-cond"></div><ul class="mstack-list" data-list="tab"></ul><div class="lpanel-none"></div></div>' +
+      '<div class="lpanel-sec" data-sec="other"><button class="lpanel-h lpanel-tog" type="button" data-fold="other"></button><ul class="mstack-list" data-list="other"></ul></div>' +
+      '<div class="lpanel-sec"><button class="lpanel-h lpanel-tog" type="button" data-fold="ref"></button><div class="lpanel-refwrap"><div class="lpanel-groups"></div><div class="lpanel-lock"></div></div></div>' +
+      '<div class="lpanel-foot"></div>' +
+    '</div>';
   L.DomEvent.disableClickPropagation(box);
   L.DomEvent.disableScrollPropagation(box);
-  const head = box.querySelector('.mstack-head'), list = box.querySelector('.mstack-list');
-  const Ctl = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => box });
+  const $ = (s) => box.querySelector(s);
+  const Ctl = L.Control.extend({ options: { position: 'topright' }, onAdd: () => box });
   new Ctl().addTo(map);
-  head.addEventListener('click', () => { open = !open; save(); render(); });
+  // The panel never closes: the chevron folds it to a strip at the right
+  // edge and back, remembered in this browser.
+  function setFolded(f) {
+    box.classList.toggle('folded', f);
+    $('.lpanel-fold').textContent = f ? '‹' : '›';
+    $('.lpanel-fold').title = f ? 'Show layers' : 'Fold layers to the side';
+    try { localStorage.setItem('inferrd.layersFolded', f ? '1' : '0'); } catch (e) {}
+  }
+  // Folded, the condition spot ticks show in the sidebar instead.
+  $('.lpanel-fold').addEventListener('click', () => { setFolded(!box.classList.contains('folded')); renderCondToggles(); });
+  let folded0 = false;
+  try { folded0 = localStorage.getItem('inferrd.layersFolded') === '1'; } catch (e) {}
+  setFolded(folded0);
+  const fit = () => { box.style.maxHeight = Math.max(160, map.getSize().y - 20) + 'px'; };
+  map.on('resize', fit);
+  fit();
 
+  function rowHtml(k, withTab) {
+    const e = E[k], nm = nameOf(e);
+    let key = '';
+    if (e.on && (e.note || (e.legend && e.legend.length))) key = '<li class="mstack-key">' + (e.note ? '<div>' + esc(e.note) + '</div>' : '') +
+      (e.legend || []).map(([c, l]) => '<div><span class="legend-sw" style="background:' + c + '"></span>' + esc(l) + '</div>').join('') + '</li>';
+    return '<li class="mstack-row' + (e.on ? '' : ' off') + '" data-key="' + k + '">' +
+      '<span class="mstack-grip" title="Drag to move up or down">⋮⋮</span>' +
+      '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + esc(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
+      '<span class="mstack-sw" style="background:' + e.swatch + '"></span>' +
+      '<span class="mstack-name" title="' + esc(e.notes || nm) + '">' + esc(nm) + (withTab ? '<small>' + esc(e.tab) + '</small>' : '') + '</span>' +
+      '<input type="range" min="0" max="100" step="5" value="' + Math.round(e.op * 100) + '" aria-label="' + esc(nm) + ' opacity" title="Opacity ' + Math.round(e.op * 100) + '%"></li>' + key;
+  }
+  const onOf = (keys) => keys.filter(k => E[k].on).length + ' of ' + keys.length + ' on';
   function render() {
-    const shown = order.filter(k => avail(E[k]));
-    box.style.display = shown.length ? '' : 'none';
-    head.querySelector('.n').textContent = shown.length ? shown.filter(k => E[k].on).length + ' of ' + shown.length + ' on' : '';
-    head.querySelector('.chev').textContent = open ? '▾' : '▸';
-    head.setAttribute('aria-expanded', String(open));
-    list.style.display = open ? '' : 'none';
-    if (!open) return;
-    list.innerHTML = shown.map(k => {
-      const e = E[k], nm = nameOf(e);
-      let key = '';
-      if (e.on && (e.note || (e.legend && e.legend.length))) key = '<li class="mstack-key">' + (e.note ? '<div>' + escHtml(e.note) + '</div>' : '') +
-        (e.legend || []).map(([c, l]) => '<div><span class="legend-sw" style="background:' + c + '"></span>' + escHtml(l) + '</div>').join('') + '</li>';
-      return '<li class="mstack-row' + (e.on ? '' : ' off') + '" data-key="' + k + '">' +
-        '<span class="mstack-grip" title="Drag to move up or down">⋮⋮</span>' +
-        '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + escHtml(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
-        '<span class="mstack-sw" style="background:' + e.swatch + '"></span>' +
-        '<span class="mstack-name" title="' + escHtml(nm + ' (' + e.tab + ')') + '">' + escHtml(nm) + '<small>' + escHtml(e.tab) + '</small></span>' +
-        '<input type="range" min="0" max="100" step="5" value="' + Math.round(e.op * 100) + '" aria-label="' + escHtml(nm) + ' opacity" title="Opacity ' + Math.round(e.op * 100) + '%"></li>' + key;
+    const shown = order.filter(k => !E[k].ref && avail(E[k]));
+    const mine = shown.filter(k => E[k].tab === curTab), others = shown.filter(k => E[k].tab !== curTab);
+    const cond = $('.lpanel-cond'), condOn = curTab === 'Infrared' && cond.childElementCount > 0 && cond.style.display !== 'none';
+    cond.hidden = curTab !== 'Infrared';
+    $('[data-h="tab"]').innerHTML = esc(curTab) + (mine.length ? ' <span class="n">' + onOf(mine) + '</span>' : '');
+    $('[data-list="tab"]').innerHTML = mine.map(k => rowHtml(k)).join('');
+    $('.lpanel-none').textContent = mine.length || condOn ? '' : curTab === 'Report' ? 'The Report tab makes no layers of its own.' : 'Nothing yet: this tab\'s layers are listed once it has something to show for your areas.';
+    const chev = (f) => '<span class="chev">' + (fold[f] ? '▸' : '▾') + '</span>';
+    $('[data-sec="other"]').hidden = !others.length;
+    $('[data-fold="other"]').innerHTML = 'Other tabs <span class="n">' + (others.length ? onOf(others) : '') + '</span>' + chev('other');
+    $('[data-list="other"]').hidden = fold.other;
+    $('[data-list="other"]').innerHTML = fold.other ? '' : others.map(k => rowHtml(k, true)).join('');
+    const refs = order.filter(k => E[k].ref);
+    $('[data-fold="ref"]').innerHTML = 'Reference layers <span class="n">' + (refActive && refs.length ? onOf(refs) : '') + '</span>' + chev('ref');
+    $('.lpanel-refwrap').hidden = !!fold.ref;
+    const groups = [];
+    if (refActive) refs.forEach(k => { if (!groups.includes(E[k].group)) groups.push(E[k].group); });
+    $('.lpanel-groups').innerHTML = groups.map(g => {
+      const closed = groupsClosed.includes(g);
+      return '<button class="lpanel-grp" type="button" data-grp="' + esc(g) + '" aria-expanded="' + !closed + '"><span class="chev">' + (closed ? '▸' : '▾') + '</span>' + esc(g) + '</button>' +
+        (closed ? '' : '<ul class="mstack-list">' + refs.filter(k => E[k].group === g).map(k => rowHtml(k)).join('') + '</ul>');
     }).join('');
   }
-  list.addEventListener('click', (ev) => {
+  box.addEventListener('click', (ev) => {
+    const t = ev.target.closest('[data-fold]');
+    if (t) { fold[t.dataset.fold] = !fold[t.dataset.fold]; save(); render(); return; }
+    const g = ev.target.closest('.lpanel-grp');
+    if (g) {
+      const n = g.dataset.grp;
+      groupsClosed = groupsClosed.includes(n) ? groupsClosed.filter(x => x !== n) : groupsClosed.concat(n);
+      try { localStorage.setItem('occurd_layers_closed', JSON.stringify(groupsClosed)); } catch (e) {}
+      render();
+      return;
+    }
     const b = ev.target.closest('.mstack-eye');
     if (!b) return;
-    const e = E[b.closest('.mstack-row').dataset.key];
-    e.on = !e.on;
+    setOn(b.closest('.mstack-row').dataset.key, null);
+  });
+  function setOn(key, on) {
+    const e = E[key];
+    if (!e) return;
+    e.on = on == null ? !e.on : !!on;
     applyPane(e);
+    if (e.toggle) e.toggle(e.on);
     if (e.on && e.draw && e.stale) draw(e);
     save();
     render();
-  });
-  list.addEventListener('input', (ev) => {
+  }
+  box.addEventListener('input', (ev) => {
     if (ev.target.type !== 'range') return;
     const e = E[ev.target.closest('.mstack-row').dataset.key];
     e.op = Number(ev.target.value) / 100;
@@ -1498,14 +1596,15 @@ const mapStack = (() => {
     applyPane(e);
     save();
   });
-  // Drag a row above or below another, by its grip (so the opacity
-  // slider still slides).
-  list.addEventListener('pointerdown', (ev) => {
+  // Drag a row above or below another of its own kind, by its grip (so the
+  // opacity slider still slides).
+  box.addEventListener('pointerdown', (ev) => {
     const g = ev.target.closest('.mstack-grip');
     if (g) g.closest('.mstack-row').draggable = true;
   });
-  const clearMarks = () => list.querySelectorAll('.drop-above, .drop-below, .dragging').forEach(r => r.classList.remove('drop-above', 'drop-below', 'dragging'));
-  list.addEventListener('dragstart', (ev) => {
+  const clearMarks = () => box.querySelectorAll('.drop-above, .drop-below, .dragging').forEach(r => r.classList.remove('drop-above', 'drop-below', 'dragging'));
+  const sameKind = (a, b) => !!E[a].ref === !!E[b].ref;
+  box.addEventListener('dragstart', (ev) => {
     const row = ev.target.closest && ev.target.closest('.mstack-row');
     if (!row) return;
     dragKey = row.dataset.key;
@@ -1513,20 +1612,20 @@ const mapStack = (() => {
     ev.dataTransfer.effectAllowed = 'move';
     try { ev.dataTransfer.setData('text/plain', dragKey); } catch (err) {}
   });
-  list.addEventListener('dragover', (ev) => {
+  box.addEventListener('dragover', (ev) => {
     const row = ev.target.closest('.mstack-row');
-    if (!dragKey || !row) return;
+    if (!dragKey || !row || !sameKind(dragKey, row.dataset.key)) return;
     ev.preventDefault();
     const r = row.getBoundingClientRect(), below = ev.clientY > r.top + r.height / 2;
-    list.querySelectorAll('.drop-above, .drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below'));
+    box.querySelectorAll('.drop-above, .drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below'));
     if (row.dataset.key !== dragKey) row.classList.add(below ? 'drop-below' : 'drop-above');
   });
-  list.addEventListener('drop', (ev) => {
+  box.addEventListener('drop', (ev) => {
     const row = ev.target.closest('.mstack-row');
     if (!dragKey || !row) return;
     ev.preventDefault();
     const target = row.dataset.key, below = row.classList.contains('drop-below');
-    if (target !== dragKey) {
+    if (target !== dragKey && sameKind(dragKey, target)) {
       order.splice(order.indexOf(dragKey), 1);
       order.splice(order.indexOf(target) + (below ? 1 : 0), 0, dragKey);
       restack();
@@ -1535,7 +1634,12 @@ const mapStack = (() => {
     dragKey = null;
     render();
   });
-  list.addEventListener('dragend', () => { dragKey = null; clearMarks(); list.querySelectorAll('[draggable]').forEach(r => { r.draggable = false; }); });
+  box.addEventListener('dragend', () => { dragKey = null; clearMarks(); box.querySelectorAll('[draggable]').forEach(r => { r.draggable = false; }); });
+
+  // Reference outlines take clicks (popups), except while an area is
+  // being drawn, when they would swallow the clicks placing its corners.
+  map.on(L.Draw.Event.DRAWSTART, () => Object.values(E).forEach(e => { if (e.ref) map.getPane(e.pane).style.pointerEvents = 'none'; }));
+  map.on(L.Draw.Event.DRAWSTOP, () => Object.values(E).forEach(e => { if (e.ref) map.getPane(e.pane).style.pointerEvents = ''; }));
 
   async function draw(e) {
     const run = ++e.run;
@@ -1561,24 +1665,40 @@ const mapStack = (() => {
     render();
   }
 
+  function add(o) {
+    const st = saved.state && saved.state[o.key] || {};
+    const e = Object.assign({ present: false, layer: null, legend: null, note: '', run: 0, stale: true }, o);
+    // Reference layers start off every time, as in occurd.
+    e.on = o.ref ? false : st.on != null ? st.on : !!o.on;
+    e.op = st.op != null ? st.op : o.op;
+    e.pane = o.pane || 'stk_' + o.key;
+    if (!map.getPane(e.pane)) map.createPane(e.pane);
+    map.getPane(e.pane).style.pointerEvents = o.ref ? '' : 'none';
+    E[o.key] = e;
+    const pos = (k) => { const i = savedOrder.indexOf(k); return i >= 0 ? i : 1000 + E[k].rank; };
+    order = Object.keys(E).sort((a, b) => pos(a) - pos(b));
+    applyPane(e);
+    restack();
+    render();
+  }
   return {
     // o: { key, tab, name (text or function), swatch (CSS background), on, op, rank (lower is higher up),
     //      pane (an existing pane to take over; else one is made), draw(pane) → { layer, legend, note }, available() }
-    add(o) {
-      const st = saved.state && saved.state[o.key] || {};
-      const e = Object.assign({ present: false, layer: null, legend: null, note: '', run: 0, stale: true }, o);
-      e.on = st.on != null ? st.on : !!o.on;
-      e.op = st.op != null ? st.op : o.op;
-      e.pane = o.pane || 'stk_' + o.key;
-      if (!map.getPane(e.pane)) map.createPane(e.pane);
-      map.getPane(e.pane).style.pointerEvents = 'none';
-      E[o.key] = e;
-      const pos = (k) => { const i = savedOrder.indexOf(k); return i >= 0 ? i : 1000 + E[k].rank; };
-      order = Object.keys(E).sort((a, b) => pos(a) - pos(b));
-      applyPane(e);
-      restack();
+    add,
+    // One of occurd.'s register layers, l = { id, name, group, color, notes }.
+    addRef(l, i) {
+      if (E['ref_' + l.id]) return;
+      add({ key: 'ref_' + l.id, ref: true, tab: 'Reference', group: l.group, name: l.name, notes: l.notes, swatch: l.color + '66', op: 1, rank: 500 + i,
+        toggle: (on) => { if (window._layersShow) window._layersShow(l.id, on); } });
+    },
+    // Reference layers unlocked (or locked again, which switches them off).
+    setRefActive(on) {
+      refActive = !!on;
+      if (!on) Object.values(E).forEach(e => { if (e.ref) { e.on = false; e.note = ''; applyPane(e); } });
       render();
     },
+    // A status line under a layer (a reference layer's "8 shown").
+    note(key, text) { const e = E[key]; if (e && e.note !== text) { e.note = text; render(); } },
     // A tab's own layer has something in its pane (or nothing any more).
     // Appearing switches it on: it was just asked for.
     present(key, yes) {
@@ -1588,10 +1708,16 @@ const mapStack = (() => {
       if (yes) { e.on = true; applyPane(e); save(); }
       render();
     },
+    setOn,
     // The data behind the drawn layers whose key starts with prefix changed.
     refresh(prefix) {
       Object.values(E).forEach(e => { if (e.draw && (!prefix || e.key.indexOf(prefix) === 0)) draw(e); });
     },
+    setTab(t) { curTab = TAB_LABEL[t] || t; render(); },
+    isOpen: () => !box.classList.contains('folded'),
+    // Parts of the panel other code fills: 'cond' (condition spots),
+    // 'lock' (reference layers' password), 'foot' (Check areas).
+    el: (name) => $('.lpanel-' + name),
     render
   };
 })();
@@ -1674,7 +1800,7 @@ function renderAreaList() {
     '<div class="area-item" data-id="' + a.id + '">' +
       '<span class="area-swatch" style="background:' + a.color + '"></span>' +
       '<span class="area-name" contenteditable="true" spellcheck="false">' + a.name.replace(/</g, '&lt;') + '</span>' +
-      kmlBtnHtml +
+      cutBtnHtml + kmlBtnHtml +
       '<span class="area-remove" title="Remove">✕</span>' +
     '</div>'
   )).join('');
@@ -1682,6 +1808,7 @@ function renderAreaList() {
     const id = Number(el.dataset.id);
     el.querySelector('.area-remove').addEventListener('click', () => removeArea(id));
     el.querySelector('.area-kml').addEventListener('click', () => downloadAreaKml(areas.find(a => a.id === id)));
+    el.querySelector('.area-cut').addEventListener('click', () => openCut(areas.find(a => a.id === id)));
     const nameEl = el.querySelector('.area-name');
     nameEl.addEventListener('blur', () => {
       const area = areas.find(a => a.id === id);
@@ -1722,6 +1849,7 @@ function downloadAreaKml(area) {
   const base = area.name.replace(/[^A-Za-z0-9 _+-]/g, '').trim().replace(/\s+/g, '_') || 'area';
   downloadText(base + '_' + stamp + '.kml', kml, 'application/vnd.google-earth.kml+xml');
 }
+const cutBtnHtml = '<button class="area-cut" type="button" title="Cut this area by a layer: keep only the part inside or outside it, as a new area">✂</button>';
 const kmlBtnHtml = '<button class="area-kml" type="button" title="Download this area as KML" style="background:none;border:none;padding:0 2px;cursor:pointer;font-size:11px;font-weight:600;font-family:var(--font-sans);color:var(--orange-dark);white-space:nowrap;">↓ KML</button>';
 
 function removeArea(id) {
@@ -1799,7 +1927,7 @@ let layersVisible = false;
 // "Hide" only zeroes the opacity so the tiles stay loaded — re-showing is
 // instant instead of another Earth Engine round trip.
 let layersHidden = false;
-const layerOpacity = 1; // the Map layers list fades it
+const layerOpacity = 1; // the Layers panel fades it
 // Black border on the index button whose tiles the preview is showing.
 function updatePreviewMarker() {
   const shown = layersVisible && !layersHidden ? selectedIndices[0] : null;
@@ -2331,9 +2459,9 @@ document.getElementById('condArea').addEventListener('change', renderCondAreaPic
 document.getElementById('condControl').addEventListener('change', (e) => { e.target.dataset.chosen = '1'; renderCondAreaPicks(); });
 
 // ── Spot types on and off ─────────────────────────────────────────────
-// Each spot type is its own map layer, ticked on or off in the sidebar
-// legend and in a "Condition check" group in the Layers panel (when that
-// is unlocked). Unticked types are also left out of Export for report.
+// Each spot type is its own map layer, ticked on or off under Infrared in
+// the Layers panel, or in the sidebar legend while the panel is folded.
+// Unticked types are also left out of Export for report.
 const COND_KINDS = ['sudden_drop', 'dropped_recovered', 'slow_decline', 'gain'];
 const COND_KIND_DESC = {
   sudden_drop: 'a break where the canopy signal fell', dropped_recovered: 'a break, since recovering',
@@ -2343,12 +2471,12 @@ let condShown = {};
 try { condShown = JSON.parse(localStorage.getItem('inferrd.condShown') || '{}') || {}; } catch (e) {}
 const condIsShown = (kind) => kind === 'trend_map' ? condShown[kind] === true : condShown[kind] !== false;
 let condKindLayers = {};
-let condPanelBody = null;
+const condPanelBody = mapStack.el('cond');
 let condLegendActive = false; // a check's spots are on the map
 // The sidebar copy of the spot-type ticks only shows while the Layers
-// panel (which has the same ticks in its Condition check group) is closed
-// or locked, so the two lists never sit on screen together.
-const condLayersPanelOpen = () => { const p = document.getElementById('layersPanel'); return !!(condPanelBody && p && p.style.display !== 'none'); };
+// panel (which has the same ticks under Infrared) is folded, so the two
+// lists never sit on screen together.
+const condLayersPanelOpen = () => mapStack.isOpen();
 function setCondKindShown(kind, on) {
   condShown[kind] = on;
   try { localStorage.setItem('inferrd.condShown', JSON.stringify(condShown)); } catch (e) {}
@@ -2381,12 +2509,12 @@ function renderCondToggles() {
     leg.innerHTML = rows('condTog_') + '<div style="margin-top:2px;color:var(--text3);">Unticked types are hidden on the map and left out of Export for report.</div>';
     wire(leg);
   }
-  if (condPanelBody) {
-    condPanelBody.innerHTML = lastCondition
-      ? '<div style="font-size:10px;color:var(--text3);margin-bottom:2px;">' + lastCondition.area.name.replace(/</g, '&lt;') + '</div>' + rows('condLyr_')
-      : '<div style="font-size:11px;color:var(--text3);line-height:1.4;">Run a condition check to show its spots here.</div>';
-    wire(condPanelBody);
-  }
+  condPanelBody.innerHTML = lastCondition
+    ? '<div class="lpanel-sub">Condition check spots · ' + lastCondition.area.name.replace(/</g, '&lt;') + '</div>' + rows('condLyr_')
+    : '';
+  condPanelBody.style.display = lastCondition ? '' : 'none';
+  wire(condPanelBody);
+  mapStack.render();
 }
 
 /* ── Spots over time ──────────────────────────────────────────────────
@@ -4875,30 +5003,31 @@ map.on(L.Draw.Event.CREATED, (e) => {
 });
 
 // Draw to select, as in occurd.: a drawn shape also adds, each as its own
-// area, the QEII covenants it overlaps (QEII layer on) and the areas of the
-// ticked reference layers lying within it (Layers panel open; layers.js
-// counts an area as within when 90% of it is). The drawn shape is kept.
+// area, the areas of the reference layers switched on that lie within it
+// (layers.js counts an area as within when 90% of it is). The drawn shape
+// is kept.
 const LAYER_SELECT_MAX = 40;
-let qeiiFeaturesUnder = () => []; // set by the QEII layer below
+const tabSay = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
+// A reference shape's short name: the first part of its label, and
+// "Covenant …" for a QEII covenant number.
+function refShapeName(label, layerName) {
+  const name = String(label).split(' | ')[0];
+  return /QEII/i.test(layerName || '') && /^\d+-\d+-\d+/.test(name) ? 'Covenant ' + name : name;
+}
 async function addAreasUnder(drawn) {
-  const say = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
-  const found = qeiiFeaturesUnder(drawn.geojson).map(f => ({
-    geometry: f.geometry, name: f.properties.CovNumber ? 'Covenant ' + f.properties.CovNumber : 'QEII covenant',
-    meta: { source: 'QEII National Trust covenant', properties: f.properties }
-  }));
+  const say = tabSay;
+  const found = [];
   if (window._layersFeaturesUnder) {
     const g = drawn.geojson.geometry, ll = r => r.slice(0, -1).map(([x, y]) => [y, x]);
     try {
       const { count, items } = await window._layersFeaturesUnder(ll(g.coordinates[0]), g.coordinates.slice(1).map(ll), LAYER_SELECT_MAX);
       if (count && !items.length) say('warning', count + ' areas in the ticked layers lie within this shape, more than ' + LAYER_SELECT_MAX + ' to add at once. Untick some layers or draw a smaller shape.');
       items.forEach(it => {
-        let name = String(it.label).split(' | ')[0];
-        if (/QEII/i.test(it.layerName) && /^\d+-\d+-\d+/.test(name)) name = 'Covenant ' + name; // named as from the QEII layer
-        found.push({ geometry: it.feature.geometry, name, meta: { source: it.layerName, properties: it.feature.properties } });
+        found.push({ geometry: it.feature.geometry, name: refShapeName(it.label, it.layerName), meta: { source: it.layerName, properties: it.feature.properties } });
       });
     } catch (err) { console.warn('[inferrd] layers draw-to-select failed', err); }
   }
-  // A covenant can come from both the QEII layer and the Layers panel.
+  // A shape can come from two layers at once (a covenant that is also a reserve).
   const seen = new Set();
   const add = found.filter(f => {
     if (!f.geometry || !/Polygon/.test(f.geometry.type)) return false;
@@ -4937,11 +5066,11 @@ function addAreaFromGeometry(geometry, name, meta) {
   map.closePopup();
   map.fitBounds(layer.getBounds(), { padding: [30, 30], maxZoom: 17 });
 }
-function analyseAreaButton(onClick) {
+function analyseAreaButton(onClick, text, title) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.textContent = 'Analyse this area';
-  btn.title = 'Add this boundary to your areas for trend or change analysis';
+  btn.textContent = text || 'Analyse this area';
+  btn.title = title || 'Add this boundary to your areas for trend or change analysis';
   btn.style.cssText = 'margin-top:6px;font-size:11px;font-family:var(--font-sans);padding:4px 9px;border-radius:0;border:none;background:var(--base);color:#fff;cursor:pointer;';
   btn.addEventListener('click', (e) => { e.stopPropagation(); onClick(); });
   return btn;
@@ -5275,11 +5404,12 @@ function renderTabAreaList(listId, emptyId) {
   list.innerHTML = areas.map(a => '<div class="area-item" data-id="' + a.id + '">' +
     '<span class="area-swatch" style="background:' + a.color + '"></span>' +
     '<span class="area-name" style="cursor:pointer;" title="Zoom to this area">' + escHtml(a.name) + '</span>' +
-    kmlBtnHtml + '<span class="area-remove" title="Remove">✕</span></div>').join('');
+    cutBtnHtml + kmlBtnHtml + '<span class="area-remove" title="Remove">✕</span></div>').join('');
   list.querySelectorAll('.area-item').forEach(el => {
     const a = areas.find(x => x.id === Number(el.dataset.id));
     el.querySelector('.area-remove').addEventListener('click', () => removeArea(a.id));
     el.querySelector('.area-kml').addEventListener('click', () => downloadAreaKml(a));
+    el.querySelector('.area-cut').addEventListener('click', () => openCut(a));
     el.querySelector('.area-name').addEventListener('click', () => map.fitBounds(a.layer.getBounds(), { padding: [30, 30], maxZoom: 18 }));
   });
 }
@@ -7125,14 +7255,16 @@ function syncCoverControls() {
     : 'Unlock with your access key on the <a href="#" id="coverGoIr">Infrared</a> tab first.';
   const go = document.getElementById('coverGoIr');
   if (go) go.addEventListener('click', (e) => { e.preventDefault(); setAppTab('infrared'); });
-  const run = document.getElementById('coverRunBtn');
-  run.disabled = !eeReady || !areas.length || coverBusy;
-  run.textContent = coverBusy ? 'Checking…' : 'Check ' + (areas.length > 1 ? areas.length + ' areas' : 'land cover');
+  checkAreasChanged();
 }
 
+let coverLayerKey = '';
 function coverAreasChanged() {
   renderTabAreaList('coverAreaList', 'coverAreaEmpty');
-  if (coverResults && coverResults.keys !== areas.map(areaKey).join('|')) clearCover();
+  const keys = areas.map(areaKey).join('|');
+  if (coverResults && coverResults.keys !== keys) clearCover();
+  else if (keys !== coverLayerKey) mapStack.refresh('cover_'); // the layers are clipped to the areas
+  coverLayerKey = keys;
   syncCoverControls();
 }
 
@@ -7142,7 +7274,7 @@ function clearCover() {
   coverResults = null;
   mapStack.refresh('cover_');
   document.getElementById('coverContent').style.display = 'none';
-  document.getElementById('coverEmpty').style.display = '';
+  syncCheckEmpty();
 }
 
 // Hectares in each value of a class image.
@@ -7209,6 +7341,9 @@ async function coverRun() {
     }
     coverResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
     renderCover();
+    // The layers that found something and were on before they were all
+    // listed (tree loss, fire, water) come on with the results.
+    [['cover_loss', 'loss'], ['cover_burn', 'fire'], ['cover_water', 'water']].forEach(([k, sec]) => { if (coverShown(sec)) mapStack.setOn(k, true); });
     mapStack.refresh('cover_');
     setCoverStatus('', '');
     expandResultsPane();
@@ -7218,7 +7353,6 @@ async function coverRun() {
     if (runId === coverRunId) { coverBusy = false; syncCoverControls(); }
   }
 }
-document.getElementById('coverRunBtn').addEventListener('click', coverRun);
 
 const coverPct = (v, t) => t > 0 ? 100 * v / t : 0;
 const coverHa = (v) => v >= 100 ? Math.round(v).toLocaleString() : fmtHa(v);
@@ -7303,8 +7437,8 @@ function coverShareBlock(rows, total) {
 function renderCover() {
   const C = coverResults;
   if (!C) return;
-  document.getElementById('coverEmpty').style.display = 'none';
   document.getElementById('coverContent').style.display = '';
+  syncCheckEmpty();
   const sel = document.getElementById('coverAreaSel');
   document.getElementById('coverAreaHead').style.display = C.areas.length > 1 ? 'flex' : 'none';
   sel.innerHTML = C.areas.map(a => '<option value="' + a.id + '"' + (a.id === C.shownId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
@@ -7356,21 +7490,23 @@ document.getElementById('coverCsvBtn').addEventListener('click', () => {
   downloadText(name + '_land_cover.csv', out.join('\n') + '\n', 'text/csv');
 });
 
-// Map layers, clipped to the areas. As in the report, each is listed only
-// when it found something in at least one area; land cover always is.
+// Map layers, clipped to the areas: all six are listed whenever there are
+// areas, so any can be shown, or used to cut an area, before a check. After
+// a check, one that found nothing in the areas says so.
 const coverShown = (key) => !!coverResults && Object.values(coverResults.byArea).some(A => A.report.show.some(sec => sec.key === key));
-const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Land cover', available: () => eeReady && coverShown(o.section) }, o, {
-  draw: (pane) => eeTileLayer(o.img(), o.vis, pane).then(layer => ({ layer, legend: o.legend }))
+const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Land cover', available: () => eeReady && areas.length > 0 }, o, {
+  draw: (pane) => eeTileLayer(o.img(), o.vis, pane).then(layer => ({ layer, legend: o.legend,
+    note: coverResults && o.section !== 'worldcover' && !coverShown(o.section) ? 'The last check found nothing to report for this in your areas.' : '' }))
 }));
-coverLayer({ key: 'cover_loss', section: 'loss', rank: 200, on: true, op: 1, name: 'Tree cover loss by year', swatch: 'linear-gradient(90deg, #ffff00, #ff0000, #8b0045)',
+coverLayer({ key: 'cover_loss', section: 'loss', rank: 200, op: 1, name: 'Tree cover loss by year', swatch: 'linear-gradient(90deg, #ffff00, #ff0000, #8b0045)',
   img: () => { const h = ee.Image(COVER_HANSEN); return h.select('lossyear').updateMask(h.select('loss')).add(2000); },
   vis: { min: 2001, max: COVER_HANSEN_LAST, palette: ['ffff00', 'ff8800', 'ff0000', '8b0045'] },
   legend: [['#ffff00', 'Lost 2001'], ['#ff0000', 'Lost ' + Math.round((2001 + COVER_HANSEN_LAST) / 2)], ['#8b0045', 'Lost ' + COVER_HANSEN_LAST]] });
-coverLayer({ key: 'cover_burn', section: 'fire', rank: 210, on: true, op: 0.8, name: 'Burned area by year', swatch: 'linear-gradient(90deg, #ffe066, #ff8c00, #b30000)',
+coverLayer({ key: 'cover_burn', section: 'fire', rank: 210, op: 0.8, name: 'Burned area by year', swatch: 'linear-gradient(90deg, #ffe066, #ff8c00, #b30000)',
   img: () => { const years = []; for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) years.push(y); return ee.ImageCollection(years.map(y => coverBurnImage(y).multiply(y).selfMask().rename('y'))).max(); },
   vis: { min: COVER_FIRE_FIRST, max: CURRENT_YEAR, palette: ['ffe066', 'ff8c00', 'b30000'] },
   legend: [['#ffe066', 'Burned ' + COVER_FIRE_FIRST], ['#b30000', 'Burned ' + CURRENT_YEAR]] });
-coverLayer({ key: 'cover_water', section: 'water', rank: 220, on: true, op: 0.8, name: 'Surface water', swatch: 'linear-gradient(90deg, #ffcccc, #99d8ff, #0050c8)',
+coverLayer({ key: 'cover_water', section: 'water', rank: 220, op: 0.8, name: 'Surface water', swatch: 'linear-gradient(90deg, #ffcccc, #99d8ff, #0050c8)',
   img: () => { const o = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence'); return o.updateMask(o.gt(0)); },
   vis: { min: 0, max: 100, palette: ['ffcccc', '99d8ff', '0050c8'] },
   legend: [['#ffcccc', 'Water now and then'], ['#99d8ff', 'Half the time'], ['#0050c8', 'Always water']] });
@@ -7386,6 +7522,259 @@ coverLayer({ key: 'cover_worldcover', section: 'worldcover', rank: 250, op: 0.7,
   img: () => ee.ImageCollection('ESA/WorldCover/v200').first().select('Map').remap(COVER_WORLDCOVER.map(c => c[0]), COVER_WORLDCOVER.map((c, k) => k)),
   vis: { min: 0, max: COVER_WORLDCOVER.length - 1, palette: COVER_WORLDCOVER.map(c => c[2].slice(1)) },
   legend: COVER_WORLDCOVER.map(c => [c[2], c[1]]) });
+
+/* ---------------------------------------------------------------------
+   Check areas against layers — the one check, at the foot of the Layers
+   panel: every area against the land cover layers (Earth Engine, coverRun
+   above) and against every reference layer (occurd.'s layer check). Both
+   land on the Land cover tab's results, and each keeps its own CSV as
+   before (<area>_land_cover.csv and layer_check_<date>.csv).
+   --------------------------------------------------------------------- */
+let refActive = false; // reference layers unlocked and listed (see the end of the page)
+let refCheck = null;   // { keys, result } of the last reference-layer check
+let checkBusy = false, checkDone = '';
+mapStack.el('foot').innerHTML = '<button class="run-btn" id="checkAreasBtn" type="button" disabled>Check areas against layers</button><div class="lpanel-msg" id="checkAreasMsg"></div>';
+const checkMsg = (html) => { document.getElementById('checkAreasMsg').innerHTML = html || ''; };
+function checkAreasChanged() {
+  const keys = areas.map(areaKey).join('|');
+  if (refCheck && refCheck.keys !== keys) { refCheck = null; checkDone = ''; renderRefCheck(); }
+  const btn = document.getElementById('checkAreasBtn');
+  btn.disabled = checkBusy || coverBusy || !areas.length || (!eeReady && !refActive);
+  btn.textContent = checkBusy ? 'Checking…' : 'Check ' + (areas.length > 1 ? areas.length + ' areas' : 'areas') + ' against layers';
+  if (checkBusy) return;
+  if (checkDone) { checkMsg(checkDone); return; }
+  const what = [], missing = [];
+  (eeReady ? what : missing).push(eeReady ? 'land cover, tree loss, canopy height, surface water and fire' : 'Unlock Earth Engine on the <a href="#" data-go="infrared">Infrared</a> tab to check land cover.');
+  (refActive ? what : missing).push(refActive ? 'every reference layer' : 'Unlock the reference layers above to check them too.');
+  checkMsg(!areas.length ? 'Draw or add an area first.' : (what.length ? 'Checks ' + what.join(', and ') + '. ' : '') + missing.join(' '));
+}
+document.getElementById('checkAreasMsg').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-go]');
+  if (a) { e.preventDefault(); setAppTab(a.dataset.go); }
+});
+function syncCheckEmpty() { document.getElementById('coverEmpty').style.display = coverResults || refCheck ? 'none' : ''; }
+function renderRefCheck() {
+  document.getElementById('refCheckCard').style.display = refCheck ? '' : 'none';
+  if (refCheck) document.getElementById('refCheckBody').innerHTML = refCheck.result.polys.map(p => {
+    const found = (h) => (h.labels.length ? h.labels.slice(0, 8).join('; ') + (h.labels.length > 8 ? ' and ' + (h.labels.length - 8) + ' more' : '') : h.n + ' feature' + (h.n === 1 ? '' : 's'));
+    const lines = p.hits.map(h => '<tr><td>' + escHtml(h.layer.name) + '</td><td>' + escHtml(found(h)) + (h.note ? ' <span style="color:var(--text3);">(' + escHtml(h.note) + ')</span>' : '') + '</td></tr>')
+      .concat(p.errors.map(e => '<tr><td>' + escHtml(e.layer.name) + '</td><td style="color:var(--red);">Couldn\'t check: ' + escHtml(e.message) + '</td></tr>'));
+    return '<div class="card-title" style="margin:10px 0 4px;font-size:12px;">' + escHtml(p.label) + '</div>' +
+      (lines.length ? '<table class="stats-table"><tr><th>Layer</th><th>Found</th></tr>' + lines.join('') + '</table>' : '<div class="field-hint" style="margin:0;">No reference layer touches this area.</div>');
+  }).join('');
+  syncCheckEmpty();
+}
+async function checkAreas() {
+  if (checkBusy || !areas.length) return;
+  checkBusy = true;
+  checkDone = '';
+  checkAreasChanged();
+  const keys = areas.map(areaKey).join('|'), failed = [];
+  try {
+    if (eeReady) {
+      checkMsg('Checking land cover…');
+      await coverRun();
+      if (!coverResults || coverResults.keys !== keys) failed.push('the land cover (the Land cover tab says why)');
+    }
+    if (refActive) {
+      checkMsg('Checking the reference layers…');
+      try {
+        const result = await window._layersCheck(null, (d, t) => checkMsg('Checking the reference layers: ' + d + ' of ' + t + '…'));
+        refCheck = { keys, result };
+      } catch (err) { failed.push('the reference layers (' + (err && err.message ? err.message : err) + ')'); }
+      renderRefCheck();
+    }
+  } finally {
+    checkBusy = false;
+  }
+  checkDone = failed.length ? 'Couldn\'t check ' + failed.join(' or ') + '.' : 'Done: the results are on the <a href="#" data-go="cover">Land cover</a> tab.';
+  if (appTab !== 'cover') setAppTab('cover');
+  expandResultsPane();
+  checkAreasChanged();
+}
+document.getElementById('checkAreasBtn').addEventListener('click', checkAreas);
+document.getElementById('refCheckCsvBtn').addEventListener('click', () => {
+  const r = window._layersCheckCsv && window._layersCheckCsv();
+  if (r) downloadText(r.filename, r.csv + '\n', 'text/csv');
+});
+
+/* ---------------------------------------------------------------------
+   Cut an area by a layer — ✂ on an area: keep only the part of it inside a
+   layer (a land cover class, canopy over a height, a reference layer's
+   shapes…), or only the part outside. The result is a new area named
+   after both; the original stays. Any tab's layer can cut any area, so an
+   area drawn on Infrared can be cut to a covenant or to WorldCover's tree
+   cover and analysed there. Earth Engine layers are turned into shapes at
+   their own resolution, so the new edge follows their pixels.
+   --------------------------------------------------------------------- */
+const CUT_EE = [
+  { id: 'cover_worldcover', tab: 'Land cover', name: 'Land cover 2021 (WorldCover)', scale: 10,
+    classes: COVER_WORLDCOVER.map(([v, label, color]) => ({ v, label, color })), img: () => ee.ImageCollection('ESA/WorldCover/v200').first().select('Map') },
+  { id: 'cover_dw', tab: 'Land cover', name: 'Land cover ' + COVER_DW_LAST + ' (Dynamic World)', scale: 10,
+    classes: COVER_DW.map(([label, color], v) => ({ v, label, color })), img: (geom) => coverDwYear(geom, COVER_DW_LAST) },
+  { id: 'cover_canopy', tab: 'Land cover', name: 'Canopy height 2020', scale: 10, threshold: { label: 'Canopy at least', unit: 'm', value: 5, step: 1 }, img: () => ee.Image(COVER_CANOPY) },
+  { id: 'cover_loss', tab: 'Land cover', name: 'Tree cover loss 2001–' + COVER_HANSEN_LAST, scale: 30, what: 'tree cover loss', mask: () => ee.Image(COVER_HANSEN).select('loss').eq(1) },
+  { id: 'cover_water', tab: 'Land cover', name: 'Surface water (at some point since 1984)', scale: 30, what: 'surface water', mask: () => ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence').gt(0) },
+  { id: 'phys_slope', tab: 'Physical', name: 'Slope class', scale: 30,
+    classes: PHYS_SLOPE_CLASSES.map((c, k) => ({ v: k + 1, label: c.label + ', ' + c.desc, short: c.label, color: c.color })), img: () => physSlopeClass(ee.Terrain.slope(physDem())) },
+  { id: 'phys_elev', tab: 'Physical', name: 'Elevation', scale: 30, threshold: { label: 'At or above', unit: 'm', value: 200, step: 10 }, img: () => physDem() }
+];
+// The part of an area inside (keep) or outside a layer's pixels, as GeoJSON.
+function eeCut(src, opts, area, keep) {
+  const geom = ee.Geometry(area.geojson.geometry);
+  let mask;
+  if (src.classes) { const img = src.img(geom); mask = opts.classes.map(v => img.eq(v)).reduce((a, b) => a.or(b)); }
+  else if (src.threshold) mask = src.img(geom).gte(opts.value);
+  else mask = src.mask();
+  const shapes = mask.selfMask().toInt().reduceToVectors({ geometry: geom, scale: src.scale, geometryType: 'polygon', eightConnected: false, maxPixels: 1e10, tileScale: 4 });
+  const cut = shapes.geometry(1);
+  return eeEvaluate(keep ? geom.intersection(cut, 1) : geom.difference(cut, 1));
+}
+// The same with shapes in the browser (a reference layer's, or one shape).
+function turfCut(areaGeom, geoms, keep) {
+  const polys = geoms.filter(g => g && /Polygon/.test(g.type));
+  if (geoms.length && !polys.length) throw new Error('this layer is lines, not areas, so it can\'t cut an area');
+  let u = null;
+  polys.forEach(g => { u = u ? turf.union(u, turf.feature(g)) : turf.feature(g); });
+  if (!u) return keep ? null : areaGeom;
+  const r = keep ? turf.intersect(turf.feature(areaGeom), u) : turf.difference(turf.feature(areaGeom), u);
+  return r ? r.geometry : null;
+}
+async function refCut(id, area, keep) {
+  const feats = await window._layersFeaturesIn(id, area.geojson.geometry);
+  return turfCut(area.geojson.geometry, feats.map(f => f.geometry), keep);
+}
+// Polygons out of whatever a cut returns, leaving out slivers under 1 m².
+function cutPolys(g) {
+  if (!g) return [];
+  if (g.type === 'Polygon') return [g.coordinates];
+  if (g.type === 'MultiPolygon') return g.coordinates;
+  if (g.type === 'GeometryCollection') return (g.geometries || []).flatMap(cutPolys);
+  return [];
+}
+function addCutArea(area, geometry, what, keep, source) {
+  const polys = cutPolys(geometry).filter(c => c.length && c[0].length >= 4 && turf.area({ type: 'Polygon', coordinates: c }) >= 1);
+  if (!polys.length) return false;
+  addAreaFromGeometry(polys.length === 1 ? { type: 'Polygon', coordinates: polys[0] } : { type: 'MultiPolygon', coordinates: polys },
+    area.name + (keep ? ' ∩ ' : ' − ') + what,
+    { source: 'Cut from ' + area.name + ' by ' + source, properties: { cut_from: area.name, cut_by: source, cut_keep: keep ? 'inside' : 'outside' } });
+  return true;
+}
+// "Cut areas to this" in a reference-layer popup: each area that touches
+// the shape, cut to it.
+function cutAreasToFeature(feature, label, layerName) {
+  label = refShapeName(label, layerName);
+  const made = [];
+  areas.slice().forEach(a => {
+    try {
+      if (!turf.booleanIntersects(a.geojson, feature)) return;
+      if (addCutArea(a, turfCut(a.geojson.geometry, [feature.geometry], true), label, true, label)) made.push(a.name);
+    } catch (err) { console.warn('[inferrd] cut failed for ' + a.name, err); }
+  });
+  map.closePopup();
+  tabSay(made.length ? 'success' : 'warning', made.length ? 'Cut ' + made.join(', ') + ' to ' + label + ', as new areas.' : 'None of your areas touch ' + label + '.');
+}
+
+const cutDlg = document.createElement('div');
+cutDlg.className = 'cut-dlg';
+cutDlg.hidden = true;
+cutDlg.innerHTML = '<div class="cut-box" role="dialog" aria-modal="true" aria-labelledby="cutTitle">' +
+  '<div class="card-title" id="cutTitle" style="margin:0;"></div>' +
+  '<label class="f" for="cutLayer">By</label><select id="cutLayer"></select>' +
+  '<div id="cutWhat"></div>' +
+  '<label class="f">Keep</label><div class="tool-row" id="cutMode" style="margin:0;"><button class="tool-btn active" type="button" data-keep="1">Only the part inside</button><button class="tool-btn" type="button" data-keep="0">Only the part outside</button></div>' +
+  '<div class="field-hint" id="cutHint"></div>' +
+  '<div class="status-bar" id="cutStatus"></div>' +
+  '<div class="cut-actions"><button class="dl-btn" type="button" id="cutCancel">Cancel</button><button class="run-btn" type="button" id="cutGo">Make the new area</button></div></div>';
+document.body.appendChild(cutDlg);
+let cutArea = null, cutKeep = true, cutLast = '';
+const cutSel = document.getElementById('cutLayer');
+function setCutStatus(kind, msg) {
+  const el = document.getElementById('cutStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+function cutSources() {
+  const out = CUT_EE.map(s => ({ value: 'ee:' + s.id, group: s.tab, label: s.name + (eeReady ? '' : ' (unlock Earth Engine first)'), disabled: !eeReady }));
+  const reg = refActive && window._layersRegister && window._layersRegister();
+  if (reg) reg.layers.forEach(l => out.push({ value: 'ref:' + l.id, group: 'Reference · ' + l.group, label: l.name }));
+  return out;
+}
+function openCut(area) {
+  cutArea = area;
+  document.getElementById('cutTitle').textContent = 'Cut ' + area.name + ' by a layer';
+  const src = cutSources(), groups = [...new Set(src.map(s => s.group))];
+  cutSel.innerHTML = groups.map(g => '<optgroup label="' + escHtml(g) + '">' +
+    src.filter(s => s.group === g).map(s => '<option value="' + s.value + '"' + (s.disabled ? ' disabled' : '') + '>' + escHtml(s.label) + '</option>').join('') + '</optgroup>').join('');
+  const pick = src.find(s => s.value === cutLast && !s.disabled) || src.find(s => !s.disabled);
+  if (pick) cutSel.value = pick.value;
+  document.getElementById('cutGo').disabled = !pick;
+  document.getElementById('cutHint').textContent = 'The new area is added beside ' + area.name + ', which stays as it is.' +
+    (refActive ? '' : ' Unlock the reference layers in the Layers panel to cut by them as well.') + (eeReady ? '' : ' Unlock Earth Engine on the Infrared tab to cut by land cover, slope or elevation.');
+  setCutStatus('', '');
+  renderCutWhat();
+  cutDlg.hidden = false;
+  cutSel.focus();
+}
+function renderCutWhat() {
+  const el = document.getElementById('cutWhat'), v = cutSel.value;
+  const s = CUT_EE.find(x => 'ee:' + x.id === v);
+  if (!v) { el.innerHTML = '<div class="field-hint">No layer to cut by yet.</div>'; return; }
+  if (!s) { el.innerHTML = '<div class="field-hint">All of the layer\'s shapes that touch the area. To cut to just one, click it on the map and use "Cut areas to this".</div>'; return; }
+  if (s.classes) el.innerHTML = '<label class="f">Classes</label><div class="cut-classes">' + s.classes.map(c =>
+    '<label><input type="checkbox" value="' + c.v + '"><span class="legend-sw" style="background:' + c.color + ';margin:0;"></span>' + escHtml(c.label) + '</label>').join('') + '</div>';
+  else if (s.threshold) el.innerHTML = '<label class="f" for="cutThr">' + escHtml(s.threshold.label) + '</label><input type="number" id="cutThr" value="' + s.threshold.value + '" step="' + s.threshold.step + '" style="width:90px;"> ' + s.threshold.unit;
+  else el.innerHTML = '<div class="field-hint">Wherever the layer has ' + escHtml(s.what) + ', at ' + s.scale + ' m.</div>';
+}
+cutSel.addEventListener('change', () => { setCutStatus('', ''); renderCutWhat(); });
+document.getElementById('cutMode').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-keep]');
+  if (!b) return;
+  cutKeep = b.dataset.keep === '1';
+  document.querySelectorAll('#cutMode .tool-btn').forEach(x => x.classList.toggle('active', x === b));
+});
+const closeCut = () => { cutDlg.hidden = true; cutArea = null; };
+document.getElementById('cutCancel').addEventListener('click', closeCut);
+cutDlg.addEventListener('click', (e) => { if (e.target === cutDlg) closeCut(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !cutDlg.hidden) closeCut(); });
+document.getElementById('cutGo').addEventListener('click', async () => {
+  const v = cutSel.value, area = cutArea, keep = cutKeep, go = document.getElementById('cutGo');
+  if (!v || !area) return;
+  go.disabled = true;
+  setCutStatus('info', 'Cutting…');
+  try {
+    let geom, what, source;
+    const s = CUT_EE.find(x => 'ee:' + x.id === v);
+    if (s) {
+      const opts = {};
+      if (s.classes) {
+        opts.classes = [...cutDlg.querySelectorAll('.cut-classes input:checked')].map(i => Number(i.value));
+        if (!opts.classes.length) throw new Error('tick at least one class');
+        const labs = s.classes.filter(c => opts.classes.includes(c.v)).map(c => (c.short || c.label).toLowerCase());
+        what = labs.length > 2 ? labs.slice(0, 2).join(', ') + ' and ' + (labs.length - 2) + ' more' : labs.join(' and ');
+      } else if (s.threshold) {
+        opts.value = Number(document.getElementById('cutThr').value);
+        if (!isFinite(opts.value)) throw new Error('enter a number');
+        what = s.name.toLowerCase() + ' ≥ ' + opts.value + ' ' + s.threshold.unit;
+      } else what = s.what;
+      source = s.name;
+      geom = await eeCut(s, opts, area, keep);
+    } else {
+      const l = window._layersRegister().layers.find(x => 'ref:' + x.id === v);
+      source = what = l.name;
+      geom = await refCut(l.id, area, keep);
+    }
+    cutLast = v;
+    if (!areas.includes(area)) throw new Error(area.name + ' has been removed');
+    if (!addCutArea(area, geom, what, keep, source)) { setCutStatus('warning', keep ? 'None of ' + area.name + ' is inside that.' : 'None of ' + area.name + ' is outside that.'); return; }
+    closeCut();
+  } catch (err) {
+    setCutStatus('error', 'Couldn\'t cut: ' + (err && err.message ? err.message : err));
+  } finally {
+    go.disabled = false;
+  }
+});
 syncCoverControls();
 
 /* ---------------------------------------------------------------------
@@ -8060,6 +8449,7 @@ function setAppTab(tab) {
   document.querySelector('.sidebar').classList.toggle('report-mode', tab === 'report');
   document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
   map.closePopup();
+  mapStack.setTab(tab);
   if (tab === 'lidar') lidarAreasChanged();
   if (tab === 'climate') climateAreasChanged();
   if (tab === 'physical') physicalAreasChanged();
@@ -9453,186 +9843,28 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
 });
 
 /* ---------------------------------------------------------------------
-   Projects dropdown + QEII covenant layer — same as Occurd: a key-gated
-   "Projects" menu that turns on the QEII National Trust covenant
-   boundaries. The boundaries are fetched live from QEII's public ArcGIS
-   feature service for the current map view; nothing is bundled here. The
-   key is a soft gate, not real access control (same as in Occurd).
+   Reference layers — occurd.'s Layers module, loaded live from occurd.
+   layers.js and its layer list (layers-register.json) come straight from
+   occurd.'s site, so a layer added there appears here as well. It runs
+   headless here: its layers are rows in the Reference part of the Layers
+   panel, and it draws each into its row's pane. The Layers password
+   unlocks a Manaaki Whenua (LRIS) key kept only in this browser. ?occurd=
+   <base> points at occurd. beta or a local copy for testing (allowlisted).
    --------------------------------------------------------------------- */
 (function () {
-  const QEII_KEY = 'perpetuity';
-  const QEII_URL = 'https://services-ap1.arcgis.com/h9r62GhsQQYscUHs/arcgis/rest/services/QEII_National_Trust_protected_areas/FeatureServer/0/query?';
-  const LOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
-  const UNLOCK = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>';
-
-  map.createPane('qeiiPane');
-  map.getPane('qeiiPane').style.zIndex = 350; // above the aerial, below the index tiles and drawn areas
-  let qeiiLayer = null, qeiiActive = false, qeiiLoading = false, qeiiTimer = null;
-
-  // Covenant polygons are clickable (popup), which would swallow the map
-  // clicks Leaflet.draw needs for placing vertices — so switch them off
-  // while a shape is being drawn.
-  map.on(L.Draw.Event.DRAWSTART, () => { map.getPane('qeiiPane').style.pointerEvents = 'none'; });
-  map.on(L.Draw.Event.DRAWSTOP,  () => { map.getPane('qeiiPane').style.pointerEvents = ''; });
-
-  function clearQeii() {
-    if (qeiiLayer) { map.removeLayer(qeiiLayer); qeiiLayer = null; }
-  }
-
-  // Covenants on the map that touch a drawn shape (any overlap, as occurd.
-  // does for covenants), for draw to select.
-  qeiiFeaturesUnder = (drawnGeojson) => {
-    if (!qeiiActive || !qeiiLayer) return [];
-    const out = [];
-    qeiiLayer.eachLayer(l => {
-      const f = l.feature;
-      try { if (f && f.geometry && turf.booleanIntersects(drawnGeojson, f)) out.push(f); } catch (e) {}
-    });
-    return out;
-  };
-
-  async function fetchQeii() {
-    if (!qeiiActive || qeiiLoading) return;
-    qeiiLoading = true;
-    try {
-      const b = map.getBounds();
-      const resp = await fetch(QEII_URL + new URLSearchParams({
-        geometry: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].join(','),
-        geometryType: 'esriGeometryEnvelope',
-        spatialRel: 'esriSpatialRelIntersects',
-        inSR: '4326', outSR: '4326',
-        outFields: 'CovNumber,Type,AreaSurvHa,DateRegd,QEIIRegion,TA_Name',
-        returnGeometry: 'true',
-        f: 'geojson',
-        resultRecordCount: 1000
-      }));
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
-      const data = await resp.json();
-      if (!qeiiActive) return; // toggled off while loading
-      clearQeii();
-      qeiiLayer = L.geoJSON(data, {
-        pane: 'qeiiPane',
-        style: { color: '#b45309', weight: 1.5, fillColor: '#fbbf24', fillOpacity: 0.22, dashArray: '4 3' },
-        onEachFeature: (feature, layer) => {
-          const p = feature.properties || {};
-          const esc = (v) => String(v).replace(/</g, '&lt;');
-          const ha = p.AreaSurvHa ? parseFloat(p.AreaSurvHa).toFixed(1) + ' ha' : '—';
-          const date = p.DateRegd ? new Date(p.DateRegd).toLocaleDateString('en-NZ', { year: 'numeric', month: 'short' }) : '—';
-          const popup = document.createElement('div');
-          popup.innerHTML =
-            '<div style="font-size:12px;line-height:1.7;min-width:160px;">' +
-            '<strong style="font-size:13px;">' + esc(p.CovNumber || 'QEII Covenant') + '</strong><br>' +
-            (p.Type ? '<span style="color:#555;">' + esc(p.Type) + '</span><br>' : '') +
-            '<span style="color:#555;">Area: ' + ha + '</span><br>' +
-            '<span style="color:#555;">Registered: ' + date + '</span><br>' +
-            (p.TA_Name ? '<span style="color:#555;">TA: ' + esc(p.TA_Name) + '</span><br>' : '') +
-            (p.QEIIRegion ? '<span style="color:#555;">Region: ' + esc(p.QEIIRegion) + '</span>' : '') +
-            '</div>';
-          popup.appendChild(analyseAreaButton(() =>
-            addAreaFromGeometry(feature.geometry, p.CovNumber ? 'Covenant ' + p.CovNumber : 'QEII covenant', { source: 'QEII National Trust covenant', properties: p })));
-          layer.bindPopup(popup, { maxWidth: 240 });
-          layer.on('mouseover', () => layer.setStyle({ fillOpacity: 0.38, weight: 2.5 }));
-          layer.on('mouseout',  () => layer.setStyle({ fillOpacity: 0.22, weight: 1.5 }));
-        }
-      }).addTo(map);
-    } catch (e) {
-      console.warn('QEII fetch failed:', e);
-    } finally {
-      qeiiLoading = false;
-    }
-  }
-
-  map.on('moveend', () => {
-    if (!qeiiActive) return;
-    clearTimeout(qeiiTimer);
-    qeiiTimer = setTimeout(fetchQeii, 400);
-  });
-
-  // ── Dropdown ──────────────────────────────────────────────────────────
-  const wrap = document.getElementById('projectsDropWrap');
-  const btn = document.getElementById('projectsDropBtn');
-  const menu = document.getElementById('projectsMenu');
-
-  const item = document.createElement('div');
-  item.style.cssText = 'padding:9px 14px;cursor:pointer;font-size:12px;color:var(--text);display:flex;align-items:center;gap:8px;';
-  item.innerHTML = '<span id="qeiiIcon" style="display:inline-flex;color:var(--orange-dark);">' + LOCK + '</span><span>QEII</span>';
-  item.addEventListener('mouseover', () => { item.style.background = 'var(--surface2)'; });
-  item.addEventListener('mouseout', () => { item.style.background = ''; });
-  menu.appendChild(item);
-
-  const form = document.createElement('div');
-  form.style.cssText = 'display:none;padding:8px 14px 10px;border-top:0.5px solid var(--border);background:var(--surface2);';
-  form.innerHTML =
-    '<div style="font-size:10px;color:var(--text2);margin-bottom:5px;line-height:1.4;">Enter access key for QEII covenant layer</div>' +
-    '<div style="display:flex;gap:5px;">' +
-      '<input type="password" placeholder="key…" autocomplete="new-password" spellcheck="false" style="flex:1;min-width:0;font-size:12px;font-family:var(--font-sans);padding:4px 7px;border:1px solid var(--border2);border-radius:0;outline:none;color:var(--text);background:#fff;">' +
-      '<button type="button" style="font-size:11px;font-family:var(--font-sans);padding:4px 9px;border-radius:0;border:none;background:var(--base);color:#fff;cursor:pointer;">↵</button>' +
-    '</div>' +
-    '<div style="display:none;font-size:10px;color:var(--red);margin-top:4px;">Wrong key</div>';
-  menu.appendChild(form);
-  const input = form.querySelector('input'), submit = form.querySelector('button'), err = form.lastChild;
-
-  function setActive(on) {
-    qeiiActive = on;
-    document.getElementById('qeiiIcon').innerHTML = on ? UNLOCK : LOCK;
-    if (on) fetchQeii(); else clearQeii();
-  }
-  let unlocked = false;
-  function tryKey() {
-    if (input.value.trim().toLowerCase() === QEII_KEY) {
-      unlocked = true;
-      input.value = '';
-      form.style.display = 'none';
-      menu.style.display = 'none';
-      setActive(true);
-    } else {
-      err.style.display = 'block';
-      input.select();
-      input.style.borderColor = 'var(--red)';
-      setTimeout(() => { input.style.borderColor = 'var(--border2)'; }, 800);
-    }
-  }
-  submit.addEventListener('click', tryKey);
-  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryKey(); });
-
-  item.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (unlocked) { // already unlocked: the item just toggles the layer
-      setActive(!qeiiActive);
-      menu.style.display = 'none';
-      return;
-    }
-    const show = form.style.display === 'none';
-    form.style.display = show ? 'block' : 'none';
-    err.style.display = 'none';
-    if (show) setTimeout(() => input.focus(), 0);
-  });
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
-  });
-  document.addEventListener('click', (e) => {
-    if (!wrap.contains(e.target)) { menu.style.display = 'none'; form.style.display = 'none'; lyrForm.style.display = 'none'; }
-  });
-
-  /* ── Layers — occurd.'s module, loaded live from occurd. ──────────────
-     layers.js and its layer list (layers-register.json) come straight
-     from occurd.'s site, so a layer added there appears here as well. The
-     Layers password unlocks a Manaaki Whenua (LRIS) key kept only in this
-     browser; the module draws its own panel on the map. ?occurd=<base>
-     points at occurd. beta or a local copy for testing (allowlisted). */
   const OCCURD_DEFAULT = 'https://occurd.rutherfordecology.co.nz/';
   const occurdParam = new URLSearchParams(location.search).get('occurd');
   const OCCURD_BASE = occurdParam && /^(https:\/\/occurd\.rutherfordecology\.co\.nz|http:\/\/localhost:\d+)\/(beta\/)?$/.test(occurdParam) ? occurdParam : OCCURD_DEFAULT;
+  // "Analyse this area" or "Cut areas to this" under a reference-layer
+  // popup: layers.js hands over the feature with its full-detail boundary
+  // (the map shows a simplified one).
+  let popupMode = 'add';
   window.LAYERS_HOST = {
     name: 'inferrd.',
-    // A "Condition check" group at the top of the Layers panel: the spot types on and off.
-    panelSection: (el, group) => {
-      condPanelBody = document.createElement('div');
-      el.appendChild(group('Condition check', condPanelBody));
-      renderCondToggles();
-    },
     url: 'https://rutherfordecology.github.io/inferrd/',
+    headless: true,
+    paneFor: (l) => 'stk_ref_' + l.id,
+    onStatus: (id, text) => mapStack.note('ref_' + id, text),
     // Drawn areas as [{ label, latlngs: [[lat, lng], …], holes }] for the layer check.
     // An area made from a multi-block covenant is a MultiPolygon: one entry per block.
     polygons: () => areas.flatMap(a => {
@@ -9644,108 +9876,77 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
         latlngs: ll(rings[0]), holes: rings.slice(1).map(ll)
       }));
     }),
-    // A button under each reference-layer popup. layers.js hands over the
-    // feature with its full-detail boundary (the map shows a simplified one).
     featureAction: {
-      button: analyseAreaButton,
-      run: (feature, label, layerName) => addAreaFromGeometry(feature.geometry, label, { source: layerName || 'reference layer', properties: feature.properties })
+      button: (onClick) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+        wrap.appendChild(analyseAreaButton(() => { popupMode = 'add'; onClick(); }));
+        if (areas.length) wrap.appendChild(analyseAreaButton(() => { popupMode = 'cut'; onClick(); }, 'Cut areas to this', 'Keep only the part of each area inside this boundary, as new areas'));
+        return wrap;
+      },
+      run: (feature, label, layerName) => popupMode === 'cut'
+        ? cutAreasToFeature(feature, label, layerName)
+        : addAreaFromGeometry(feature.geometry, label, { source: layerName || 'reference layer', properties: feature.properties })
     }
   };
-  let layersLoaded = false, layersFailed = false;
+  let failed = false, tooOld = false;
+  const lock = mapStack.el('lock');
+  function renderLock(err) {
+    if (refActive) {
+      lock.innerHTML = 'Published GIS layers, not the legal plan maps. Click a shape to add it as an area or cut your areas to it. <a href="#" data-forget>Lock and forget</a>';
+      return;
+    }
+    if (tooOld) { lock.textContent = 'occurd.\'s layers module is older than this inferrd., so the reference layers can\'t be listed until occurd. is updated.'; return; }
+    if (failed) { lock.textContent = 'Couldn\'t reach occurd. to load the reference layers. Reload the page to try again.'; return; }
+    lock.innerHTML = 'GDC plan layers, QEII covenants, NIWA catchments and Manaaki Whenua layers, the same on every tab. Enter the Layers password (or your own LRIS API key); this browser remembers it.' +
+      '<div style="display:flex;gap:5px;margin-top:5px;"><input type="password" placeholder="password…" autocomplete="new-password" spellcheck="false" aria-label="Layers password" style="flex:1;min-width:0;font-size:12px;font-family:var(--font-sans);padding:4px 7px;border:1px solid var(--border2);color:var(--text);background:#fff;">' +
+      '<button type="button" class="dl-btn">Unlock</button></div>' + (err ? '<div style="color:var(--red);margin-top:4px;">' + escHtml(err) + '</div>' : '');
+    const input = lock.querySelector('input'), btn = lock.querySelector('button');
+    const go = () => {
+      const k = input.value.trim();
+      if (!k) return;
+      if (!window._layersUnlock) { renderLock(failed ? 'Couldn\'t reach occurd.' : 'Still loading the layers; try again in a moment.'); return; }
+      btn.disabled = true;
+      window._layersUnlock(k).then(ok => { if (ok) activate(); else renderLock('Wrong password'); });
+    };
+    btn.addEventListener('click', go);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+  }
+  lock.addEventListener('click', (e) => {
+    if (!e.target.closest('[data-forget]')) return;
+    e.preventDefault();
+    try { localStorage.removeItem('occurd_lris_key'); } catch (err) {}
+    if (window._layersDeactivate) window._layersDeactivate();
+    refActive = false;
+    mapStack.setRefActive(false);
+    renderLock();
+    checkAreasChanged();
+  });
+  async function activate() {
+    await window._layersActivate();
+    const reg = window._layersRegister && window._layersRegister();
+    if (!reg) { renderLock('Couldn\'t load the layer list from occurd.'); return; }
+    reg.layers.forEach((l, i) => mapStack.addRef(l, i));
+    refActive = true;
+    mapStack.setRefActive(true);
+    renderLock();
+    checkAreasChanged();
+  }
+  lock.textContent = 'Loading the reference layers from occurd.…';
   const lyrScript = document.createElement('script');
   lyrScript.src = OCCURD_BASE + 'layers.js';
-  // Once this browser holds the Layers key, the panel opens with the page
-  // every time, so the reference layers (and the condition-check spot
-  // types) are always to hand. ✕ closes it until the next load; "–"
-  // folds it out of the way.
+  // Once this browser holds the Layers key, the reference layers are listed
+  // with the page every time.
   lyrScript.onload = () => {
-    layersLoaded = true;
-    if (window._layersHasKey && window._layersHasKey()) activateLayers();
+    if (!window._layersRegister) { tooOld = true; console.warn('[inferrd] ' + OCCURD_BASE + 'layers.js has no headless mode yet'); renderLock(); return; }
+    if (window._layersHasKey && window._layersHasKey()) activate(); else renderLock();
   };
-  lyrScript.onerror = () => { layersFailed = true; console.warn('[inferrd] could not load layers.js from ' + OCCURD_BASE); };
+  lyrScript.onerror = () => { failed = true; console.warn('[inferrd] could not load layers.js from ' + OCCURD_BASE); renderLock(); };
   document.body.appendChild(lyrScript);
   // Distance and area measuring tools, also shared with occurd.
   const msrScript = document.createElement('script');
   msrScript.src = OCCURD_BASE + 'measure.js';
   document.body.appendChild(msrScript);
-
-  const lyrItem = document.createElement('div');
-  lyrItem.style.cssText = item.style.cssText + 'border-top:0.5px solid var(--border);';
-  lyrItem.innerHTML = '<span id="layersIcon" style="display:inline-flex;color:var(--orange-dark);">' + LOCK + '</span><span>Layers</span>';
-  lyrItem.title = 'Reference layers from occurd. — land cover (LCDB), potential vegetation, threatened environments, protected areas and Gisborne plan layers';
-  lyrItem.addEventListener('mouseover', () => { lyrItem.style.background = 'var(--surface2)'; });
-  lyrItem.addEventListener('mouseout', () => { lyrItem.style.background = ''; });
-  menu.appendChild(lyrItem);
-
-  const lyrForm = document.createElement('div');
-  lyrForm.style.cssText = form.style.cssText;
-  lyrForm.innerHTML =
-    '<div style="font-size:10px;color:var(--text2);margin-bottom:5px;line-height:1.4;">Enter the Layers password (or your own LRIS API key). This browser remembers it until you choose "Lock and forget" in the layers panel.</div>' +
-    '<div style="display:flex;gap:5px;">' +
-      '<input type="password" placeholder="password…" autocomplete="new-password" spellcheck="false" style="flex:1;min-width:0;font-size:12px;font-family:var(--font-sans);padding:4px 7px;border:1px solid var(--border2);border-radius:0;outline:none;color:var(--text);background:#fff;">' +
-      '<button type="button" style="font-size:11px;font-family:var(--font-sans);padding:4px 9px;border-radius:0;border:none;background:var(--base);color:#fff;cursor:pointer;">↵</button>' +
-    '</div>' +
-    '<div style="display:none;font-size:10px;color:var(--red);margin-top:4px;"></div>';
-  menu.appendChild(lyrForm);
-  const lyrInput = lyrForm.querySelector('input'), lyrSubmit = lyrForm.querySelector('button'), lyrErr = lyrForm.lastChild;
-
-  let layersOn = false;
-  function setLayersIcon(on) { document.getElementById('layersIcon').innerHTML = on ? UNLOCK : LOCK; }
-  function activateLayers() {
-    layersOn = true; setLayersIcon(true);
-    lyrForm.style.display = 'none'; menu.style.display = 'none';
-    Promise.resolve(window._layersActivate()).then(() => { addLayersFold(); renderCondToggles(); });
-  }
-  // The panel isn't closable here (its ✕ is hidden in the CSS above): a
-  // chevron on its left folds it to a strip at the right edge and back,
-  // remembered in this browser.
-  function setLayersFolded(folded) {
-    const p = document.getElementById('layersPanel'), b = document.getElementById('lyrSide');
-    if (!p || !b) return;
-    p.classList.toggle('lyr-folded', folded);
-    b.textContent = folded ? '‹' : '›';
-    b.title = folded ? 'Show layers' : 'Fold layers to the side';
-    try { localStorage.setItem('inferrd.layersFolded', folded ? '1' : '0'); } catch (e) {}
-  }
-  function addLayersFold() {
-    const p = document.getElementById('layersPanel');
-    if (!p || document.getElementById('lyrSide')) return;
-    const b = document.createElement('button');
-    b.type = 'button'; b.id = 'lyrSide';
-    b.addEventListener('click', () => setLayersFolded(!p.classList.contains('lyr-folded')));
-    p.firstElementChild.prepend(b);
-    let folded = false;
-    try { folded = localStorage.getItem('inferrd.layersFolded') === '1'; } catch (e) {}
-    setLayersFolded(folded);
-  }
-  // layers.js calls this when its panel is closed or the key is forgotten.
-  window._projectsSetLocked = (id) => { if (id === 'layers') { layersOn = false; setLayersIcon(false); renderCondToggles(); } };
-
-  function showLayersErr(msg) { lyrErr.textContent = msg; lyrErr.style.display = 'block'; }
-  function tryLayersKey() {
-    const k = lyrInput.value.trim();
-    if (!k) return;
-    if (!window._layersUnlock) { showLayersErr(layersFailed ? 'Couldn\'t reach occurd. to load the layers — try again later.' : 'Still loading the layers — try again in a moment.'); return; }
-    lyrSubmit.disabled = true;
-    window._layersUnlock(k).then(ok => {
-      lyrSubmit.disabled = false;
-      if (ok) { lyrInput.value = ''; activateLayers(); }
-      else { showLayersErr('Wrong password'); lyrInput.select(); }
-    });
-  }
-  lyrSubmit.addEventListener('click', tryLayersKey);
-  lyrInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryLayersKey(); });
-
-  lyrItem.addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (layersOn) { setLayersFolded(false); menu.style.display = 'none'; return; } // not closable: bring it back out instead
-    if (window._layersHasKey && window._layersHasKey()) { activateLayers(); return; }
-    const show = lyrForm.style.display === 'none';
-    lyrForm.style.display = show ? 'block' : 'none';
-    form.style.display = 'none';
-    lyrErr.style.display = 'none';
-    if (show) setTimeout(() => lyrInput.focus(), 0);
-  });
 })();
 </script>
 </body>

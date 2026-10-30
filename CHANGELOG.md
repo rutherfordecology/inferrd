@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.52.0 — 2026-10-30
+
+- **One Layers panel.** The Layers panel on the right of the map (occurd.'s)
+  and the Map layers box at the lower left are now one panel on the right,
+  in three parts: the open tab's data layers (on Infrared with the
+  condition-check spot types), the other tabs' layers (folded), and the
+  reference layers (GDC plan layers, QEII covenants, NIWA catchments, LRIS
+  layers), the same on every tab. Every row has the same eye, opacity
+  slider and grip to drag it up or down among its own kind; reference
+  outlines now draw above the data layers instead of underneath them. The
+  chevron folds the panel to the side, as before.
+- **One check.** "Check areas against layers", at the foot of the panel,
+  replaces both Check land cover and the panel's Layer check: every area
+  against the land cover layers and every reference layer. Results are on
+  the Land cover tab, with the reference layers in their own card. Both
+  CSVs are unchanged (`<area>_land_cover.csv`, `layer_check_<date>.csv`).
+- **Cut an area by a layer.** ✂ on an area keeps only the part inside a
+  layer, or only the part outside, as a new area named after both (the
+  original stays): a WorldCover or Dynamic World class, canopy over a
+  height, tree cover loss, surface water, a slope class, an elevation band,
+  or a reference layer's shapes, from whichever tab. "Cut areas to this" in
+  a reference-layer popup cuts each area to that one shape. LiDAR layers
+  can't cut areas yet.
+- The six Land cover layers are listed whenever there are areas, not only
+  after a check; after a check, one that found nothing says so.
+- Gone: Projects ▾ (its QEII layer was the same as the reference QEII
+  covenants, and the Layers password is now entered in the panel), and
+  occurd.'s Report maps button, which needed occurd.'s own panel
+  and never worked in inferrd. (it stopped on a missing helper).
+- Saved order, opacities, folded groups, spot-type ticks and the Layers key
+  carry over. Needs occurd. v7.49's layers.js (headless mode).
+
 ## v0.51.3 — 2026-10-30
 
 - **Monthly detail no longer fails in the current year.** With "Also fetch
