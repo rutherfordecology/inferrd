@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.51.2 — 2026-10-30
+
+- **Change dates labelled From and To.** The two dates in "Change between
+  two dates" were labelled Before and After, which read like range limits
+  ("after 2020, before 2026") the wrong way round. They are now From (the
+  earlier image) and To (the later one), and the status message, image
+  counts, help text and README use the same words. The calculation is
+  unchanged (To minus From); saved settings keep working.
+
 ## v0.50.0 — 2026-10-30
 
 - **Species facts cite the GBIF download.** occurd. (v7.48 on) writes the

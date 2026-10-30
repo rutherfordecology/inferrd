@@ -76,7 +76,7 @@ there's an `inferrd` preview entry that does this automatically.)
 ### Change between two dates
 
 With **Change between two dates** chosen in section 3, inferrd. maps the
-pixels that changed between a "before" and an "after"
+pixels that changed between a "From" and a "To"
 date, for checking a specific event such as reported clearance. Each date
 becomes a cloud-masked median of every clear image within a window around it
 (±15–60 days), and the two are subtracted pixel by pixel (NBR by default —

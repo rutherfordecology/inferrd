@@ -442,11 +442,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div id="changeSettings" hidden>
       <div class="field half">
         <div>
-          <label for="changeBeforeDate">Before</label>
+          <label for="changeBeforeDate">From</label>
           <input type="date" id="changeBeforeDate">
         </div>
         <div>
-          <label for="changeAfterDate">After</label>
+          <label for="changeAfterDate">To</label>
           <input type="date" id="changeAfterDate">
         </div>
       </div>
@@ -1171,7 +1171,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>"No significant trend" is also not the same as "stable". With the eight or so yearly values Sentinel-2 allows, the test only picks up a fairly large, steady change; with four or fewer values it can't reach significance at all. Read a non-significant result as "not shown either way". The test's variance is widened for any year-to-year carry-over in the series (Hamed &amp; Rao 1998), never narrowed.</p>
 
     <h3>Change between two dates</h3>
-    <p>Choose "Change between two dates" in section 3 to map which pixels changed between a "before" and an "after" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
+    <p>Choose "Change between two dates" in section 3 to map which pixels changed between a "From" and a "To" date — for checking a specific event, like reported clearance. Each date is a cloud-masked median of the clear images in a window around it, and the two are subtracted pixel by pixel. With "allow for area-wide change" on, each pixel is compared with what the whole area did (its median change), so a season or drought that shifts everything together cancels out; a pixel is flagged when it differs from that by more than the slider's multiple of the area's typical spread. Flagged pixels are shaded by how big the change was; grey pixels had cloud or shadow on every pass and couldn't be assessed, and light grey ones rest on a single clear image. Draw the area wider than the suspected change, taking in untouched surroundings, and check the clear-image counts — a date backed by one or two images is easily thrown by a missed cloud edge or shadow. As with everything here, a flagged pixel is a reason to go and look, not proof of what happened.</p>
     <p>To find <em>when</em> a flagged patch changed, click it on the map. inferrd. compares the patch with its surroundings (a ring 30–150 m out) on every image of roughly the last two years in which the whole patch is clear, and reports the two clear images the change falls between — where the difference crosses the flag threshold and stays there for two or more images. A one-image dip that recovers straight away is flagged as likely cloud shadow or haze, not change.</p>
 
     <h3>Condition check</h3>
@@ -1263,7 +1263,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.51.1';
+const APP_VERSION = 'v0.51.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -2048,7 +2048,7 @@ function showChangeLayers() {
   const statusEl = document.getElementById('changeStatus');
   hideChangeLayers();
   if (!beforeDate || !afterDate || beforeDate >= afterDate) {
-    statusEl.textContent = 'Pick a "before" date earlier than the "after" date.';
+    statusEl.textContent = 'Pick a "From" date earlier than the "To" date.';
     return;
   }
   const runId = changeRunId;
@@ -2100,7 +2100,7 @@ function showChangeLayers() {
           summaries[i].html = 'failed: ' + err;
           renderSummaries(); done(); return;
         }
-        const counts = s.nBefore + ' clear image' + (s.nBefore === 1 ? '' : 's') + ' before, ' + s.nAfter + ' after';
+        const counts = s.nBefore + ' clear image' + (s.nBefore === 1 ? '' : 's') + ' around From, ' + s.nAfter + ' around To';
         if (!s.nBefore || !s.nAfter || s.med == null || s.mad == null) {
           summaries[i].html = 'not enough clear imagery (' + counts + ') — widen the window or raise the cloud %.';
           renderSummaries(); done(); return;
