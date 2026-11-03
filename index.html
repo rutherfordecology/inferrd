@@ -204,6 +204,23 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .area-cut { background: none; border: none; padding: 0 2px; cursor: pointer; font-size: 12px; color: var(--orange-dark); line-height: 1; }
 .cut-dlg { position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 100000; display: grid; place-items: center; padding: 16px; }
 .cut-dlg[hidden] { display: none; }
+/* LiDAR 3D view */
+.v3d { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100000; display: grid; place-items: center; padding: 16px; }
+.v3d[hidden] { display: none; }
+.v3d-box { background: var(--white); border: 1px solid var(--rule); width: 100%; height: 100%; max-width: 1400px; display: flex; flex-direction: column; font-family: var(--font-sans); font-size: 12.5px; color: var(--text); }
+.v3d-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 12px; border-bottom: 1px solid var(--rule); }
+.v3d-bar strong { color: var(--base); font-size: 13.5px; margin-right: auto; }
+.v3d-bar label { display: flex; align-items: center; gap: 6px; }
+.v3d-seg { display: flex; }
+.v3d-seg button { padding: 4px 10px; font-size: 12px; font-family: var(--font-sans); background: var(--white); color: var(--base); border: 1px solid var(--base); cursor: pointer; }
+.v3d-seg button + button { border-left: none; }
+.v3d-seg button.on { background: var(--base); color: var(--white); }
+.v3d-seg button:disabled { opacity: 0.4; cursor: not-allowed; }
+.v3d-close { background: none; border: none; font-size: 18px; color: var(--text3); cursor: pointer; padding: 0 4px; }
+.v3d-view { flex: 1; min-height: 0; position: relative; background: #dfe6ea; }
+.v3d-view canvas { display: block; width: 100%; height: 100%; }
+.v3d-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text2); pointer-events: none; }
+.v3d-foot { padding: 6px 12px; border-top: 1px solid var(--rule); font-size: 11.5px; color: var(--text3); }
 .cut-box { background: var(--white); border: 1px solid var(--rule); width: 420px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 14px 16px; font-family: var(--font-sans); font-size: 12.5px; color: var(--text); }
 .cut-box label.f { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin: 10px 0 4px; }
 .cut-box select, .cut-box input[type=number] { font-size: 12.5px; font-family: var(--font-sans); padding: 4px 6px; border: 1px solid var(--border); }
@@ -654,6 +671,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <label style="display:flex;align-items:flex-start;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;margin:0.2rem 0 0.6rem;" title="Leaves out cells far above everything around them and too narrow to be a tree crown: power lines, pylons, masts. A tall tree's crown is wide enough to stay in."><input type="checkbox" id="lidarWireChk" checked style="margin-top:2px;">Leave out power lines and pylons</label>
         <div class="lidar-legend" id="lidarLegend"></div>
         <button class="run-btn" id="lidarRunBtn" type="button" disabled>Load LiDAR</button>
+        <button class="dl-btn" id="lidar3dBtn" type="button" style="width:100%;margin-top:6px;" hidden title="A 3D model of the loaded LiDAR to tilt and turn, coloured as on the map">View in 3D</button>
         <div class="status-bar" id="lidarStatus"></div>
       </div>
 
@@ -1229,7 +1247,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
 
     <h3>LiDAR tab (New Zealand)</h3>
-    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map and with the contours that are on; the heights can be exaggerated to bring out low relief. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
@@ -1291,7 +1309,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.56.0';
+const APP_VERSION = 'v0.57.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1728,6 +1746,7 @@ const mapStack = (() => {
       render();
     },
     setOn,
+    isOn: (key) => !!(E[key] && E[key].on),
     // The data behind the drawn layers whose key starts with prefix changed.
     refresh(prefix) {
       Object.values(E).forEach(e => { if (e.draw && (!prefix || e.key.indexOf(prefix) === 0)) draw(e); });
@@ -5418,6 +5437,7 @@ function syncLidarControls() {
   btn.textContent = lidarBusy ? 'Loading…'
     : lidarTimeMode ? (picked.length < 2 ? 'Tick 2 or 3 surveys' : (loaded ? 'Reload ' : 'Load ') + picked.length + ' surveys' + forAreas)
     : (loaded ? 'Reload LiDAR' : 'Load LiDAR') + forAreas;
+  document.getElementById('lidar3dBtn').hidden = !lidarSets.length || lidarBusy;
   renderLidarShowSel();
   renderLidarLegend();
 }
@@ -5633,7 +5653,7 @@ const classMid = (c) => c.lo === -Infinity ? 0 : c.hi === Infinity ? c.lo + 5 : 
 // latest survey's (which holds the change).
 const lidarSetShown = (d) => lidarLayer === 'change' ? !!d.change : (!lidarShowSurveyId || d.survey.id === lidarShowSurveyId);
 function renderLidarLayers() {
-  const hLut = lidarHeightLut(), eLut = rampLut(LIDAR_ELEV_RAMP, 0, 1, 256), cLut = rampLut(LIDAR_CHANGE_RAMP, -10, 10, 201);
+  const [hLut, eLut, cLut] = lidarLuts();
   lidarSets.forEach(d => { if (lidarSetShown(d)) renderLidarSet(d, hLut, eLut, cLut); else removeLidarOverlay(d); });
   renderLidarLegend();
   mapStack.refresh('lidar_contours');
@@ -5667,7 +5687,8 @@ function lidarComputeChange() {
 
 // Colours one area's grid for the chosen layer, then warps it from NZTM
 // into the map's Web Mercator so it sits exactly on the basemap.
-function renderLidarSet(d, hLut, eLut, cLut) {
+// The chosen layer's colours over one area's grid (NZTM, north up).
+function lidarSetRgba(d, hLut, eLut, cLut) {
   const g = d.grid, n = g.W * g.H;
   const layer = (lidarLayer === 'height' || lidarLayer === 'dsm') && !d.dsm ? 'dem' : lidarLayer;
   if (!d.shadeDem) d.shadeDem = lidarHillshade(d.dem, g);
@@ -5700,7 +5721,12 @@ function renderLidarSet(d, hLut, eLut, cLut) {
     }
     rgba[i * 4] = r; rgba[i * 4 + 1] = gr; rgba[i * 4 + 2] = b; rgba[i * 4 + 3] = 255;
   }
-
+  return rgba;
+}
+const lidarLuts = () => [lidarHeightLut(), rampLut(LIDAR_ELEV_RAMP, 0, 1, 256), rampLut(LIDAR_CHANGE_RAMP, -10, 10, 201)];
+function renderLidarSet(d, hLut, eLut, cLut) {
+  const g = d.grid;
+  const rgba = lidarSetRgba(d, hLut, eLut, cLut);
   const [w, s, e, nn] = turf.bbox(d.geojson);
   const crs = L.CRS.EPSG3857;
   const p0 = crs.project(L.latLng(s, w)), p1 = crs.project(L.latLng(nn, e));
@@ -5799,8 +5825,8 @@ function lidarContourGrid(d, fine, src) {
   d[ck] = { z, W, H, res: g.res * f, X0: g.x0 + f * g.res / 2, Y0: g.y1 - f * g.res / 2 };
   return d[ck];
 }
-// The lines at one level, as arrays of [lat, lng].
-function lidarContourLevel(cg, L) {
+// The lines at one level, as arrays of [lat, lng] (or NZTM [x, y]).
+function lidarContourLevel(cg, L, nztm) {
   const { z, W, H } = cg;
   // Edge keys: 2k the edge right of node k, 2k + 1 the edge below it.
   const nbr = new Map();
@@ -5830,6 +5856,7 @@ function lidarContourLevel(cg, L) {
     const k = e >> 1, x = k % W, y = (k - x) / W, k2 = e & 1 ? k + W : k + 1;
     const t = (L - z[k]) / (z[k2] - z[k]);
     const X = cg.X0 + (x + (e & 1 ? 0 : t)) * cg.res, Y = cg.Y0 - (y + (e & 1 ? t : 0)) * cg.res;
+    if (nztm) return [X, Y];
     const ll = proj4('EPSG:2193', 'EPSG:4326', [X, Y]);
     return [ll[1], ll[0]];
   };
@@ -5862,6 +5889,7 @@ const LIDAR_CONTOUR_SRC = {
   dem: { key: 'lidar_contours', rank: 5, name: 'Contours (bare ground)', model: 'ground model', colors: ['#fff27a', '#ff8c1a'] },
   dsm: { key: 'lidar_contours_dsm', rank: 6, name: 'Contours (surface)', model: 'surface model', colors: ['#a8e8ff', '#1f8fe0'] }
 };
+const lidarContourStepNow = () => { const [lo, hi] = lidarPool.elevRange; return lidarContourStep || LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200; };
 Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
   map.createPane(c.key + 'Pane');
   mapStack.add({ key: c.key, tab: 'LiDAR', rank: c.rank, op: 1, pane: c.key + 'Pane', swatch: 'repeating-linear-gradient(180deg, ' + c.colors[0] + ' 0 2px, ' + c.colors[1] + ' 2px 4px)', name: c.name,
@@ -5880,8 +5908,7 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
       } })),
     draw: async (pane) => {
       const sets = lidarSets.filter(d => lidarSetShown(d) && d[src]);
-      const [lo, hi] = lidarPool.elevRange;
-      const step = lidarContourStep || LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200, fine = step < 1;
+      const step = lidarContourStepNow(), fine = step < 1;
       const minor = [], major = [];
       for (const d of sets) {
         const cg = lidarContourGrid(d, fine, src);
@@ -5901,6 +5928,223 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
       return { layer, legend: [[c.colors[0], 'Every ' + step + ' m'], [c.colors[1], 'Every ' + step * 5 + ' m']],
         note: 'From the ' + (sets.length && sets[0].grid.res > 1 ? sets[0].grid.res + ' m' : '1 m') + ' ' + c.model + ', traced at ' + res + ' m.' };
     } });
+});
+
+/* ──────────────────────────────────────────────────────────────────────────
+   3D view of the loaded LiDAR: the ground or surface model as a mesh to
+   tilt and turn, draped with the layer shown on the map and the contours
+   that are on. three.js loads only when it is first opened.
+   ────────────────────────────────────────────────────────────────────────── */
+const V3D_MAX_SIDE = 700;   // mesh vertices along the longer side, at most
+const V3D_MAX_TEX = 4096;   // texture pixels along the longer side, at most
+let v3dLibs = null, v3d = null;
+const v3dSrc = { model: 'dem', exag: 1.5 };
+function v3dLoadLibs() {
+  if (window.THREE && THREE.OrbitControls) return Promise.resolve();
+  const load = (src) => new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = src;
+    sc.onload = resolve;
+    sc.onerror = () => reject(new Error('could not load ' + src.split('/').pop()));
+    document.head.appendChild(sc);
+  });
+  if (!v3dLibs) v3dLibs = load('https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js')
+    .then(() => load('https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js'))
+    .catch(err => { v3dLibs = null; throw err; });
+  return v3dLibs;
+}
+
+const v3dDlg = document.createElement('div');
+v3dDlg.className = 'v3d';
+v3dDlg.hidden = true;
+v3dDlg.innerHTML = '<div class="v3d-box" role="dialog" aria-modal="true" aria-labelledby="v3dTitle">' +
+  '<div class="v3d-bar"><strong id="v3dTitle">3D view</strong>' +
+  '<div class="v3d-seg" role="group" aria-label="Model"><button type="button" data-model="dem" title="The ground under the vegetation (DEM)">Ground</button><button type="button" data-model="dsm" title="The top of everything (DSM): crowns, roofs">Surface</button></div>' +
+  '<label title="Heights stretched this many times, to bring out low relief">Height × <input type="range" id="v3dExag" min="1" max="5" step="0.5"><span id="v3dExagVal"></span></label>' +
+  '<button class="v3d-close" type="button" aria-label="Close 3D view">✕</button></div>' +
+  '<div class="v3d-view"><div class="v3d-msg"></div></div>' +
+  '<div class="v3d-foot">Drag to turn, right-drag to move, scroll to zoom. Coloured as on the map (change the layer on the LiDAR tab), with the contours that are on in the Layers panel.</div></div>';
+document.body.appendChild(v3dDlg);
+const v3dView = v3dDlg.querySelector('.v3d-view'), v3dMsg = v3dDlg.querySelector('.v3d-msg');
+
+// One area's mesh, centred on (cx, cy) in NZTM, heights above zBase.
+function v3dMesh(d, model, cx, cy, zBase, luts) {
+  const g = d.grid, Z = d[model];
+  const f = Math.max(1, Math.ceil(Math.max(g.W, g.H) / V3D_MAX_SIDE));
+  const nx = Math.floor((g.W - 1) / f) + 1, ny = Math.floor((g.H - 1) / f) + 1;
+  // Heights at the mesh's vertices; gaps (outside the area, no returns)
+  // filled from their neighbours so the cut edge doesn't drop away.
+  let h = new Float32Array(nx * ny);
+  for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const i = (y * f) * g.W + x * f, v = Z[i];
+    h[y * nx + x] = d.mask[i] && v === v ? v : NaN;
+  }
+  for (let pass = 0; pass < 6; pass++) {
+    const nh = h.slice();
+    let left = 0;
+    for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+      if (h[y * nx + x] === h[y * nx + x]) continue;
+      let sum = 0, n = 0;
+      for (let yy = Math.max(0, y - 1); yy <= Math.min(ny - 1, y + 1); yy++) for (let xx = Math.max(0, x - 1); xx <= Math.min(nx - 1, x + 1); xx++) {
+        const v = h[yy * nx + xx];
+        if (v === v) { sum += v; n++; }
+      }
+      if (n) nh[y * nx + x] = sum / n; else left++;
+    }
+    h = nh;
+    if (!left) break;
+  }
+  const geo = new THREE.PlaneGeometry((nx - 1) * f * g.res, (ny - 1) * f * g.res, nx - 1, ny - 1);
+  geo.rotateX(-Math.PI / 2); // north is -z
+  const pos = geo.attributes.position, uv = geo.attributes.uv;
+  for (let y = 0; y < ny; y++) for (let x = 0; x < nx; x++) {
+    const k = y * nx + x, v = h[k];
+    pos.setY(k, v === v ? v - zBase : 0);
+    uv.setXY(k, (x * f + 0.5) / g.W, 1 - (y * f + 0.5) / g.H);
+  }
+  geo.computeVertexNormals();
+
+  // The drape: the map layer's colours, then the contours that are on.
+  const rgba = lidarSetRgba(d, ...luts);
+  const src = document.createElement('canvas');
+  src.width = g.W; src.height = g.H;
+  src.getContext('2d').putImageData(new ImageData(rgba, g.W, g.H), 0, 0);
+  const sc = Math.min(3, V3D_MAX_TEX / Math.max(g.W, g.H));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round(g.W * sc)); cv.height = Math.max(1, Math.round(g.H * sc));
+  const ctx = cv.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(src, 0, 0, cv.width, cv.height);
+  const step = lidarContourStepNow(), fine = step < 1;
+  Object.entries(LIDAR_CONTOUR_SRC).forEach(([cs, c]) => {
+    if (!mapStack.isOn(c.key) || !d[cs]) return;
+    const cg = lidarContourGrid(d, fine, cs);
+    let zmin = Infinity, zmax = -Infinity;
+    for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
+    for (let n = Math.ceil(zmin / step); n * step <= zmax; n++) {
+      ctx.strokeStyle = c.colors[n % 5 === 0 ? 1 : 0];
+      ctx.lineWidth = Math.max(1, sc * (n % 5 === 0 ? 1.6 : 1));
+      ctx.beginPath();
+      lidarContourLevel(cg, n * step, true).forEach(line => line.forEach(([X, Y], j) => {
+        const px = (X - g.x0) / g.res * sc, py = (g.y1 - Y) / g.res * sc;
+        if (j) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+      }));
+      ctx.stroke();
+    }
+  });
+  const tex = new THREE.CanvasTexture(cv);
+  tex.anisotropy = 8;
+  tex.encoding = THREE.sRGBEncoding;
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }));
+  const X0 = g.x0 + 0.5 * g.res, Y0 = g.y1 - 0.5 * g.res;
+  mesh.position.set(X0 + (nx - 1) * f * g.res / 2 - cx, 0, -(Y0 - (ny - 1) * f * g.res / 2 - cy));
+  return mesh;
+}
+
+function v3dClear() {
+  v3d.group.children.slice().forEach(m => { v3d.group.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); });
+}
+function v3dBuild() {
+  const sets = lidarSets.filter(d => lidarSetShown(d) && d[v3dSrc.model]);
+  v3dClear();
+  if (!sets.length) return;
+  // Common centre and base height across the areas.
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, zBase = Infinity;
+  sets.forEach(d => {
+    const g = d.grid, Z = d[v3dSrc.model];
+    x0 = Math.min(x0, g.x0); x1 = Math.max(x1, g.x1); y0 = Math.min(y0, g.y0); y1 = Math.max(y1, g.y1);
+    for (let i = 0; i < Z.length; i++) if (d.mask[i] && Z[i] < zBase) zBase = Z[i];
+  });
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, luts = lidarLuts();
+  sets.forEach(d => v3d.group.add(v3dMesh(d, v3dSrc.model, cx, cy, zBase, luts)));
+  v3d.group.scale.y = v3dSrc.exag;
+  if (!v3d.span) {
+    const span = Math.max(x1 - x0, y1 - y0);
+    v3d.span = span;
+    v3d.camera.near = span / 1000; v3d.camera.far = span * 20;
+    v3d.camera.updateProjectionMatrix();
+    // From the south, looking north and down at about 35°.
+    v3d.camera.position.set(0, span * 0.55, span * 0.8);
+    v3d.controls.target.set(0, 0, 0);
+    v3d.controls.update();
+  }
+  const names = [...new Set(sets.map(d => d.areaName))];
+  document.getElementById('v3dTitle').textContent = '3D view: ' + names.join(', ') + ' · ' + sets[0].survey.title + ' · ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground');
+}
+
+function v3dSync() {
+  const hasDsm = lidarSets.some(d => lidarSetShown(d) && d.dsm);
+  if (!hasDsm) v3dSrc.model = 'dem';
+  v3dDlg.querySelectorAll('[data-model]').forEach(b => {
+    b.classList.toggle('on', b.dataset.model === v3dSrc.model);
+    b.disabled = b.dataset.model === 'dsm' && !hasDsm;
+  });
+  document.getElementById('v3dExag').value = v3dSrc.exag;
+  document.getElementById('v3dExagVal').textContent = v3dSrc.exag + '×';
+}
+
+async function v3dOpen() {
+  if (!lidarSets.length) return;
+  v3dDlg.hidden = false;
+  v3dSync();
+  v3dMsg.textContent = 'Loading the 3D viewer…';
+  try {
+    await v3dLoadLibs();
+  } catch (err) {
+    v3dMsg.textContent = 'Couldn\'t load the 3D viewer: ' + err.message;
+    return;
+  }
+  if (v3dDlg.hidden) return;
+  if (!v3d) {
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.setClearColor(0xdfe6ea);
+    const scene = new THREE.Scene(), group = new THREE.Group();
+    scene.add(group);
+    const camera = new THREE.PerspectiveCamera(40, 1, 1, 1e5);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI * 0.49; // not under the ground
+    v3d = { renderer, scene, group, camera, controls, span: 0, raf: 0 };
+    new ResizeObserver(() => {
+      const w = v3dView.clientWidth, h = v3dView.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }).observe(v3dView);
+  }
+  v3dView.insertBefore(v3d.renderer.domElement, v3dMsg);
+  v3dMsg.textContent = 'Building the model…';
+  await new Promise(r => setTimeout(r, 30));
+  v3d.span = 0; // frame the areas afresh each time it opens
+  v3dBuild();
+  v3dMsg.textContent = '';
+  const tick = () => { v3d.raf = requestAnimationFrame(tick); v3d.controls.update(); v3d.renderer.render(v3d.scene, v3d.camera); };
+  cancelAnimationFrame(v3d.raf);
+  tick();
+}
+function v3dClose() {
+  v3dDlg.hidden = true;
+  if (!v3d) return;
+  cancelAnimationFrame(v3d.raf);
+  v3dClear();
+}
+document.getElementById('lidar3dBtn').addEventListener('click', v3dOpen);
+v3dDlg.querySelector('.v3d-close').addEventListener('click', v3dClose);
+v3dDlg.addEventListener('click', (ev) => { if (ev.target === v3dDlg) v3dClose(); });
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !v3dDlg.hidden) v3dClose(); });
+v3dDlg.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click', () => {
+  if (b.disabled || b.dataset.model === v3dSrc.model) return;
+  v3dSrc.model = b.dataset.model;
+  v3dSync();
+  if (v3d) v3dBuild();
+}));
+document.getElementById('v3dExag').addEventListener('input', (ev) => {
+  v3dSrc.exag = Number(ev.target.value);
+  document.getElementById('v3dExagVal').textContent = v3dSrc.exag + '×';
+  if (v3d) v3d.group.scale.y = v3dSrc.exag;
 });
 
 const lidarSchemeSel = document.getElementById('lidarScheme');

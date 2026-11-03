@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.57.0 — 2026-11-03
+
+- **3D view of the LiDAR.** "View in 3D", under Load LiDAR once LiDAR is
+  loaded, opens the loaded area as a 3D model to tilt and turn: drag to
+  turn, right-drag to move, scroll to zoom. Ground or Surface model;
+  heights can be exaggerated 1–5× (1.5× at first). It is coloured with the
+  layer shown on the map (vegetation height, bare ground, surface,
+  elevation or height change) and carries the contours that are on.
+  Meshes are up to 700 points along the longer side, so big areas are
+  shown coarser than the 1 m data. three.js (r147) loads only when the
+  view is first opened.
+
 ## v0.56.0 — 2026-11-03
 
 - **Surface contours.** A "Contours (surface)" layer on the LiDAR tab, off
