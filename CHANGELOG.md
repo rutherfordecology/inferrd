@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.58.1 — 2026-11-03
+
+- **Contours on or off in the 3D view, matching the model.** A Contours
+  tick box in the 3D view's bar switches contours on the model off and on
+  without leaving it (the Layers panel is behind the 3D window). On, they
+  are the contours of the model shown: ground contours on Ground, surface
+  contours on Surface, whether or not those layers are on in the Layers
+  panel, at the interval set there. The browser remembers it.
+
 ## v0.58.0 — 2026-11-03
 
 - **Aerial photos on the 3D view.** Colours → Aerial photo drapes a LINZ

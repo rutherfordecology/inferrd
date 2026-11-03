@@ -1250,7 +1250,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
 
     <h3>LiDAR tab (New Zealand)</h3>
-    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map, by an aerial photo, or by height on a choice of colour ramps, and with the contours that are on; the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map, by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
@@ -1312,7 +1312,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.58.0';
+const APP_VERSION = 'v0.58.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1749,7 +1749,6 @@ const mapStack = (() => {
       render();
     },
     setOn,
-    isOn: (key) => !!(E[key] && E[key].on),
     // The data behind the drawn layers whose key starts with prefix changed.
     refresh(prefix) {
       Object.values(E).forEach(e => { if (e.draw && (!prefix || e.key.indexOf(prefix) === 0)) draw(e); });
@@ -5955,7 +5954,8 @@ const V3D_RAMPS = {
   spectral: { name: 'Height: blue to red', stops: ['#2b83ba', '#abdda4', '#ffffbf', '#fdae61', '#d7191c'] }
 };
 let v3dLibs = null, v3d = null;
-const v3dSrc = { model: 'dem', exag: 1.5, colours: 'map', photo: null };
+const v3dSrc = { model: 'dem', exag: 1.5, colours: 'map', photo: null, contours: true };
+try { v3dSrc.contours = localStorage.getItem('inferrd.v3dContours') !== '0'; } catch (e) {}
 function v3dLoadLibs() {
   if (window.THREE && THREE.OrbitControls) return Promise.resolve();
   const load = (src) => new Promise((resolve, reject) => {
@@ -6084,6 +6084,7 @@ v3dDlg.innerHTML = '<div class="v3d-box" role="dialog" aria-modal="true" aria-la
     Object.entries(V3D_RAMPS).map(([k, r]) => '<option value="' + k + '">' + r.name + '</option>').join('') +
   '</select></label>' +
   '<label id="v3dPhotoField" hidden>Photo <select id="v3dPhoto"></select></label>' +
+  '<label title="Contours of the model shown: the ground on Ground, the surface on Surface"><input type="checkbox" id="v3dContours">Contours</label>' +
   '<label title="Heights stretched this many times, to bring out low relief">Height × <input type="range" id="v3dExag" min="1" max="5" step="0.5"><span id="v3dExagVal"></span></label>' +
   '<button class="v3d-close" type="button" aria-label="Close 3D view">✕</button></div>' +
   '<div class="v3d-view"><div class="v3d-msg"></div></div>' +
@@ -6158,12 +6159,12 @@ function v3dMesh(d, model, cx, cy, zBase, cv, sc) {
   }
   geo.computeVertexNormals();
 
-  // The contours that are on, over the colouring.
+  // Contours of the model shown (ground or surface), over the colouring.
   const ctx = cv.getContext('2d');
   ctx.globalCompositeOperation = 'source-over';
   const step = lidarContourStepNow(), fine = step < 1;
   Object.entries(LIDAR_CONTOUR_SRC).forEach(([cs, c]) => {
-    if (!mapStack.isOn(c.key) || !d[cs]) return;
+    if (!v3dSrc.contours || cs !== model || !d[cs]) return;
     const cg = lidarContourGrid(d, fine, cs);
     let zmin = Infinity, zmax = -Infinity;
     for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
@@ -6287,7 +6288,8 @@ async function v3dBuild() {
   }
   const names = [...new Set(sets.map(d => d.areaName))];
   document.getElementById('v3dTitle').textContent = '3D view: ' + names.join(', ') + ' · ' + sets[0].survey.title + ' · ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground');
-  document.getElementById('v3dFoot').innerHTML = 'Drag to turn, right-drag to move, scroll to zoom. ' + foot + 'Contours as on in the Layers panel.';
+  document.getElementById('v3dFoot').innerHTML = 'Drag to turn, right-drag to move, scroll to zoom. ' + foot +
+    (v3dSrc.contours ? 'Contours of the ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground') + ', every ' + lidarContourStepNow() + ' m (the interval set in the Layers panel).' : 'Contours off.');
 }
 
 function v3dSync() {
@@ -6299,6 +6301,7 @@ function v3dSync() {
   });
   document.getElementById('v3dColours').value = v3dSrc.colours;
   document.getElementById('v3dPhotoField').hidden = v3dSrc.colours !== 'photo';
+  document.getElementById('v3dContours').checked = v3dSrc.contours;
   document.getElementById('v3dExag').value = v3dSrc.exag;
   document.getElementById('v3dExagVal').textContent = v3dSrc.exag + '×';
 }
@@ -6364,6 +6367,11 @@ v3dDlg.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click',
 document.getElementById('v3dColours').addEventListener('change', (ev) => {
   v3dSrc.colours = ev.target.value;
   v3dSync();
+  if (v3d) v3dBuild();
+});
+document.getElementById('v3dContours').addEventListener('change', (ev) => {
+  v3dSrc.contours = ev.target.checked;
+  try { localStorage.setItem('inferrd.v3dContours', v3dSrc.contours ? '1' : '0'); } catch (e) {}
   if (v3d) v3dBuild();
 });
 document.getElementById('v3dPhoto').addEventListener('change', (ev) => {
