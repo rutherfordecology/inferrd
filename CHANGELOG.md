@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.60.0 — 2026-11-03
+
+- **3D "As on the map" drapes the whole map.** Set the map up in 2D, then
+  open the 3D view: Colours → As on the map now drapes every layer that's
+  on in the Layers panel, in the panel's order and at its opacities, over
+  the basemap, not just the LiDAR layer. Earth Engine layers and the
+  basemap are fetched again as tiles and bent from the web map onto the
+  LiDAR's NZTM grid (read at up to 1 pixel a LiDAR cell); geology, erosion,
+  faults, landslides and the reference layers are redrawn from their
+  shapes, with lines as thick as they look on the map. Contour layers are
+  left to the 3D view's own Contours, which follow the model shown. The
+  footer lists what was draped, and any layer whose server wouldn't let
+  it be copied.
+
 ## v0.59.1 — 2026-11-03
 
 - **3D Height × runs 0.5× to 2×,** in steps of 0.25, starting at 1× (true
