@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.58.0 — 2026-11-03
+
+- **Aerial photos on the 3D view.** Colours → Aerial photo drapes a LINZ
+  aerial photo over the 3D model, read straight from the open
+  nz-imagery bucket (cloud-optimised GeoTIFFs in NZTM, on the same grid
+  as the LiDAR, CC BY 4.0) and cut to the area. The survey flown nearest
+  the LiDAR, among those covering the whole area, is picked first; a
+  Photo menu lists every survey over the area, newest first, back to the
+  1970s. Read at up to 5 pixels per LiDAR cell (0.2 m at 1 m), never
+  finer than the photo; very big areas are read coarser.
+- **Colour ramps on the 3D view.** Colours also offers height ramps:
+  green, brown, white; purple to yellow; greens; blue to red, over the
+  shown model (ground or surface), shaded by its hillshade.
+- LiDAR and photo tiles share one reader for LINZ's sheet grid at any
+  scale (1:500 to 1:10k).
+
 ## v0.57.0 — 2026-11-03
 
 - **3D view of the LiDAR.** "View in 3D", under Load LiDAR once LiDAR is
