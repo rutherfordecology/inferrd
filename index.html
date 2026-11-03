@@ -140,6 +140,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .mstack-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin-top: 3px; }
 .mstack-opt { display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
 .mstack-opt input { margin: 0; }
+.mstack-opt.off { opacity: 0.4; cursor: not-allowed; }
 .swatch-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
 .legend-sw { display: inline-block; width: 11px; height: 11px; border-radius: 0; margin-right: 6px; vertical-align: -1px; }
 .lidar-legend { margin-top: 8px; }
@@ -1312,7 +1313,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.58.1';
+const APP_VERSION = 'v0.58.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1557,7 +1558,7 @@ const mapStack = (() => {
     if (e.on && (e.note || (e.legend && e.legend.length) || opts.length)) key = '<li class="mstack-key" data-key="' + k + '">' + (e.note ? '<div>' + esc(e.note) + '</div>' : '') +
       (e.legend || []).map(([c, l]) => '<div><span class="legend-sw" style="background:' + c + '"></span>' + esc(l) + '</div>').join('') +
       (opts.length ? '<div class="mstack-opts">' + (e.optsLabel ? '<span>' + esc(e.optsLabel) + '</span>' : '') +
-        opts.map((o, i) => '<label class="mstack-opt" title="' + esc(o.title || '') + '"><input type="checkbox" data-opt="' + i + '"' + (o.get() ? ' checked' : '') + '>' + esc(o.label) + '</label>').join('') + '</div>' : '') + '</li>';
+        opts.map((o, i) => { const no = o.disabled && o.disabled(); return '<label class="mstack-opt' + (no ? ' off' : '') + '" title="' + esc(no || o.title || '') + '"><input type="checkbox" data-opt="' + i + '"' + (o.get() ? ' checked' : '') + (no ? ' disabled' : '') + '>' + esc(o.label) + '</label>'; }).join('') + '</div>' : '') + '</li>';
     return '<li class="mstack-row' + (e.on ? '' : ' off') + '" data-key="' + k + '">' +
       '<span class="mstack-grip" title="Drag to move up or down">⋮⋮</span>' +
       '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + esc(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
@@ -1723,7 +1724,7 @@ const mapStack = (() => {
   return {
     // o: { key, tab, name (text or function), swatch (CSS background), on, op, rank (lower is higher up),
     //      pane (an existing pane to take over; else one is made), draw(pane) → { layer, legend, note }, available(),
-    //      opts: [{ label, title, get(), set(checked) }] tick boxes in a line under the legend, optsLabel before them }
+    //      opts: [{ label, title, get(), set(checked), disabled() → why not, or '' }] tick boxes in a line under the legend, optsLabel before them }
     add,
     // One of occurd.'s register layers, l = { id, name, group, color, notes }.
     addRef(l, i) {
@@ -5897,7 +5898,27 @@ const LIDAR_CONTOUR_SRC = {
   dem: { key: 'lidar_contours', rank: 5, name: 'Contours (bare ground)', model: 'ground model', colors: ['#fff27a', '#ff8c1a'] },
   dsm: { key: 'lidar_contours_dsm', rank: 6, name: 'Contours (surface)', model: 'surface model', colors: ['#a8e8ff', '#1f8fe0'] }
 };
-const lidarContourStepNow = () => { const [lo, hi] = lidarPool.elevRange; return lidarContourStep || LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200; };
+// Guard rails: an interval giving more than LIDAR_CONTOUR_MAX_LEVELS lines
+// over the loaded height range can't be ticked (and a remembered one falls
+// back to the automatic interval), and a drawing stops at
+// LIDAR_CONTOUR_MAX_POINTS points (surface contours ring every tree).
+const LIDAR_CONTOUR_MAX_LEVELS = 200;
+const LIDAR_CONTOUR_MAX_POINTS = 600000;
+const lidarContourLevels = (step) => { const [lo, hi] = lidarPool.elevRange; return (hi - lo) / step; };
+const lidarContourStepNow = () => {
+  const [lo, hi] = lidarPool.elevRange;
+  if (lidarContourStep && lidarContourLevels(lidarContourStep) <= LIDAR_CONTOUR_MAX_LEVELS) return lidarContourStep;
+  return LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200;
+};
+// One set's contour grid and the levels (as multiples of step) over it.
+function lidarContourTrace(d, src, step) {
+  const cg = lidarContourGrid(d, step < 1, src);
+  let zmin = Infinity, zmax = -Infinity;
+  for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
+  const levels = [];
+  for (let n = Math.ceil(zmin / step); n * step <= zmax; n++) levels.push(n);
+  return { cg, levels };
+}
 Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
   map.createPane(c.key + 'Pane');
   mapStack.add({ key: c.key, tab: 'LiDAR', rank: c.rank, op: 1, pane: c.key + 'Pane', swatch: 'repeating-linear-gradient(180deg, ' + c.colors[0] + ' 0 2px, ' + c.colors[1] + ' 2px 4px)', name: c.name,
@@ -5908,7 +5929,9 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
     opts: LIDAR_CONTOUR_FIXED.map(m => ({ label: String(m),
       title: 'Contours every ' + m + ' m, every fifth one darker, whatever the height range. None ticked, the interval is set by the range: no more than about 30 lines.' +
         (m < 1 ? ' Traced at 1 m, so drains, terraces and scarps show. Best on open ground: under bush the ground model has fewer returns. Slower on big or steep areas.' : ''),
-      get: () => lidarContourStep === m,
+      disabled: () => lidarPool && lidarContourLevels(m) > LIDAR_CONTOUR_MAX_LEVELS
+        ? 'Every ' + m + ' m would be about ' + Math.round(lidarContourLevels(m)) + ' lines over this height range, more than ' + LIDAR_CONTOUR_MAX_LEVELS + ': choose a wider interval, or a smaller area.' : '',
+      get: () => lidarContourStep === m && lidarContourStepNow() === m,
       set: (on) => {
         lidarContourStep = on ? m : null;
         try { localStorage.setItem('inferrd.lidarContourStep', lidarContourStep ? String(lidarContourStep) : ''); } catch (e) {}
@@ -5918,14 +5941,17 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
       const sets = lidarSets.filter(d => lidarSetShown(d) && d[src]);
       const step = lidarContourStepNow(), fine = step < 1;
       const minor = [], major = [];
+      let pts = 0, cut = false;
       for (const d of sets) {
-        const cg = lidarContourGrid(d, fine, src);
-        let zmin = Infinity, zmax = -Infinity;
-        for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
-        for (let n = Math.ceil(zmin / step); n * step <= zmax; n++) {
-          (n % 5 === 0 ? major : minor).push(...lidarContourLevel(cg, n * step));
+        const { cg, levels } = lidarContourTrace(d, src, step);
+        for (const n of levels) {
+          const ls = lidarContourLevel(cg, n * step);
+          ls.forEach(l => { pts += l.length; });
+          (n % 5 === 0 ? major : minor).push(...ls);
+          if (pts > LIDAR_CONTOUR_MAX_POINTS) { cut = true; break; }
           await new Promise(r => setTimeout(r, 0)); // keep the page responsive
         }
+        if (cut) break;
       }
       const renderer = L.canvas({ pane });
       const layer = L.layerGroup([
@@ -5934,7 +5960,8 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
       ]);
       const res = sets.length ? lidarContourGrid(sets[0], fine, src).res : 2;
       return { layer, legend: [[c.colors[0], 'Every ' + step + ' m'], [c.colors[1], 'Every ' + step * 5 + ' m']],
-        note: 'From the ' + (sets.length && sets[0].grid.res > 1 ? sets[0].grid.res + ' m' : '1 m') + ' ' + c.model + ', traced at ' + res + ' m.' };
+        note: 'From the ' + (sets.length && sets[0].grid.res > 1 ? sets[0].grid.res + ' m' : '1 m') + ' ' + c.model + ', traced at ' + res + ' m.' +
+          (cut ? ' Too dense to draw in full: stopped partway. Choose a wider interval.' : '') };
     } });
 });
 
@@ -5945,7 +5972,8 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
    opened.
    ────────────────────────────────────────────────────────────────────────── */
 const V3D_MAX_SIDE = 700;   // mesh vertices along the longer side, at most
-const V3D_MAX_TEX = 4096;   // texture pixels along the longer side, at most (8192 for photos where the GPU allows)
+const V3D_MAX_TEX = 4096;   // texture pixels along the longer side, at most
+const V3D_TEX_BUDGET = 32e6; // texture pixels across all the areas, at most (about 130 MB)
 // Height colourings, low to high.
 const V3D_RAMPS = {
   earth: { name: 'Height: green, brown, white', stops: ['#3a7d44', '#a3c46c', '#f0e08a', '#c99a5b', '#8c5a3c', '#f5f0ea'] },
@@ -6162,21 +6190,22 @@ function v3dMesh(d, model, cx, cy, zBase, cv, sc) {
   // Contours of the model shown (ground or surface), over the colouring.
   const ctx = cv.getContext('2d');
   ctx.globalCompositeOperation = 'source-over';
-  const step = lidarContourStepNow(), fine = step < 1;
+  const step = lidarContourStepNow();
+  let cut = false;
   Object.entries(LIDAR_CONTOUR_SRC).forEach(([cs, c]) => {
     if (!v3dSrc.contours || cs !== model || !d[cs]) return;
-    const cg = lidarContourGrid(d, fine, cs);
-    let zmin = Infinity, zmax = -Infinity;
-    for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
-    for (let n = Math.ceil(zmin / step); n * step <= zmax; n++) {
+    const { cg, levels } = lidarContourTrace(d, cs, step);
+    let pts = 0;
+    for (const n of levels) {
       ctx.strokeStyle = c.colors[n % 5 === 0 ? 1 : 0];
       ctx.lineWidth = Math.max(1, sc * (n % 5 === 0 ? 1.6 : 1));
       ctx.beginPath();
-      lidarContourLevel(cg, n * step, true).forEach(line => line.forEach(([X, Y], j) => {
+      lidarContourLevel(cg, n * step, true).forEach(line => { pts += line.length; line.forEach(([X, Y], j) => {
         const px = (X - g.x0) / g.res * sc, py = (g.y1 - Y) / g.res * sc;
         if (j) ctx.lineTo(px, py); else ctx.moveTo(px, py);
-      }));
+      }); });
       ctx.stroke();
+      if (pts > LIDAR_CONTOUR_MAX_POINTS) { cut = true; break; }
     }
   });
   const tex = new THREE.CanvasTexture(cv);
@@ -6185,6 +6214,7 @@ function v3dMesh(d, model, cx, cy, zBase, cv, sc) {
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: tex, alphaTest: 0.5, side: THREE.DoubleSide }));
   const X0 = g.x0 + 0.5 * g.res, Y0 = g.y1 - 0.5 * g.res;
   mesh.position.set(X0 + (nx - 1) * f * g.res / 2 - cx, 0, -(Y0 - (ny - 1) * f * g.res / 2 - cy));
+  mesh.userData.cut = cut;
   return mesh;
 }
 
@@ -6216,8 +6246,33 @@ async function v3dPhotos() {
   return v3d.photos;
 }
 
+// Controls that start a rebuild are locked while one runs, so clicks can't
+// stack builds (each holds a drape of up to V3D_TEX_BUDGET pixels).
+function v3dBusy(on) {
+  v3dDlg.querySelectorAll('[data-model], #v3dColours, #v3dPhoto, #v3dContours').forEach(el => { el.disabled = on; });
+  if (!on) v3dSync();
+}
+// Drape pixels per cell for each set: what's wanted, within V3D_MAX_TEX a
+// side and V3D_TEX_BUDGET in all.
+function v3dScales(sets, want) {
+  const maxTex = Math.min(V3D_MAX_TEX, v3d.renderer.capabilities.maxTextureSize);
+  const sc = sets.map((d, k) => Math.min(want[k], maxTex / Math.max(d.grid.W, d.grid.H)));
+  const px = sets.reduce((t, d, k) => t + d.grid.W * d.grid.H * sc[k] * sc[k], 0);
+  const f = Math.min(1, Math.sqrt(V3D_TEX_BUDGET / px));
+  return sc.map(x => Math.max(0.25, x * f));
+}
 async function v3dBuild() {
   const run = ++v3d.run;
+  v3dBusy(true);
+  try {
+    await v3dBuildRun(run);
+  } catch (err) {
+    if (run === v3d.run) v3dSay('Couldn\'t draw the 3D view: ' + (err && err.message ? err.message : err) + '. Try a smaller area, or Colours: As on the map.');
+  } finally {
+    if (run === v3d.run) v3dBusy(false);
+  }
+}
+async function v3dBuildRun(run) {
   const sets = v3dShownSets();
   if (!sets.length) { v3dClear(); return; }
   // Common centre and base height across the areas.
@@ -6239,21 +6294,25 @@ async function v3dBuild() {
     if (run !== v3d.run || !list) return;
     const survey = list.find(s => s.id === v3dSrc.photo);
     if (!survey) { v3dClear(); v3dSay('No LINZ aerial photos cover this area.'); return; }
-    const maxTex = Math.min(8192, v3d.renderer.capabilities.maxTextureSize);
-    for (const d of sets) {
-      // Up to 5 pixels per LiDAR cell (0.2 m at 1 m), and never finer
-      // than the photo itself.
-      const sc = Math.max(0.25, Math.min(5, d.grid.res / survey.gsd, maxTex / Math.max(d.grid.W, d.grid.H)));
-      if (!d.photos) d.photos = {};
-      const ck = survey.id + '@' + sc.toFixed(3);
-      if (!d.photos[ck]) {
-        d.photos[ck] = await imgPhotoCanvas(d, survey, sc, (k, n) => { if (run === v3d.run) v3dSay('Reading ' + survey.title + ': tile ' + k + ' of ' + n + '…'); });
+    // Up to 5 pixels per LiDAR cell (0.2 m at 1 m), never finer than the
+    // photo itself, within the texture limits.
+    const scs = v3dScales(sets, sets.map(d => Math.min(5, d.grid.res / survey.gsd)));
+    for (const [k, d] of sets.entries()) {
+      const sc = scs[k], ck = survey.id + '@' + sc.toFixed(3);
+      // One photo kept per area: the last one read.
+      if (!d.photo || d.photo.key !== ck) {
+        d.photo = null;
+        const cv = await imgPhotoCanvas(d, survey, sc, (i, n) => { if (run === v3d.run) v3dSay('Reading ' + survey.title + ': tile ' + i + ' of ' + n + '…'); });
         if (run !== v3d.run) return;
+        d.photo = { key: ck, cv };
       }
-      // A copy, so the contours drawn on it don't stick to the cached photo.
-      const cv = document.createElement('canvas');
-      cv.width = d.photos[ck].width; cv.height = d.photos[ck].height;
-      cv.getContext('2d').drawImage(d.photos[ck], 0, 0);
+      // Contours go on a copy, so they don't stick to the kept photo.
+      let cv = d.photo.cv;
+      if (v3dSrc.contours) {
+        cv = document.createElement('canvas');
+        cv.width = d.photo.cv.width; cv.height = d.photo.cv.height;
+        cv.getContext('2d').drawImage(d.photo.cv, 0, 0);
+      }
       canvases.push([cv, sc]);
     }
     foot = 'Aerial photo: ' + escHtml(survey.title) + ', ' + surveyDates(survey) + ', Toitū Te Whenua LINZ (<a href="https://registry.opendata.aws/nz-imagery/" target="_blank" rel="noopener">nz-imagery</a>), CC BY 4.0. ';
@@ -6266,14 +6325,14 @@ async function v3dBuild() {
       lut = rampLut(st.map((c, k) => [k / (st.length - 1), c]), 0, 1, 256);
       foot = 'Coloured by height, ' + Math.round(rampLo) + ' to ' + Math.round(rampHi) + ' m. ';
     } else foot = 'Coloured as on the map (change the layer on the LiDAR tab). ';
-    const luts = lidarLuts();
-    sets.forEach(d => {
-      const sc = Math.min(3, V3D_MAX_TEX / Math.max(d.grid.W, d.grid.H));
-      canvases.push([v3dGridCanvas(d, lut ? v3dRampRgba(d, v3dSrc.model, lut, rampLo, rampHi) : lidarSetRgba(d, ...luts), sc), sc]);
+    const luts = lidarLuts(), scs = v3dScales(sets, sets.map(() => 3));
+    sets.forEach((d, k) => {
+      canvases.push([v3dGridCanvas(d, lut ? v3dRampRgba(d, v3dSrc.model, lut, rampLo, rampHi) : lidarSetRgba(d, ...luts), scs[k]), scs[k]]);
     });
   }
   v3dClear();
   sets.forEach((d, k) => v3d.group.add(v3dMesh(d, v3dSrc.model, cx, cy, zBase, canvases[k][0], canvases[k][1])));
+  const cut = v3d.group.children.some(m => m.userData.cut);
   v3d.group.scale.y = v3dSrc.exag;
   v3dSay('');
   if (!v3d.span) {
@@ -6289,7 +6348,8 @@ async function v3dBuild() {
   const names = [...new Set(sets.map(d => d.areaName))];
   document.getElementById('v3dTitle').textContent = '3D view: ' + names.join(', ') + ' · ' + sets[0].survey.title + ' · ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground');
   document.getElementById('v3dFoot').innerHTML = 'Drag to turn, right-drag to move, scroll to zoom. ' + foot +
-    (v3dSrc.contours ? 'Contours of the ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground') + ', every ' + lidarContourStepNow() + ' m (the interval set in the Layers panel).' : 'Contours off.');
+    (v3dSrc.contours ? 'Contours of the ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground') + ', every ' + lidarContourStepNow() + ' m (the interval set in the Layers panel)' +
+      (cut ? ', too dense to draw in full: stopped partway; choose a wider interval.' : '.') : 'Contours off.');
 }
 
 function v3dSync() {
@@ -6330,6 +6390,22 @@ async function v3dOpen() {
     controls.enableDamping = true;
     controls.maxPolarAngle = Math.PI * 0.49; // not under the ground
     v3d = { renderer, scene, group, camera, controls, span: 0, raf: 0, run: 0, photoKey: null, photos: null, photosPromise: null };
+    // The graphics card can drop the 3D view (out of memory, or the
+    // browser reclaiming it): say so, and redraw when it comes back.
+    renderer.domElement.addEventListener('webglcontextlost', (ev) => {
+      ev.preventDefault();
+      cancelAnimationFrame(v3d.raf);
+      v3d.run++;
+      v3dSay('The 3D view ran out of graphics memory. It will redraw if the graphics card frees up; if not, close it and open it again, or try a smaller area or Colours: As on the map.');
+    });
+    // three.js rebuilds its state on restore, background colour included.
+    renderer.domElement.addEventListener('webglcontextrestored', () => {
+      renderer.setClearColor(0xdfe6ea);
+      if (v3dDlg.hidden) return;
+      v3dClear();
+      v3dTick();
+      v3dBuild();
+    });
     new ResizeObserver(() => {
       const w = v3dView.clientWidth, h = v3dView.clientHeight;
       if (!w || !h) return;
@@ -6342,10 +6418,13 @@ async function v3dOpen() {
   v3dSay('Building the model…');
   await new Promise(r => setTimeout(r, 30));
   v3d.span = 0; // frame the areas afresh each time it opens
-  const tick = () => { v3d.raf = requestAnimationFrame(tick); v3d.controls.update(); v3d.renderer.render(v3d.scene, v3d.camera); };
-  cancelAnimationFrame(v3d.raf);
-  tick();
+  v3dTick();
   await v3dBuild();
+}
+function v3dTick() {
+  cancelAnimationFrame(v3d.raf);
+  const tick = () => { v3d.raf = requestAnimationFrame(tick); v3d.controls.update(); v3d.renderer.render(v3d.scene, v3d.camera); };
+  tick();
 }
 function v3dClose() {
   v3dDlg.hidden = true;

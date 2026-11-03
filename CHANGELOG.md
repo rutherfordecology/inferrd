@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.58.2 — 2026-11-03
+
+- **Guard rails on the 3D view and contours,** so a big area or a fine
+  interval can't freeze the page or blank the 3D view:
+  - The 3D drape (photo or colours) is at most 4096 pixels a side and
+    32 million in all across the areas (it was up to 8192 a side for
+    photos, about 28 million for one 1 km area). A 1 km area's photo is
+    now read at about 0.25 m instead of 0.2 m. Only the last photo read
+    is kept per area, and it is no longer copied when contours are off.
+  - Ground/Surface, Colours, Photo and Contours are locked while the
+    model is being built, so clicks can't start builds on top of each
+    other.
+  - If the graphics card drops the 3D view, it says so and redraws when
+    it can, instead of going blank. Any other error is shown in the
+    view, not left half-drawn.
+  - A contour interval that would give more than 200 lines over the
+    loaded height range is greyed out in the Layers panel, with the
+    reason on hover; a remembered one falls back to the automatic
+    interval. Contours stop at 600,000 points on the map and in 3D
+    (surface contours ring every tree), and say they stopped.
+
 ## v0.58.1 — 2026-11-03
 
 - **Contours on or off in the 3D view, matching the model.** A Contours
