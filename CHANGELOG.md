@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.54.1 — 2026-11-03
+
+- **"1 m contours" is in the Layers panel,** under the Contours legend,
+  instead of the LiDAR tab's left column. Rows in the panel can now carry
+  tick boxes of their own.
+
 ## v0.54.0 — 2026-11-03
 
 - **1 m contours.** A "1 m contours" tick box on the LiDAR tab, off by
