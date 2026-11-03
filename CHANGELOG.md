@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.54.0 — 2026-11-03
+
+- **1 m contours.** A "1 m contours" tick box on the LiDAR tab, off by
+  default, sets the contour interval to 1 m whatever the height range,
+  with every fifth line (5 m) orange. Off, the interval is chosen from the
+  height range as before. The browser remembers it.
+
+## v0.53.1 — 2026-11-03
+
+- **Contours start above the LiDAR layer.** A layer new since the Layers
+  panel last saved its order now goes in at its default place (contours
+  just above the LiDAR layer) instead of at the bottom of the stack.
+  Drag it anywhere as before; the panel remembers.
+- **Contours stand out from the bush.** Light yellow lines, with every
+  fifth line orange and a little heavier, in place of browns that were
+  lost against forest.
+
 ## v0.53.0 — 2026-11-03
 
 - **Contours on the bare ground.** A "Contours (bare ground)" layer on the
