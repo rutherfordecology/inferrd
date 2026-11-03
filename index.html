@@ -137,7 +137,8 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .mstack-name small { color: var(--text3); font-size: 10.5px; margin-left: 4px; }
 .mstack-row input[type=range] { width: 64px; min-width: 0; margin: 0; }
 .mstack-key { padding: 3px 0 7px 48px; border-bottom: 1px solid var(--rule); font-size: 11.5px; color: var(--text2); display: flex; flex-direction: column; gap: 2px; }
-.mstack-opt { display: flex; align-items: center; gap: 5px; margin-top: 3px; cursor: pointer; }
+.mstack-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; margin-top: 3px; }
+.mstack-opt { display: flex; align-items: center; gap: 3px; cursor: pointer; white-space: nowrap; }
 .mstack-opt input { margin: 0; }
 .swatch-legend { display: flex; flex-direction: column; gap: 3px; margin-top: 10px; font-size: 11.5px; color: var(--text2); }
 .legend-sw { display: inline-block; width: 11px; height: 11px; border-radius: 0; margin-right: 6px; vertical-align: -1px; }
@@ -1228,7 +1229,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
 
     <h3>LiDAR tab (New Zealand)</h3>
-    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or every 1 m with "1 m contours" ticked under Contours in the Layers panel. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
@@ -1290,7 +1291,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.54.1';
+const APP_VERSION = 'v0.55.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1534,7 +1535,8 @@ const mapStack = (() => {
     const opts = e.opts || [];
     if (e.on && (e.note || (e.legend && e.legend.length) || opts.length)) key = '<li class="mstack-key" data-key="' + k + '">' + (e.note ? '<div>' + esc(e.note) + '</div>' : '') +
       (e.legend || []).map(([c, l]) => '<div><span class="legend-sw" style="background:' + c + '"></span>' + esc(l) + '</div>').join('') +
-      opts.map((o, i) => '<label class="mstack-opt" title="' + esc(o.title || '') + '"><input type="checkbox" data-opt="' + i + '"' + (o.get() ? ' checked' : '') + '>' + esc(o.label) + '</label>').join('') + '</li>';
+      (opts.length ? '<div class="mstack-opts">' + (e.optsLabel ? '<span>' + esc(e.optsLabel) + '</span>' : '') +
+        opts.map((o, i) => '<label class="mstack-opt" title="' + esc(o.title || '') + '"><input type="checkbox" data-opt="' + i + '"' + (o.get() ? ' checked' : '') + '>' + esc(o.label) + '</label>').join('') + '</div>' : '') + '</li>';
     return '<li class="mstack-row' + (e.on ? '' : ' off') + '" data-key="' + k + '">' +
       '<span class="mstack-grip" title="Drag to move up or down">⋮⋮</span>' +
       '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + esc(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
@@ -1700,7 +1702,7 @@ const mapStack = (() => {
   return {
     // o: { key, tab, name (text or function), swatch (CSS background), on, op, rank (lower is higher up),
     //      pane (an existing pane to take over; else one is made), draw(pane) → { layer, legend, note }, available(),
-    //      opts: [{ label, title, get(), set(checked) }] tick boxes under the legend }
+    //      opts: [{ label, title, get(), set(checked) }] tick boxes in a line under the legend, optsLabel before them }
     add,
     // One of occurd.'s register layers, l = { id, name, group, color, notes }.
     addRef(l, i) {
@@ -5176,8 +5178,13 @@ const LIDAR_WIRE_CLOSE_M = 5;
 const LIDAR_WIRE_ABOVE_M = 10;
 let lidarWires = true;
 try { lidarWires = localStorage.getItem('inferrd.lidarWires') !== '0'; } catch (e) {}
-let lidarContour1m = false;
-try { lidarContour1m = localStorage.getItem('inferrd.lidarContour1m') === '1'; } catch (e) {}
+// A fixed contour interval when one is ticked; null sets it by the height range.
+const LIDAR_CONTOUR_FIXED = [0.5, 1, 5, 20, 100];
+let lidarContourStep = null;
+try {
+  const v = Number(localStorage.getItem('inferrd.lidarContourStep') || (localStorage.getItem('inferrd.lidarContour1m') === '1' ? 1 : 0));
+  lidarContourStep = LIDAR_CONTOUR_FIXED.includes(v) ? v : null;
+} catch (e) {}
 
 let appTab = 'infrared';
 let lidarSurveyKey = null;   // the areas the survey list was found for, see lidarAreasKey()
@@ -5759,13 +5766,15 @@ map.on('zoomend', lidarSharpen);
 // marching squares on the DEM averaged into blocks of at least 2 m, then
 // smoothed over 3 × 3 blocks, so tussock, ruts and logs don't each get a
 // ring. The interval is the smallest giving no more than about 30 lines
-// over the loaded height range, or 1 m if ticked; every fifth line is an
-// index line.
+// over the loaded height range, or the one ticked; every fifth line is an
+// index line. Fine (for 0.5 m) traces at blocks of 1 m and up to a
+// million blocks, so drains, terraces and scarps show.
 const LIDAR_CONTOUR_STEPS = [0.5, 1, 2, 5, 10, 20, 25, 50, 100];
-function lidarContourGrid(d) {
-  if (d.contourGrid) return d.contourGrid;
+function lidarContourGrid(d, fine) {
+  const ck = fine ? 'contourGridFine' : 'contourGrid';
+  if (d[ck]) return d[ck];
   const g = d.grid;
-  const f = Math.max(Math.ceil(2 / g.res), Math.ceil(Math.sqrt(g.W * g.H / 250000)));
+  const f = Math.max(Math.ceil((fine ? 1 : 2) / g.res), Math.ceil(Math.sqrt(g.W * g.H / (fine ? 1e6 : 250000))));
   const W = Math.floor(g.W / f), H = Math.floor(g.H / f);
   const blk = new Float32Array(W * H).fill(NaN);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -5787,8 +5796,8 @@ function lidarContourGrid(d) {
     z[y * W + x] = sum / n;
   }
   // Grid node (x, y) in NZTM metres: the middle of its block.
-  d.contourGrid = { z, W, H, res: g.res * f, X0: g.x0 + f * g.res / 2, Y0: g.y1 - f * g.res / 2 };
-  return d.contourGrid;
+  d[ck] = { z, W, H, res: g.res * f, X0: g.x0 + f * g.res / 2, Y0: g.y1 - f * g.res / 2 };
+  return d[ck];
 }
 // The lines at one level, as arrays of [lat, lng].
 function lidarContourLevel(cg, L) {
@@ -5849,20 +5858,24 @@ function lidarContourLevel(cg, L) {
 map.createPane('lidarContourPane');
 mapStack.add({ key: 'lidar_contours', tab: 'LiDAR', rank: 5, op: 1, pane: 'lidarContourPane', swatch: 'repeating-linear-gradient(180deg, #fff27a 0 2px, #ff8c1a 2px 4px)', name: 'Contours (bare ground)',
   available: () => lidarSets.length > 0 && !!lidarPool,
-  opts: [{ label: '1 m contours', title: 'Contours every 1 m, with every fifth one orange, whatever the height range. Off, the interval is set by the range: no more than about 30 lines.',
-    get: () => lidarContour1m,
+  // One interval or none: ticking one unticks the others.
+  optsLabel: 'Every (m)',
+  opts: LIDAR_CONTOUR_FIXED.map(m => ({ label: String(m),
+    title: 'Contours every ' + m + ' m, every fifth one orange, whatever the height range. None ticked, the interval is set by the range: no more than about 30 lines.' +
+      (m < 1 ? ' Traced at 1 m, so drains, terraces and scarps show. Best on open ground: under bush the ground model has fewer returns. Slower on big or steep areas.' : ''),
+    get: () => lidarContourStep === m,
     set: (on) => {
-      lidarContour1m = on;
-      try { localStorage.setItem('inferrd.lidarContour1m', on ? '1' : '0'); } catch (e) {}
+      lidarContourStep = on ? m : null;
+      try { localStorage.setItem('inferrd.lidarContourStep', lidarContourStep ? String(lidarContourStep) : ''); } catch (e) {}
       mapStack.refresh('lidar_contours');
-    } }],
+    } })),
   draw: async (pane) => {
     const sets = lidarSets.filter(lidarSetShown);
     const [lo, hi] = lidarPool.elevRange;
-    const step = lidarContour1m ? 1 : LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200;
+    const step = lidarContourStep || LIDAR_CONTOUR_STEPS.find(s => (hi - lo) / s <= 30) || 200, fine = step < 1;
     const minor = [], major = [];
     for (const d of sets) {
-      const cg = lidarContourGrid(d);
+      const cg = lidarContourGrid(d, fine);
       let zmin = Infinity, zmax = -Infinity;
       for (const v of cg.z) if (v === v) { if (v < zmin) zmin = v; if (v > zmax) zmax = v; }
       for (let n = Math.ceil(zmin / step); n * step <= zmax; n++) {
@@ -5875,7 +5888,7 @@ mapStack.add({ key: 'lidar_contours', tab: 'LiDAR', rank: 5, op: 1, pane: 'lidar
       L.polyline(minor, { pane, renderer, interactive: false, color: '#fff27a', weight: 1.2 }),
       L.polyline(major, { pane, renderer, interactive: false, color: '#ff8c1a', weight: 2 })
     ]);
-    const res = sets.length ? lidarContourGrid(sets[0]).res : 2;
+    const res = sets.length ? lidarContourGrid(sets[0], fine).res : 2;
     return { layer, legend: [['#fff27a', 'Every ' + step + ' m'], ['#ff8c1a', 'Every ' + step * 5 + ' m']],
       note: 'From the ' + (sets.length && sets[0].grid.res > 1 ? sets[0].grid.res + ' m' : '1 m') + ' ground model, traced at ' + res + ' m.' };
   } });

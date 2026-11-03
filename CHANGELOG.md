@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.55.0 — 2026-11-03
+
+- **Pick the contour interval.** Under Contours in the Layers panel, one
+  line of tick boxes, Every (m) ☐ 0.5 ☐ 1 ☐ 5 ☐ 20 ☐ 100, replaces
+  the single "1 m contours" box; ticking one unticks the others, and with
+  none ticked the interval is set by the height range as before. Every
+  fifth line is orange. At 0.5 m the ground model is traced at 1 m blocks
+  (up to a million, so about 1 km across) instead of 2 m, so drains,
+  terraces and slip scarps show; best on open ground, as under bush fewer
+  pulses reach the ground. A browser that had 1 m ticked keeps it.
+
 ## v0.54.1 — 2026-11-03
 
 - **"1 m contours" is in the Layers panel,** under the Contours legend,
