@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.59.1 — 2026-11-03
+
+- **3D Height × runs 0.5× to 2×,** in steps of 0.25, starting at 1× (true
+  heights). It ran 1× to 5×, starting at 1.5×.
+
 ## v0.59.0 — 2026-11-03
 
 - **Ground change.** With two or more surveys loaded (Compare surveys over
