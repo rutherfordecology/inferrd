@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.59.0 — 2026-11-03
+
+- **Ground change.** With two or more surveys loaded (Compare surveys over
+  time), a Ground change layer beside Height change: the latest ground
+  model (DEM) less the earliest, cell by cell, on the same red–blue scale
+  (red lower, blue higher). Shows slip scars and debris, eroded banks,
+  silt, cuts and fill. Changes under 0.5 m either way are greyed as within
+  the surveys' differences. A Ground change card gives, per area, the
+  area lowered and raised by 0.5 m or more, the volume lost and gained
+  (from those cells only) and the net, and the median shift, with a
+  warning when that is 0.15 m or more, as the surveys are then probably
+  offset. Clicking the map gives each survey's ground and the change.
+  Also a Colours choice in the 3D view.
+- Height change is now described as vegetation height on its button.
+
 ## v0.58.2 — 2026-11-03
 
 - **Guard rails on the 3D view and contours,** so a big area or a fine

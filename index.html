@@ -654,7 +654,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </button>
           <button class="mode-btn" data-layer="change" type="button" role="radio" aria-checked="false" style="display:none;">
             <span class="mode-name">Height change</span>
-            <span class="mode-desc">Latest survey less the earliest</span>
+            <span class="mode-desc">Vegetation height: latest survey less the earliest</span>
+          </button>
+          <button class="mode-btn" data-layer="gchange" type="button" role="radio" aria-checked="false" style="display:none;">
+            <span class="mode-name">Ground change</span>
+            <span class="mode-desc">Bare ground: latest survey less the earliest. Slips, erosion, silt, earthworks</span>
           </button>
         </div>
         <div class="field" id="lidarShowField" style="margin-top:0.7rem;display:none;">
@@ -962,6 +966,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <div class="card-title" id="lidarChangeTitle">Change between surveys</div>
             <div style="overflow-x:auto;"><table class="stats-table" id="lidarChangeTable"></table></div>
           </div>
+          <div class="table-card" id="lidarGChangeCard" style="display:none;">
+            <div class="card-title" id="lidarGChangeTitle">Ground change between surveys</div>
+            <div style="overflow-x:auto;"><table class="stats-table" id="lidarGChangeTable"></table></div>
+            <div class="field-hint" id="lidarGChangeHint" style="margin:6px 0 0;"></div>
+          </div>
           <div class="table-card" id="lidarCompareCard" style="display:none;">
             <div class="card-title" id="lidarCompareTitle">Areas compared</div>
             <div style="overflow-x:auto;"><table class="stats-table" id="lidarCompareTable"></table></div>
@@ -1251,7 +1260,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
 
     <h3>LiDAR tab (New Zealand)</h3>
-    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map, by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation; with two or more surveys, the change in vegetation height or in the bare ground between the earliest and the latest, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map, by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
@@ -1313,7 +1322,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.58.2';
+const APP_VERSION = 'v0.59.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -5226,7 +5235,7 @@ const SURVEY_COLORS = ['#2c5f8a', '#c28a00', '#c9184a'];
 const SURVEY_DASHES = ['', '6 3', '2 2'];
 
 map.createPane('lidarPane');
-const LIDAR_LAYER_NAMES = { height: 'vegetation height', dem: 'bare ground', dsm: 'surface', elev: 'elevation', change: 'height change' };
+const LIDAR_LAYER_NAMES = { height: 'vegetation height', dem: 'bare ground', dsm: 'surface', elev: 'elevation', change: 'height change', gchange: 'ground change' };
 mapStack.add({ key: 'lidar', tab: 'LiDAR', rank: 10, op: 1, pane: 'lidarPane', swatch: 'linear-gradient(90deg, #ffffcc, #41ab5d, #004529)',
   name: () => 'LiDAR ' + (LIDAR_LAYER_NAMES[lidarLayer] || lidarLayer) });
 
@@ -5427,10 +5436,12 @@ document.getElementById('lidarTimeChk').addEventListener('change', (e) => {
 function syncLidarControls() {
   const picked = pickedSurveys();
   const hasDsm = picked.some(s => s.dsmTiles.length);
-  // Height change needs two loaded surveys with vegetation height.
-  const canChange = lidarSets.some(d => d.change);
-  if (!canChange && lidarLayer === 'change') lidarLayer = 'height';
+  // Height change needs two loaded surveys with vegetation height; ground
+  // change, two with a ground model.
+  const canChange = lidarSets.some(d => d.change), canGChange = lidarSets.some(d => d.gchange);
+  if ((!canChange && lidarLayer === 'change') || (!canGChange && lidarLayer === 'gchange')) lidarLayer = 'height';
   document.querySelector('#lidarLayerBtns [data-layer="change"]').style.display = canChange ? '' : 'none';
+  document.querySelector('#lidarLayerBtns [data-layer="gchange"]').style.display = canGChange ? '' : 'none';
   document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => {
     const needsDsm = b.dataset.layer === 'height' || b.dataset.layer === 'dsm';
     b.disabled = needsDsm && picked.length && !hasDsm;
@@ -5658,9 +5669,9 @@ const lutCss = (lut, h) => { if (h < 0.5) return LIDAR_GROUND_GREY; const k = Ma
 // Middle of a height class, for its swatch.
 const classMid = (c) => c.lo === -Infinity ? 0 : c.hi === Infinity ? c.lo + 5 : (c.lo + c.hi) / 2;
 
-// Which sets are on the map: the shown survey's, or for Height change the
-// latest survey's (which holds the change).
-const lidarSetShown = (d) => lidarLayer === 'change' ? !!d.change : (!lidarShowSurveyId || d.survey.id === lidarShowSurveyId);
+// Which sets are on the map: the shown survey's, or for Height change and
+// Ground change the latest survey's (which holds the change).
+const lidarSetShown = (d) => lidarLayer === 'change' || lidarLayer === 'gchange' ? !!d[lidarLayer] : (!lidarShowSurveyId || d.survey.id === lidarShowSurveyId);
 function renderLidarLayers() {
   const [hLut, eLut, cLut] = lidarLuts();
   lidarSets.forEach(d => { if (lidarSetShown(d)) renderLidarSet(d, hLut, eLut, cLut); else removeLidarOverlay(d); });
@@ -5670,6 +5681,7 @@ function renderLidarLayers() {
 // Loss red, gain blue; the middle (under 0.5 m either way) is left grey.
 const LIDAR_CHANGE_RAMP = [[-10, '#8e0d1c'], [-4, '#d6604d'], [-0.5, '#f4c6b2'], [0.5, '#c6dbef'], [4, '#4393c3'], [10, '#08306b']];
 
+const LIDAR_GCHANGE_NOISE_M = 0.5; // ground change smaller than this either way: survey differences
 // For each area loaded from two or more surveys: vegetation height in the
 // latest less the earliest, cell by cell (both are on the same grid), held
 // on the latest set, with a summary.
@@ -5692,14 +5704,34 @@ function lidarComputeChange() {
     b.change = ch; b.changeFrom = a;
     b.changeStats = { both, lost, gained, mean: both ? sum / both : NaN };
   });
+  // Ground: the latest ground model less the earliest. Changes inside
+  // ±LIDAR_GCHANGE_NOISE_M are left out of the areas and volumes as within
+  // the surveys' differences; the median over the area shows any offset
+  // between the surveys as a whole.
+  byArea.forEach(list => {
+    if (list.length < 2) return;
+    const a = list[0], b = list[list.length - 1];
+    if (!a.dem || !b.dem) return;
+    const n = b.dem.length, ch = new Float32Array(n).fill(NaN), cellM2 = b.grid.res * b.grid.res;
+    let both = 0, down = 0, up = 0, cut = 0, fill = 0;
+    for (let i = 0; i < n; i++) {
+      if (!b.mask[i]) continue;
+      const v = b.dem[i] - a.dem[i];
+      if (v !== v) continue;
+      ch[i] = v; both++;
+      if (v <= -LIDAR_GCHANGE_NOISE_M) { down++; cut -= v * cellM2; } else if (v >= LIDAR_GCHANGE_NOISE_M) { up++; fill += v * cellM2; }
+    }
+    b.gchange = ch; b.gchangeFrom = a;
+    b.gchangeStats = { both, down, up, cut, fill, median: lidarPercentileOf(ch, b.mask, [0.5])[0] };
+  });
 }
 
 // Colours one area's grid for the chosen layer, then warps it from NZTM
 // into the map's Web Mercator so it sits exactly on the basemap.
 // The chosen layer's colours over one area's grid (NZTM, north up).
-function lidarSetRgba(d, hLut, eLut, cLut) {
-  const g = d.grid, n = g.W * g.H;
-  const layer = (lidarLayer === 'height' || lidarLayer === 'dsm') && !d.dsm ? 'dem' : lidarLayer;
+function lidarSetRgba(d, hLut, eLut, cLut, as) {
+  const g = d.grid, n = g.W * g.H, want = as || lidarLayer;
+  const layer = (want === 'height' || want === 'dsm') && !d.dsm ? 'dem' : want;
   if (!d.shadeDem) d.shadeDem = lidarHillshade(d.dem, g);
   if (layer === 'dsm' && !d.shadeDsm) d.shadeDsm = lidarHillshade(d.dsm, g);
   const rgba = new Uint8ClampedArray(n * 4);
@@ -5711,10 +5743,10 @@ function lidarSetRgba(d, hLut, eLut, cLut) {
       const s = (layer === 'dsm' ? d.shadeDsm : d.shadeDem)[i];
       if (s !== s) continue;
       r = gr = b = 25 + 230 * s;
-    } else if (layer === 'change') {
-      const v = d.change[i], s = d.shadeDem[i], sh = s === s ? s : 1;
+    } else if (layer === 'change' || layer === 'gchange') {
+      const v = d[layer][i], s = d.shadeDem[i], sh = s === s ? s : 1;
       if (v !== v) continue;
-      if (Math.abs(v) < 0.5) { r = gr = b = 140 + 100 * sh; }
+      if (Math.abs(v) < (layer === 'gchange' ? LIDAR_GCHANGE_NOISE_M : 0.5)) { r = gr = b = 140 + 100 * sh; }
       else { const k = Math.round((Math.max(-10, Math.min(10, v)) + 10) * 10) * 3, m = 0.75 + 0.25 * sh; r = cLut[k] * m; gr = cLut[k + 1] * m; b = cLut[k + 2] * m; }
     } else if (layer === 'elev') {
       const z = d.dem[i], s = d.shadeDem[i];
@@ -6108,7 +6140,7 @@ v3dDlg.innerHTML = '<div class="v3d-box" role="dialog" aria-modal="true" aria-la
   '<div class="v3d-bar"><strong id="v3dTitle">3D view</strong>' +
   '<div class="v3d-seg" role="group" aria-label="Model"><button type="button" data-model="dem" title="The ground under the vegetation (DEM)">Ground</button><button type="button" data-model="dsm" title="The top of everything (DSM): crowns, roofs">Surface</button></div>' +
   '<label>Colours <select id="v3dColours">' +
-    '<option value="map">As on the map</option><option value="photo">Aerial photo</option>' +
+    '<option value="map">As on the map</option><option value="photo">Aerial photo</option><option value="gchange">Ground change</option>' +
     Object.entries(V3D_RAMPS).map(([k, r]) => '<option value="' + k + '">' + r.name + '</option>').join('') +
   '</select></label>' +
   '<label id="v3dPhotoField" hidden>Photo <select id="v3dPhoto"></select></label>' +
@@ -6221,7 +6253,8 @@ function v3dMesh(d, model, cx, cy, zBase, cv, sc) {
 function v3dClear() {
   v3d.group.children.slice().forEach(m => { v3d.group.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); });
 }
-const v3dShownSets = () => lidarSets.filter(d => lidarSetShown(d) && d[v3dSrc.model]);
+// The sets on the map, or for Ground change the latest survey's (which holds it).
+const v3dShownSets = () => lidarSets.filter(d => (v3dSrc.colours === 'gchange' && lidarSets.some(x => x.gchange) ? !!d.gchange : lidarSetShown(d)) && d[v3dSrc.model]);
 
 // The photo surveys over the shown areas, listed once per set of areas;
 // the one flown nearest the LiDAR (among those covering it all) first picked.
@@ -6324,10 +6357,13 @@ async function v3dBuildRun(run) {
       const st = V3D_RAMPS[col].stops;
       lut = rampLut(st.map((c, k) => [k / (st.length - 1), c]), 0, 1, 256);
       foot = 'Coloured by height, ' + Math.round(rampLo) + ' to ' + Math.round(rampHi) + ' m. ';
+    } else if (col === 'gchange') {
+      const a = sets.find(d => d.gchange);
+      foot = a ? 'Ground change, ' + escHtml(a.survey.title) + ' less ' + escHtml(a.gchangeFrom.survey.title) + ': red lower, blue higher, grey under ' + LIDAR_GCHANGE_NOISE_M + ' m either way. ' : '';
     } else foot = 'Coloured as on the map (change the layer on the LiDAR tab). ';
     const luts = lidarLuts(), scs = v3dScales(sets, sets.map(() => 3));
     sets.forEach((d, k) => {
-      canvases.push([v3dGridCanvas(d, lut ? v3dRampRgba(d, v3dSrc.model, lut, rampLo, rampHi) : lidarSetRgba(d, ...luts), scs[k]), scs[k]]);
+      canvases.push([v3dGridCanvas(d, lut ? v3dRampRgba(d, v3dSrc.model, lut, rampLo, rampHi) : lidarSetRgba(d, ...luts, col === 'gchange' && d.gchange ? 'gchange' : undefined), scs[k]), scs[k]]);
     });
   }
   v3dClear();
@@ -6359,6 +6395,10 @@ function v3dSync() {
     b.classList.toggle('on', b.dataset.model === v3dSrc.model);
     b.disabled = b.dataset.model === 'dsm' && !hasDsm;
   });
+  const gOpt = v3dDlg.querySelector('#v3dColours option[value="gchange"]'), canG = lidarSets.some(d => d.gchange);
+  gOpt.disabled = !canG;
+  gOpt.title = canG ? '' : 'Needs two surveys loaded (Compare surveys over time on the LiDAR tab).';
+  if (!canG && v3dSrc.colours === 'gchange') v3dSrc.colours = 'map';
   document.getElementById('v3dColours').value = v3dSrc.colours;
   document.getElementById('v3dPhotoField').hidden = v3dSrc.colours !== 'photo';
   document.getElementById('v3dContours').checked = v3dSrc.contours;
@@ -6500,7 +6540,7 @@ document.querySelectorAll('#lidarLayerBtns .mode-btn').forEach(b => b.addEventLi
 
 function renderLidarShowSel() {
   const ls = loadedSurveys(), field = document.getElementById('lidarShowField'), sel = document.getElementById('lidarShowSel');
-  field.style.display = ls.length > 1 && lidarLayer !== 'change' ? '' : 'none';
+  field.style.display = ls.length > 1 && lidarLayer !== 'change' && lidarLayer !== 'gchange' ? '' : 'none';
   if (ls.length < 2) return;
   sel.innerHTML = ls.map(s => '<option value="' + s.id + '"' + (s.id === lidarShowSurveyId ? ' selected' : '') + '>' + escHtml(s.title) + ' (' + surveyDates(s) + ')</option>').join('');
 }
@@ -6546,12 +6586,13 @@ function renderLidarLegend() {
     } else {
       el.innerHTML = '<div class="field-hint">' + (sc.top ? (lidarEmergentM === null ? 'Pink: the tallest 10% of the cover over 2 m. ' : 'Pink: over ' + lidarEmergentM + ' m. ') : '') + 'Grey: under 0.5 m.</div>';
     }
-  } else if (lidarLayer === 'change') {
+  } else if (lidarLayer === 'change' || lidarLayer === 'gchange') {
     const grad = LIDAR_CHANGE_RAMP.map(([v, c]) => c + ' ' + ((v + 10) / 20 * 100) + '%').join(', ');
-    const ls = loadedSurveys();
+    const ls = loadedSurveys(), g = lidarLayer === 'gchange';
     el.innerHTML = '<div class="ramp" style="background:linear-gradient(to right, ' + grad + ');"></div>' +
-      '<div class="ticks"><span>−10 m</span><span>0</span><span>+10 m</span></div>' +
-      '<div class="field-hint">' + (ls.length ? escHtml(ls[ls.length - 1].title) + ' less ' + escHtml(ls[0].title) + '. ' : '') + 'Grey: under 0.5 m either way.</div>';
+      '<div class="ticks"><span>−10 m' + (g ? ' lower' : '') + '</span><span>0</span><span>+10 m' + (g ? ' higher' : '') + '</span></div>' +
+      '<div class="field-hint">' + (g ? 'Bare ground' : 'Vegetation height') + ', ' + (ls.length ? escHtml(ls[ls.length - 1].title) + ' less ' + escHtml(ls[0].title) + '. ' : '') +
+      'Grey: under ' + (g ? LIDAR_GCHANGE_NOISE_M : 0.5) + ' m either way.</div>';
   } else if (lidarLayer === 'elev') {
     const grad = LIDAR_ELEV_RAMP.map(([v, c]) => c + ' ' + (v * 100) + '%').join(', ');
     const r = lidarPool ? lidarPool.elevRange : null;
@@ -6778,8 +6819,35 @@ function renderLidarChange() {
     }).join('');
 }
 
+function renderLidarGChange() {
+  const sets = lidarSets.filter(d => d.gchange), card = document.getElementById('lidarGChangeCard');
+  card.style.display = sets.length ? '' : 'none';
+  if (!sets.length) return;
+  const a0 = sets[0].gchangeFrom.survey, b0 = sets[0].survey;
+  document.getElementById('lidarGChangeTitle').textContent = 'Ground change from ' + a0.title + ' (' + surveyDates(a0) + ') to ' + b0.title + ' (' + surveyDates(b0) + ')';
+  const th = (t, right) => '<th' + (right ? ' style="text-align:right"' : '') + '>' + t + '</th>';
+  const td = (t, right) => '<td' + (right ? ' style="text-align:right"' : '') + '>' + t + '</td>';
+  const m3 = (v) => Math.round(v).toLocaleString() + ' m³';
+  const sgn = (v, dp) => v === v ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(dp) : '–';
+  const N = LIDAR_GCHANGE_NOISE_M;
+  document.getElementById('lidarGChangeTable').innerHTML = '<tr>' + th('Area') + th('Lowered ' + N + ' m or more', 1) + th('Raised ' + N + ' m or more', 1) +
+    th('Volume lost', 1) + th('Volume gained', 1) + th('Net', 1) + th('Median shift', 1) + '</tr>' +
+    sets.map(d => {
+      const cs = d.gchangeStats, ha = (n) => fmtHa(n * d.stats.cellHa) + ' ha';
+      return '<tr>' + td('<span class="area-swatch" style="display:inline-block;vertical-align:-1px;margin-right:6px;background:' + (areas.find(x => x.id === d.areaId) || d).color + ';"></span>' + escHtml(d.areaName)) +
+        td(ha(cs.down) + ' (' + lpc(cs.down, cs.both) + ')', 1) + td(ha(cs.up) + ' (' + lpc(cs.up, cs.both) + ')', 1) +
+        td(m3(cs.cut), 1) + td(m3(cs.fill), 1) + td(sgn(cs.fill - cs.cut, 0).replace(/^([+−]?)(\d+)$/, (x, s1, n) => s1 + Number(n).toLocaleString()) + ' m³', 1) +
+        td(sgn(cs.median, 2) + ' m', 1) + '</tr>';
+    }).join('');
+  const off = sets.filter(d => Math.abs(d.gchangeStats.median) >= 0.15);
+  document.getElementById('lidarGChangeHint').innerHTML = 'Volumes count only cells that moved ' + N + ' m or more, so small changes everywhere don\'t add up to a false volume.' +
+    (off.length ? ' <strong>' + off.map(d => escHtml(d.areaName)).join(', ') + ':</strong> the typical cell moved ' + off.map(d => sgn(d.gchangeStats.median, 2) + ' m').join(', ') +
+      ', which is more likely an offset between the two surveys than the whole area rising or sinking. Read changes of that size with care.' : '');
+}
+
 function renderLidarResultsAll() {
   renderLidarChange();
+  renderLidarGChange();
   const multi = lidarSets.length > 1;
   document.getElementById('lidarMetrics').style.display = multi ? 'none' : '';
   document.getElementById('lidarCompareCard').style.display = multi ? '' : 'none';
@@ -6931,6 +6999,7 @@ function renderLidarNotes() {
   const gaps = lidarSets.filter(d => d.stats.withDem < d.stats.inside);
   const notes = [
     '<p>' + ls.map(s => '<strong>' + escHtml(s.title) + '</strong>, flown ' + surveyDates(s)).join('; ') + '. Heights are for ' + (ls.length > 1 ? 'those dates' : 'then') + ', not now: anything cleared, planted or grown since won\'t show.</p>',
+    lidarSets.some(d => d.gchange) ? '<p>Ground change is the later ground model (DEM) less the earlier one, cell by cell: red where the ground is lower now (slip scars, eroded banks, cuts), blue where it is higher (slip debris, silt, fill). Changes under ' + LIDAR_GCHANGE_NOISE_M + ' m either way are greyed and left out of the areas and volumes, as within the differences between surveys. Under dense bush fewer pulses reach the ground and the ground model is partly filled in between them, so small changes there are less reliable than on open ground. Where the whole area seems to have moved by much the same amount, the surveys are probably offset from each other rather than the ground moving. Bridges, and culverts that one survey cuts through, can show as change too.</p>' : '',
     ls.length > 1 ? '<p>Surveys differ in their sensors, point density and processing, so a change of under about a metre, or a shift across a whole area, may come from that rather than the vegetation. Each area is on the same grid in every survey, so the change is cell by cell. A drop of 5 m or more usually means a tree or branch has come down, been cut, or slipped away.</p>' : '',
     anyH ? '<p>Vegetation height is the surface model (DSM, the top of whatever the laser hit first) less the ground model (DEM) from the same flight. It measures the height of <em>anything</em> standing on the ground: buildings, sheds, power lines and stacked logs read as "vegetation" too.</p>' : '',
     anyH ? '<p>Both models are 1 m grids made from the point cloud, so a single tree narrower than a few metres, or a gap in the canopy, is smoothed and reads lower than it is. The 95th percentile stands in for canopy top because the very tallest cells are often noise.</p>' : '',
@@ -6980,8 +7049,9 @@ map.on('click', (e) => {
     if (same.length > 1) {
       const last = same[same.length - 1];
       body = same.map(x => row('Height, ' + escHtml(x.surveyShort), x.height ? hm(x) : 'no DSM')).join('') +
-        (last.change ? row('Change', last.change[i] === last.change[i] ? (last.change[i] > 0 ? '+' : '') + last.change[i].toFixed(1) + ' m' : 'no data') : '') +
-        row('Ground, ' + escHtml(last.surveyShort), m(last.dem[i]));
+        (last.change ? row('Height change', last.change[i] === last.change[i] ? (last.change[i] > 0 ? '+' : '') + last.change[i].toFixed(1) + ' m' : 'no data') : '') +
+        same.map(x => row('Ground, ' + escHtml(x.surveyShort), m(x.dem[i]))).join('') +
+        (last.gchange ? row('Ground change', last.gchange[i] === last.gchange[i] ? (last.gchange[i] > 0 ? '+' : '') + last.gchange[i].toFixed(2) + ' m' : 'no data') : '');
     } else {
       body = row('Ground (DEM)', m(d.dem[i])) + (d.dsm ? row('Surface (DSM)', m(d.dsm[i])) + row('Vegetation height', hm(d)) : '');
     }
