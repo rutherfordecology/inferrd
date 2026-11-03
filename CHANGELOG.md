@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.56.0 — 2026-11-03
+
+- **Surface contours.** A "Contours (surface)" layer on the LiDAR tab, off
+  at first, traced from the surface model (DSM) the same way as the
+  bare-ground contours, in light blue with every fifth line darker blue.
+  It keeps what the ground model can leave out, such as a railway
+  embankment over a large culvert, but also follows every tree crown and
+  roof. Both contour layers share the one interval (Every (m) 0.5 … 100);
+  surveys without a surface model don't list it.
+
 ## v0.55.0 — 2026-11-03
 
 - **Pick the contour interval.** Under Contours in the Layers panel, one
