@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.53.0 — 2026-11-03
+
+- **Contours on the bare ground.** A "Contours (bare ground)" layer on the
+  LiDAR tab, in the Layers panel once LiDAR is loaded, over whichever LiDAR
+  view is shown. Traced from the LiDAR ground model (DEM, built from the
+  ground returns under the vegetation), so the lines follow the ground, not
+  the canopy. The DEM is averaged into blocks of at least 2 m and smoothed
+  over 3 × 3 blocks first, so small bumps don't each get a ring; rings
+  only a few blocks round are dropped. The interval is the smallest of 0.5,
+  1, 2, 5, 10, 20, 25, 50 or 100 m that gives no more than about 30 lines
+  over the loaded height range, and every fifth line is heavier; the legend
+  gives both. New Zealand only, where LiDAR has been flown.
+
 ## v0.52.0 — 2026-10-30
 
 - **One Layers panel.** The Layers panel on the right of the map (occurd.'s)
