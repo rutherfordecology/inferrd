@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.65.2 — 2026-11-05
+
+- **Plain white flags on thin white poles,** on the map and in 3D: the
+  pole is a single white pixel, and the flag is white with black text,
+  with no border, edge or shadow.
+
 ## v0.65.1 — 2026-11-05
 
 - **Tidier point-of-interest pins on the map.** A small dot marks the exact
