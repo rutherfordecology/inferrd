@@ -1344,7 +1344,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.64.0';
+const APP_VERSION = 'v0.64.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -6606,7 +6606,7 @@ function v3dFlagSprite(name) {
   ctx.fillText(name, edge + padX, h / 2 + r * 0.5);
   const tex = new THREE.CanvasTexture(cv);
   tex.encoding = THREE.sRGBEncoding;
-  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false, transparent: true }));
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false, transparent: true, opacity: 0.5 }));
   s.center.set(0, 1); // hangs from the top of the pole
   s.renderOrder = 10;
   s.userData.aspect = cv.width / cv.height;

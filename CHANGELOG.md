@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.64.1 — 2026-11-05
+
+- **3D flags at 50% opacity,** so the model shows through them.
+
 ## v0.64.0 — 2026-11-05
 
 - **Private reference layers.** Under the Reference layers in the Layers
