@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.65.0 — 2026-11-05
+
+- **Taller flag poles in 3D, sized to the area.** A point's flag now stands
+  a tenth of the model's width above the ground (50 m over a 500 m area,
+  200 m over 2 km), so flags sit clear above the land at any size. The
+  pole keeps that length whatever the Height ×; the footer gives it in
+  metres. It was a fixed 20 m, lost in larger areas.
+
 ## v0.64.1 — 2026-11-05
 
 - **3D flags at 50% opacity,** so the model shows through them.
