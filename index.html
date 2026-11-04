@@ -248,6 +248,20 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .area-name:focus { background: var(--surface); outline: 1px solid var(--base); }
 .area-remove { cursor: pointer; color: var(--text3); font-size: 14px; flex-shrink: 0; line-height: 1; padding: 2px 5px; border-radius: var(--radius-sm); }
 .area-remove:hover { color: var(--black); background: var(--hover); }
+.poi-head { display: flex; align-items: center; justify-content: space-between; margin-top: 0.8rem; font-size: 11.5px; font-weight: 600; color: var(--text2); }
+.poi-head button { background: none; border: none; padding: 2px 0; cursor: pointer; font-size: 12px; font-weight: 600; font-family: var(--font-sans); color: var(--orange-dark); }
+.poi-head button.on { text-decoration: underline; }
+.poi-item { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--rule); }
+.poi-item .poi-go { background: none; border: none; padding: 0; cursor: pointer; line-height: 0; flex-shrink: 0; }
+.poi-item .poi-go svg { width: 12px; height: 14px; }
+.leaflet-container.poi-placing { cursor: crosshair; }
+.poi-marker { position: relative; }
+.poi-marker .poi-pole { position: absolute; left: 0; bottom: 0; width: 2px; height: 30px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.55); }
+.poi-marker .poi-flag { position: absolute; left: 2px; bottom: 14px; white-space: nowrap; background: #fff; color: #000; border-left: 4px solid var(--base); padding: 2px 6px; font: 600 11.5px/1.25 var(--font-sans); box-shadow: 0 1px 3px rgba(0,0,0,0.45); }
+.poi-pop input { width: 190px; font: 13px var(--font-sans); padding: 5px 7px; border: 1.5px solid var(--border2); outline: none; }
+.poi-pop .poi-pop-row { display: flex; justify-content: space-between; margin-top: 7px; }
+.poi-pop button { background: none; border: none; padding: 2px 0; cursor: pointer; font: 600 12px var(--font-sans); color: var(--orange-dark); }
+.poi-pop button.poi-del { color: var(--grey); }
 
 .run-btn { width: 100%; padding: 9px; font-size: 14px; font-family: var(--font-sans); font-weight: 500; background: var(--orange-dark); color: white; border: none; border-radius: var(--radius); cursor: pointer; transition: opacity 0.15s; margin-top: 0.7rem; }
 .run-btn:hover:not(:disabled) { opacity: 0.88; }
@@ -394,6 +408,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="instruction-box">Draw one or more areas on the map. Draw more than one to compare them.</div>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
+      <div class="poi-head"><span>Points of interest</span><button type="button" id="poiAddBtn" title="Click the map to put a named flag there, such as a wetland, a bird heard or a patch of diverse forest. Shown on the map and as a flag in the 3D view.">+ Add point</button></div>
+      <div id="poiList"></div>
+      <datalist id="poiNames"></datalist>
     </div>
 
     <div class="sidebar-section">
@@ -1322,7 +1339,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.60.0';
+const APP_VERSION = 'v0.61.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1916,6 +1933,102 @@ function removeArea(id) {
   pruneResultsForArea(id);
   renderAreaList();
 }
+
+/* ---------------------------------------------------------------------
+   Points of interest: named flags put on the map by hand (a wetland, a
+   bird heard, a patch of diverse forest). Kept in this browser, shown on
+   every tab, and stood 20 m above the ground in the 3D view.
+   --------------------------------------------------------------------- */
+const POI_FLAG_SVG = '<svg viewBox="0 0 12 14"><line x1="1.5" y1="0" x2="1.5" y2="14" stroke="#000" stroke-width="1.5"/><path d="M2 1h9l-2.5 3L11 7H2z" fill="var(--base)"/></svg>';
+let pois = [], nextPoiId = 1, poiPlacing = false;
+try {
+  pois = (JSON.parse(localStorage.getItem('inferrd.pois') || '[]') || []).filter(p => isFinite(p.lat) && isFinite(p.lng));
+  nextPoiId = pois.reduce((m, p) => Math.max(m, p.id + 1), 1);
+} catch (e) { pois = []; }
+const poiEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+const poiSave = () => { try { localStorage.setItem('inferrd.pois', JSON.stringify(pois.map(({ id, name, lat, lng }) => ({ id, name, lat, lng })))); } catch (e) {} };
+const poiIcon = (name) => L.divIcon({ className: 'poi-marker', iconSize: [0, 0], iconAnchor: [0, 0],
+  html: '<span class="poi-pole"></span><span class="poi-flag">' + poiEsc(name) + '</span>' });
+function poiAddMarker(p) {
+  p.marker = L.marker([p.lat, p.lng], { icon: poiIcon(p.name), draggable: true, keyboard: false, title: p.name, zIndexOffset: 1000 }).addTo(map);
+  p.marker.on('dragend', () => { const ll = p.marker.getLatLng(); p.lat = ll.lat; p.lng = ll.lng; poiSave(); poiChanged(); });
+  p.marker.on('click', () => poiEdit(p));
+}
+function poiEdit(p, fresh) {
+  const box = L.DomUtil.create('div', 'poi-pop');
+  box.innerHTML = '<input type="text" list="poiNames" maxlength="60" aria-label="Point name" value="' + poiEsc(fresh ? '' : p.name) + '" placeholder="e.g. Wetland, Fernbird, Diverse forest">' +
+    '<div class="poi-pop-row"><button type="button" class="poi-del">Remove</button><button type="button" class="poi-ok">Save</button></div>';
+  const inp = box.querySelector('input');
+  const save = () => { const v = inp.value.trim(); if (v) poiRename(p, v); map.closePopup(); };
+  box.querySelector('.poi-ok').addEventListener('click', save);
+  box.querySelector('.poi-del').addEventListener('click', () => { map.closePopup(); poiRemove(p.id); });
+  inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  L.popup({ offset: [40, -30], autoPan: true }).setLatLng(p.marker.getLatLng()).setContent(box).openOn(map);
+  setTimeout(() => { inp.focus(); inp.select(); }, 30);
+}
+function poiRename(p, name) {
+  p.name = name;
+  p.marker.setIcon(poiIcon(name));
+  p.marker.options.title = name;
+  poiSave();
+  poiChanged();
+}
+function poiRemove(id) {
+  const i = pois.findIndex(p => p.id === id);
+  if (i < 0) return;
+  map.removeLayer(pois[i].marker);
+  pois.splice(i, 1);
+  poiSave();
+  poiChanged();
+}
+function poiChanged() {
+  renderPoiList();
+  if (typeof v3dPoisPlace === 'function' && v3d && !v3dDlg.hidden) v3dPoisPlace();
+}
+function renderPoiList() {
+  const list = document.getElementById('poiList');
+  list.innerHTML = pois.length ? pois.map(p => '<div class="poi-item" data-id="' + p.id + '">' +
+    '<button class="poi-go" type="button" title="Show on the map">' + POI_FLAG_SVG + '</button>' +
+    '<span class="area-name" contenteditable="true" spellcheck="false">' + poiEsc(p.name) + '</span>' +
+    '<span class="area-remove" title="Remove">✕</span></div>').join('')
+    : '<div class="poly-empty">None yet</div>';
+  list.querySelectorAll('.poi-item').forEach(el => {
+    const p = pois.find(x => x.id === Number(el.dataset.id));
+    el.querySelector('.area-remove').addEventListener('click', () => poiRemove(p.id));
+    el.querySelector('.poi-go').addEventListener('click', () => map.setView([p.lat, p.lng], Math.max(map.getZoom(), 16)));
+    const nameEl = el.querySelector('.area-name');
+    nameEl.addEventListener('blur', () => { const v = nameEl.textContent.trim(); if (v && v !== p.name) poiRename(p, v); else nameEl.textContent = p.name; });
+    nameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); nameEl.blur(); } });
+  });
+  // Names used before, offered as you type a new one.
+  document.getElementById('poiNames').innerHTML = [...new Set(pois.map(p => p.name))].map(n => '<option value="' + poiEsc(n) + '">').join('');
+}
+// Placing: the next map click puts the point down. Fired as a draw, so the
+// map's other click handlers (spot, height and geology popups) and the
+// reference layers stand aside for it.
+function poiSetPlacing(on) {
+  if (poiPlacing === on) return;
+  poiPlacing = on;
+  map.getContainer().classList.toggle('poi-placing', on);
+  const b = document.getElementById('poiAddBtn');
+  b.classList.toggle('on', on);
+  b.textContent = on ? 'Click the map… (Esc to cancel)' : '+ Add point';
+  map.fire(on ? L.Draw.Event.DRAWSTART : L.Draw.Event.DRAWSTOP);
+}
+document.getElementById('poiAddBtn').addEventListener('click', () => poiSetPlacing(!poiPlacing));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && poiPlacing) poiSetPlacing(false); });
+map.on('click', (e) => {
+  if (!poiPlacing) return;
+  const p = { id: nextPoiId++, name: 'Point ' + (pois.length + 1), lat: e.latlng.lat, lng: e.latlng.lng };
+  pois.push(p);
+  poiAddMarker(p);
+  poiSave();
+  poiChanged();
+  // After this click's other handlers have seen the draw still on.
+  setTimeout(() => { poiSetPlacing(false); poiEdit(p, true); }, 0);
+});
+pois.forEach(poiAddMarker);
+renderPoiList();
 
 function clearResults() {
   lastRows = lastValid = lastMonthRows = lastAreaSeries = lastIndexSeries = lastIndexCompareArea = null;
@@ -6447,6 +6560,84 @@ async function v3dMapCanvas(d, sc, live, say) {
 
 function v3dClear() {
   v3d.group.children.slice().forEach(m => { v3d.group.remove(m); m.geometry.dispose(); m.material.map.dispose(); m.material.dispose(); });
+  v3dPoisClear();
+}
+
+// Points of interest in 3D: a line up from the ground (the model shown) to
+// a flag 20 m above it, stretched with the heights. The flags keep one size
+// on screen and show through hills, so a name is never lost behind one.
+const V3D_POI_M = 20, V3D_POI_PX = 22; // pole height; flag height on screen
+function v3dPoisClear() {
+  if (!v3d || !v3d.pois) return;
+  v3d.pois.children.slice().forEach(o => { v3d.pois.remove(o); o.geometry.dispose(); if (o.material.map) o.material.map.dispose(); o.material.dispose(); });
+}
+function v3dFlagSprite(name) {
+  const r = 2, fs = 12 * r, padX = 6 * r, edge = 4 * r, h = V3D_POI_PX * r;
+  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+  const font = '600 ' + fs + 'px "Inter Tight", system-ui, sans-serif';
+  ctx.font = font;
+  cv.width = Math.ceil(ctx.measureText(name).width + 2 * padX + edge + 2 * r); cv.height = h + 2 * r;
+  ctx.font = font;
+  ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(r, r, cv.width - r, h);   // shadow
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, cv.width - r, h);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--base').trim() || '#693f1b';
+  ctx.fillRect(0, 0, edge, h);
+  ctx.fillStyle = '#000'; ctx.textBaseline = 'middle';
+  ctx.fillText(name, edge + padX, h / 2 + r * 0.5);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.encoding = THREE.sRGBEncoding;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, sizeAttenuation: false, depthTest: false, transparent: true }));
+  s.center.set(0, 1); // hangs from the top of the pole
+  s.renderOrder = 10;
+  s.userData.aspect = cv.width / cv.height;
+  s.userData.hpx = cv.height / r;
+  return s;
+}
+// Flags keep V3D_POI_PX on screen: with sizeAttenuation off a sprite's
+// scale is in clip units, so it follows the view's height and field of view.
+function v3dPoisScale() {
+  if (!v3d || !v3d.pois || !v3d.pois.children.length) return;
+  const H = v3dView.clientHeight || 600, k = 2 / H / v3d.camera.projectionMatrix.elements[5];
+  v3d.pois.children.forEach(o => { if (o.isSprite) o.scale.set(o.userData.hpx * o.userData.aspect * k, o.userData.hpx * k, 1); });
+}
+// The model's height at (X, Y) in NZTM: the top-most shown set that holds
+// it, else the nearest cell with a height within 3 m.
+function v3dHeightAt(sets, X, Y) {
+  for (let k = sets.length - 1; k >= 0; k--) {
+    const d = sets[k], g = d.grid, Z = d[v3dSrc.model];
+    const c = Math.floor((X - g.x0) / g.res), r = Math.floor((g.y1 - Y) / g.res);
+    if (c < 0 || r < 0 || c >= g.W || r >= g.H) continue;
+    const R = Math.ceil(3 / g.res);
+    let best = NaN, bd = Infinity;
+    for (let rr = Math.max(0, r - R); rr <= Math.min(g.H - 1, r + R); rr++) for (let cc = Math.max(0, c - R); cc <= Math.min(g.W - 1, c + R); cc++) {
+      const i = rr * g.W + cc, v = Z[i], dd = (rr - r) ** 2 + (cc - c) ** 2;
+      if (d.mask[i] && v === v && dd < bd) { bd = dd; best = v; }
+    }
+    if (best === best) return best;
+  }
+  return NaN;
+}
+// Builds the flags for the points over the model (from v3dBuildRun, which
+// leaves the frame in v3d.frame), or just re-stands them for a new Height ×.
+function v3dPoisPlace() {
+  if (!v3d || !v3d.frame) return;
+  if (!v3d.pois) { v3d.pois = new THREE.Group(); v3d.scene.add(v3d.pois); }
+  v3dPoisClear();
+  const { sets, cx, cy, zBase } = v3d.frame, ex = v3dSrc.exag;
+  let n = 0;
+  pois.forEach(p => {
+    const [X, Y] = toNztm(p.lng, p.lat), z = v3dHeightAt(sets, X, Y);
+    if (z !== z) return;
+    const x = X - cx, zz = -(Y - cy), y0 = (z - zBase) * ex, y1 = y0 + V3D_POI_M * ex;
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x, y0, zz), new THREE.Vector3(x, y1, zz)]),
+      new THREE.LineBasicMaterial({ color: 0xffffff }));
+    const s = v3dFlagSprite(p.name);
+    s.position.set(x, y1, zz);
+    v3d.pois.add(line, s);
+    n++;
+  });
+  v3d.poisShown = n;
+  v3dPoisScale();
 }
 // The sets on the map, or for Ground change the latest survey's (which holds it).
 const v3dShownSets = () => lidarSets.filter(d => (v3dSrc.colours === 'gchange' && lidarSets.some(x => x.gchange) ? !!d.gchange : lidarSetShown(d)) && d[v3dSrc.model]);
@@ -6578,6 +6769,8 @@ async function v3dBuildRun(run) {
   sets.forEach((d, k) => v3d.group.add(v3dMesh(d, v3dSrc.model, cx, cy, zBase, canvases[k][0], canvases[k][1])));
   const cut = v3d.group.children.some(m => m.userData.cut);
   v3d.group.scale.y = v3dSrc.exag;
+  v3d.frame = { sets, cx, cy, zBase };
+  v3dPoisPlace();
   v3dSay('');
   if (!v3d.span) {
     const span = Math.max(x1 - x0, y1 - y0);
@@ -6593,7 +6786,8 @@ async function v3dBuildRun(run) {
   document.getElementById('v3dTitle').textContent = '3D view: ' + names.join(', ') + ' · ' + sets[0].survey.title + ' · ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground');
   document.getElementById('v3dFoot').innerHTML = 'Drag to turn, right-drag to move, scroll to zoom. ' + foot +
     (v3dSrc.contours ? 'Contours of the ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground') + ', every ' + lidarContourStepNow() + ' m (the interval set in the Layers panel)' +
-      (cut ? ', too dense to draw in full: stopped partway; choose a wider interval.' : '.') : 'Contours off.');
+      (cut ? ', too dense to draw in full: stopped partway; choose a wider interval.' : '.') : 'Contours off.') +
+    (v3d.poisShown ? ' Flags: your points of interest, ' + V3D_POI_M + ' m above the ' + (v3dSrc.model === 'dsm' ? 'surface' : 'ground') + '.' : '');
 }
 
 function v3dSync() {
@@ -6660,6 +6854,7 @@ async function v3dOpen() {
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
+      v3dPoisScale();
     }).observe(v3dView);
   }
   v3dView.insertBefore(v3d.renderer.domElement, v3dMsg);
@@ -6708,7 +6903,7 @@ document.getElementById('v3dPhoto').addEventListener('change', (ev) => {
 document.getElementById('v3dExag').addEventListener('input', (ev) => {
   v3dSrc.exag = Number(ev.target.value);
   document.getElementById('v3dExagVal').textContent = v3dSrc.exag + '×';
-  if (v3d) v3d.group.scale.y = v3dSrc.exag;
+  if (v3d) { v3d.group.scale.y = v3dSrc.exag; v3dPoisPlace(); }
 });
 
 const lidarSchemeSel = document.getElementById('lidarScheme');

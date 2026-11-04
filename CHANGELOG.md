@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.61.0 — 2026-11-05
+
+- **Points of interest.** Under Areas of interest, + Add point, then click
+  the map to put down a named flag: a wetland, a fernbird heard, a patch of
+  diverse forest. Names you've used before are offered as you type. Click a
+  flag to rename or remove it, drag it to move it; the list in the sidebar
+  zooms to each. Points are kept in this browser and show on every tab.
+- **Flags in the 3D view.** Each point over the model stands as a flag on
+  a line 20 m above the ground (or the surface, on Surface), stretched
+  with Height ×. Flags keep one size on screen and show through hills, so
+  a name is never hidden behind one.
+
 ## v0.60.0 — 2026-11-03
 
 - **3D "As on the map" drapes the whole map.** Set the map up in 2D, then
