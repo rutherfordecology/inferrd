@@ -408,9 +408,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="instruction-box">Draw one or more areas on the map. Draw more than one to compare them.</div>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
-      <div class="poi-head"><span>Points of interest</span><button type="button" id="poiAddBtn" title="Click the map to put a named flag there, such as a wetland, a bird heard or a patch of diverse forest. Shown on the map and as a flag in the 3D view.">+ Add point</button></div>
-      <div id="poiList"></div>
-      <datalist id="poiNames"></datalist>
+      <div id="poiBlock">
+        <div class="poi-head"><span>Points of interest</span><button type="button" id="poiAddBtn" title="Click the map to put a named flag there, such as a wetland, a bird heard or a patch of diverse forest. Shown on the map, as a flag in the 3D view, and in the report export.">+ Add point</button></div>
+        <div id="poiList"></div>
+        <datalist id="poiNames"></datalist>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -750,6 +752,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div id="reportAreaList"></div>
         <div class="poly-empty" id="reportAreaEmpty">No areas yet: load a KML, or draw on the map</div>
         <div class="field-hint" style="margin:6px 0 0;">KML and KMZ files can also be dropped anywhere on this tab. Each polygon placemark becomes an area, named as in the file. While this report is open its areas are the ones on the map, on every tab.</div>
+        <div id="rptPoiSlot"></div>
       </div>
 
       <div class="sidebar-section">
@@ -771,6 +774,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">5 · Export</div>
         <button class="run-btn" id="rptExportBtn" type="button" disabled>Export for report</button>
         <div class="field-hint" style="margin:6px 0 0;">A zip for writing the report elsewhere: the ticked facts with their IDs and sources, the areas as GeoJSON and KML, a map of the areas, and a summary of what was run. The writing, and every call on what the facts mean, happen outside inferrd.</div>
+        <button class="run-btn" id="rptLoupedBtn" type="button" disabled style="margin-top:12px;">Export for Louped</button>
+        <div class="field-hint" style="margin:6px 0 0;">A package for a client map in Louped: the report's areas, the occurd. records, and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the Layers panel up as the client should see it first. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out.</div>
       </div>
     </div>
 
@@ -1263,7 +1268,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Report tab</h3>
     <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
-    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
 
     <h3>Layers</h3>
     <p>Every layer is in one <strong>Layers</strong> panel on the right of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down among its own kind, so it draws over or under the others. The chevron folds the panel to the side. It has three parts. <strong>This tab</strong> lists the data layers the open tab makes: the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, and the six Land cover layers whenever there are areas. <strong>Other tabs</strong> (folded) lists what the other tabs have made; those layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. <strong>Reference layers</strong> are occurd.'s polygon layers, the same on every tab (below). Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
@@ -1339,7 +1344,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.61.0';
+const APP_VERSION = 'v0.63.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1785,6 +1790,11 @@ const mapStack = (() => {
     shown: () => order.filter(k => E[k].on && avail(E[k]))
       .map(k => ({ key: k, name: nameOf(E[k]), pane: E[k].pane, op: E[k].op }))
       .sort((a, b) => Number(map.getPane(a.pane).style.zIndex) - Number(map.getPane(b.pane).style.zIndex)),
+    // What the panel shows for one layer, for Export for Louped.
+    describe(key) {
+      const e = E[key];
+      return e ? { key, name: nameOf(e), ref: !!e.ref, group: e.ref ? e.group : e.tab, notes: e.notes || '', legend: e.legend || [], swatch: e.swatch, op: e.op } : null;
+    },
     isOpen: () => !box.classList.contains('folded'),
     // Parts of the panel other code fills: 'cond' (condition spots),
     // 'lock' (reference layers' password), 'foot' (Check areas).
@@ -9163,6 +9173,7 @@ function syncReportControls() {
   run.disabled = !rpt || !areas.length || rptBusy;
   run.textContent = rptBusy ? 'Gathering…' : 'Gather the facts';
   document.getElementById('rptExportBtn').disabled = !rpt || !rpt.facts.length || rptBusy || rptExporting;
+  document.getElementById('rptLoupedBtn').disabled = !rpt || !areas.length || rptBusy || rptExporting;
 }
 
 function reportAreasChanged() {
@@ -9243,7 +9254,10 @@ function rptReadOccurd(name, text) {
   const get = (r, k) => { const i = col(k); return i >= 0 ? (r[i] || '').trim() : ''; };
   const hasStatus = col('nztcs_status') >= 0;
   const out = rows.slice(1).map(r => kind === 'records'
-    ? { sp: get(r, 'species') || get(r, 'scientificName'), vn: get(r, 'vernacularName'), year: Number(get(r, 'year')) || null, poly: get(r, 'polygon_name'), kingdom: get(r, 'kingdom'), st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') }
+    ? { sp: get(r, 'species') || get(r, 'scientificName'), vn: get(r, 'vernacularName'), year: Number(get(r, 'year')) || null, poly: get(r, 'polygon_name'), kingdom: get(r, 'kingdom'), st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year'),
+        // Kept for Export for Louped, which maps each record
+        lat: parseFloat(get(r, 'decimalLatitude')), lng: parseFloat(get(r, 'decimalLongitude')), id: get(r, 'gbifID'), sn: get(r, 'scientificName'), ph: get(r, 'phylum'), cl: get(r, 'class'), or: get(r, 'order'), fa: get(r, 'family'),
+        date: get(r, 'eventDate'), unc: parseFloat(get(r, 'coordinateUncertaintyInMeters')), basis: get(r, 'basisOfRecord'), ds: get(r, 'datasetName'), em: get(r, 'establishmentMeans') }
     : { sp: get(r, 'scientificName'), vn: get(r, 'vernacularName'), group: get(r, 'taxonGroup'), kingdom: get(r, 'kingdom'), n: Number(get(r, 'records')) || 0, st: get(r, 'nztcs_status'), cat: get(r, 'nztcs_category'), sy: get(r, 'nztcs_year') });
   return { id: 'o' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), name, kind, hasStatus, citation: cite ? cite[1] : null, added: new Date().toISOString(), rows: out.filter(x => x.sp) };
 }
@@ -9596,6 +9610,16 @@ async function rptExport() {
     const list = doc.areas.filter(a => a.geometry && /Polygon$/.test(a.geometry.type));
     dir.file('areas.geojson', JSON.stringify({ type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geometry, properties: { name: a.name } })) }));
     dir.file('areas.kml', rptKml(list));
+    // Points of interest inside the report's areas (points elsewhere belong
+    // to other jobs kept in this browser).
+    const inArea = (p) => list.some(a => { try { return turf.booleanPointInPolygon(turf.point([p.lng, p.lat]), a.geometry); } catch (e) { return false; } });
+    const pts = pois.filter(inArea), ptsOut = pois.length - pts.length;
+    if (pts.length) {
+      const x = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      dir.file('points.geojson', JSON.stringify({ type: 'FeatureCollection', features: pts.map(p => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [+p.lng.toFixed(7), +p.lat.toFixed(7)] }, properties: { name: p.name } })) }));
+      dir.file('points.kml', '<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document>' +
+        pts.map(p => '<Placemark><name>' + x(p.name) + '</name><Point><coordinates>' + p.lng.toFixed(7) + ',' + p.lat.toFixed(7) + ',0</coordinates></Point></Placemark>').join('\n') + '</Document></kml>\n');
+    }
     if (list.length) {
       try { dir.file('map.png', await conditionMapPng({ outlines: list.map(a => ({ geometry: a.geometry, label: list.length > 1 ? a.name : null })), spots: [] })); }
       catch (e) { missing.push('map.png (' + e.message + ')'); }
@@ -9608,6 +9632,8 @@ async function rptExport() {
       facts: { ticked: inc.length, unticked_left_out: doc.facts.length - inc.length,
         note: 'Measured values only, each with its source; no interpretation. IDs are those shown in inferrd and stay fixed for this gathering; gathering again renumbers them.' },
       areas: list.map(a => ({ name: a.name, area_ha: +(turf.area(a.geometry) / 1e4).toFixed(2) })),
+      points_of_interest: { files: pts.length ? ['points.geojson', 'points.kml'] : [], names: pts.map(p => p.name),
+        note: 'Put on the map by hand in inferrd; only those inside the areas are included' + (ptsOut ? ' (' + ptsOut + ' elsewhere left out)' : '') + '.' },
       checks_run: RPT_CHECKS.filter(([k]) => doc.checks[k] !== false).map(([, label]) => label),
       gathering_notes: doc.factsNotes || [],
       occurd_files: doc.occurd.map(f => ({ name: f.name, kind: f.kind, rows: f.rows.length, nztcs_status: f.hasStatus, gbif_citation: f.citation || null })),
@@ -9632,6 +9658,146 @@ async function rptExport() {
   }
 }
 document.getElementById('rptExportBtn').addEventListener('click', rptExport);
+
+/* ── Export for Louped ──────────────────────────────────────────────────
+   A package for Louped (github.com/rutherfordecology/louped), which turns
+   it into a client map; the title and wording are added there. What the
+   client sees is what the Layers panel shows here: every layer that's on,
+   top of the map first, with its colours and opacity. Vector layers only
+   for now: image layers are listed in the manifest as left out.
+
+     louped.json            manifest (format "louped-package", version 1)
+     layers/areas.geojson   the report's areas
+     layers/<id>.geojson    one per layer; each feature's drawn style in
+                            properties._s, its popup text in _label
+     records/<n>.json       occurd. records, { cols, rows }
+   ----------------------------------------------------------------------- */
+const LOUPED_FORMAT = 1;
+const loupedId = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'layer';
+// Plain values only: a feature's properties can hold objects layers.js or a
+// tab hung on it.
+const loupedProps = (p) => Object.fromEntries(Object.entries(p || {}).filter(([k, v]) => k[0] !== '_' && (v == null || ['string', 'number', 'boolean'].includes(typeof v))));
+// The vector features a data layer draws into its pane, with their styles.
+function loupedVectorsInPane(pane) {
+  const out = [];
+  let images = 0;
+  map.eachLayer(l => {
+    const p = (l._renderer && l._renderer.options.pane) || l.options.pane;
+    if (p !== pane) return;
+    if (l instanceof L.TileLayer || l instanceof L.ImageOverlay || l instanceof L.GridLayer) { images++; return; }
+    if (!(l instanceof L.Path) || !l.toGeoJSON) return;
+    let f;
+    try { f = l.toGeoJSON(7); } catch (e) { return; }
+    if (!f || !f.geometry) return;
+    const o = l.options, s = { c: o.color, w: o.weight, o: o.opacity };
+    if (o.stroke === false) s.c = null;
+    if (o.fill) { s.f = o.fillColor || o.color; s.fo = o.fillOpacity; }
+    if (o.dashArray) s.d = o.dashArray;
+    if (l instanceof L.CircleMarker) s.r = l.getRadius();
+    const props = loupedProps((l.feature && l.feature.properties) || f.properties);
+    const tip = l.getTooltip && l.getTooltip(), pop = l.getPopup && l.getPopup();
+    const text = (x) => { const c = x && x.getContent(); return typeof c === 'string' ? c.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim() : ''; };
+    props._s = s;
+    const label = text(tip) || text(pop);
+    if (label) props._label = label.slice(0, 400);
+    out.push({ type: 'Feature', geometry: f.geometry, properties: props });
+  });
+  return { features: out, images };
+}
+async function rptLouped() {
+  if (!rpt || !areas.length || rptExporting) return;
+  const doc = rpt, btn = document.getElementById('rptLoupedBtn');
+  rptExporting = true;
+  syncReportControls();
+  btn.textContent = 'Preparing…';
+  try {
+    const JSZip = await loadJSZip(), zip = new JSZip(), now = new Date();
+    const slug = loupedId(doc.title || 'report');
+    const list = areas.filter(a => a.geojson && a.geojson.geometry && /Polygon$/.test(a.geojson.geometry.type));
+    const areaFc = { type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geojson.geometry, properties: { name: a.name, area_ha: +(turf.area(a.geojson) / 1e4).toFixed(2) } })) };
+    zip.file('layers/areas.geojson', JSON.stringify(areaFc));
+    const layers = [], left = [], sources = [], used = new Set();
+    const addSource = (s) => { if (!used.has(s.key)) { used.add(s.key); sources.push(s); } };
+    addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
+    const reg = window._layersRegister ? window._layersRegister() : null;
+    // Top of the map first
+    const shown = mapStack.shown().slice().reverse();
+    for (const s of shown) {
+      const d = mapStack.describe(s.key);
+      if (!d) continue;
+      btn.textContent = 'Preparing ' + d.name + '…';
+      let features = [], style = null, source;
+      if (d.ref) {
+        const l = reg && reg.layers.find(x => 'ref_' + x.id === s.key);
+        if (!l || !window._layersFeaturesIn) { left.push({ name: d.name, reason: 'occurd.\'s layers aren\'t loaded' }); continue; }
+        const seen = new Set();
+        try {
+          for (const a of list) {
+            (await window._layersFeaturesIn(l.id, a.geojson.geometry)).forEach(f => {
+              const k = JSON.stringify(f.geometry);
+              if (seen.has(k)) return;
+              seen.add(k);
+              const props = loupedProps(f.properties);
+              if (f.label) props._label = f.label;
+              features.push({ type: 'Feature', geometry: f.geometry, properties: props });
+            });
+          }
+        } catch (e) { left.push({ name: d.name, reason: e.message || String(e) }); continue; }
+        style = { c: l.color, w: 2, o: 1, f: l.color, fo: 0.15 };
+        source = 'occurd:' + l.id;
+        addSource({ key: source, name: l.name, attribution: l.attribution || '', note: l.notes || '' });
+      } else {
+        const v = loupedVectorsInPane(s.pane);
+        features = v.features;
+        if (!features.length) { left.push({ name: d.name, reason: v.images ? 'an image layer; packages hold vector layers only for now' : 'nothing drawn for these areas' }); continue; }
+        source = 'inferrd';
+      }
+      const id = loupedId(d.ref ? s.key.slice(4) : s.key) + (layers.some(x => x.id === loupedId(d.ref ? s.key.slice(4) : s.key)) ? '-' + layers.length : '');
+      zip.file('layers/' + id + '.geojson', JSON.stringify({ type: 'FeatureCollection', features }));
+      layers.push({ id, name: d.name, group: d.group || '', file: 'layers/' + id + '.geojson', on: true, opacity: s.op, style, legend: d.legend, notes: d.notes, source, features: features.length });
+    }
+    // occurd. records, with their coordinates (files added before inferrd
+    // v0.62.0 didn't keep them: add those again)
+    const records = [];
+    doc.occurd.forEach((f, i) => {
+      if (f.kind !== 'records') { left.push({ name: f.name, reason: 'a species checklist, not records: export "Occurrences CSV" from occurd. for the map' }); return; }
+      const rows = f.rows.filter(r => isFinite(r.lat) && isFinite(r.lng));
+      if (!rows.length) { left.push({ name: f.name, reason: 'no coordinates kept: remove it and add the file again' }); return; }
+      const cols = ['gbifID', 'lat', 'lng', 'species', 'scientificName', 'vernacularName', 'kingdom', 'phylum', 'class', 'order', 'family', 'year', 'eventDate', 'uncertainty_m', 'basisOfRecord', 'datasetName', 'establishmentMeans', 'polygon', 'nztcs_status', 'nztcs_category', 'nztcs_year'];
+      const file = 'records/occurd-' + (i + 1) + '.json';
+      zip.file(file, JSON.stringify({ cols, rows: rows.map(r => [r.id || null, r.lat, r.lng, r.sp, r.sn || r.sp, r.vn || null, r.kingdom || null, r.ph || null, r.cl || null, r.or || null, r.fa || null, r.year, r.date || null, isFinite(r.unc) ? r.unc : null, r.basis || null, r.ds || null, r.em || null, r.poly || null, r.st || null, r.cat || null, r.sy || null]) }));
+      const key = 'occurd-' + (i + 1);
+      records.push({ file, name: f.name, rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: key });
+      addSource({ key, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
+    });
+    const bb = turf.bbox(areaFc);
+    const manifest = {
+      format: 'louped-package', formatVersion: LOUPED_FORMAT,
+      producer: { tool: 'inferrd', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/' },
+      exported: now.toISOString(),
+      title: doc.title || '',
+      bbox: bb.map(v => +v.toFixed(6)),
+      areas: { file: 'layers/areas.geojson', count: list.length },
+      layers, records, sources, leftOut: left
+    };
+    zip.file('louped.json', JSON.stringify(manifest, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const a = document.createElement('a'), name = isoDate(now) + '_' + slug + '.louped.zip';
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    setReportStatus(left.length ? 'warning' : 'success', 'Exported ' + name + ': ' + layers.length + (layers.length === 1 ? ' layer' : ' layers') + ', ' +
+      records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records.' + (left.length ? ' Left out: ' + left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : ''));
+  } catch (e) {
+    setReportStatus('error', 'Export for Louped failed: ' + (e && e.message ? e.message : e));
+  } finally {
+    rptExporting = false;
+    btn.textContent = 'Export for Louped';
+    syncReportControls();
+  }
+}
+document.getElementById('rptLoupedBtn').addEventListener('click', rptLouped);
 rptInit();
 
 function setAppTab(tab) {
@@ -9652,6 +9818,10 @@ function setAppTab(tab) {
   document.querySelector('.sidebar').classList.toggle('report-mode', tab === 'report');
   document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
   map.closePopup();
+  // Points of interest sit under the areas on Infrared and on Report.
+  const poiBlock = document.getElementById('poiBlock');
+  if (tab === 'report') document.getElementById('rptPoiSlot').appendChild(poiBlock);
+  else document.getElementById('areaEmpty').after(poiBlock);
   mapStack.setTab(tab);
   if (tab === 'lidar') lidarAreasChanged();
   if (tab === 'climate') climateAreasChanged();

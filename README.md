@@ -260,6 +260,11 @@ sources and no interpretation. "Export for report" saves a zip of the
 ticked facts (`facts.csv`, with fact IDs a report can cite), a
 `summary.json`, the areas as GeoJSON and KML, and a map. The report is
 written, and the facts interpreted, outside inferrd. Kept in the browser.
+"Export for Louped" saves a package for a client map in Louped
+(github.com/rutherfordecology/louped): the areas, the occurd. records
+with their coordinates and DOI, and every vector layer that's on in the
+Layers panel, in its order, colours and opacity. Image layers aren't in
+packages yet.
 
 ### Map layers
 

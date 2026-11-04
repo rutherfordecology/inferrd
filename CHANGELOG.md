@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.63.0 — 2026-11-05
+
+- **Points of interest on the Report tab.** The Points of interest list
+  and + Add point now also sit under 2 · Areas on the Report tab.
+- **Points in the report export.** Export for report adds
+  `points.geojson` and `points.kml` with the points inside the report's
+  areas, and lists them in `summary.json`. Points elsewhere (other jobs
+  kept in this browser) are left out, and the summary says how many.
+
+## v0.62.0 — 2026-11-05
+
+- **Export for Louped** on the Report tab, under Export for report. It
+  saves a package (`<date>_<report>.louped.zip`) that Louped turns into a
+  client map, where only the title and wording are added. The package
+  holds the report's areas, the occurd. records with their coordinates,
+  NZTCS status and GBIF DOI, and every vector layer that's on in the
+  Layers panel: reference layers at full detail for the areas, and the
+  tabs' own vector layers as drawn, each with its colours, legend and
+  opacity, top of the map first. Image layers (index preview, change map,
+  LiDAR, Earth Engine land cover) aren't in packages yet; the export lists
+  them as left out.
+- occurd. records now keep their coordinates, GBIF ID, taxonomy, date,
+  precision and dataset when added to a report. Files added before this
+  version don't have them: remove them and add them again before
+  exporting for Louped.
+
 ## v0.61.0 — 2026-11-05
 
 - **Points of interest.** Under Areas of interest, + Add point, then click
