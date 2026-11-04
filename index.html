@@ -1344,7 +1344,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.63.0';
+const APP_VERSION = 'v0.64.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1762,6 +1762,16 @@ const mapStack = (() => {
       if (E['ref_' + l.id]) return;
       add({ key: 'ref_' + l.id, ref: true, tab: 'Reference', group: l.group, name: l.name, notes: l.notes, swatch: l.color + '66', op: 1, rank: 500 + i,
         toggle: (on) => { if (window._layersShow) window._layersShow(l.id, on); } });
+    },
+    // A reference layer gone from occurd.'s list (a private layer removed).
+    removeRef(id) {
+      const k = 'ref_' + id, e = E[k];
+      if (!e) return;
+      if (e.layer) map.removeLayer(e.layer);
+      delete E[k];
+      order = order.filter(x => x !== k);
+      restack();
+      render();
     },
     // Reference layers unlocked (or locked again, which switches them off).
     setRefActive(on) {
@@ -9730,6 +9740,8 @@ async function rptLouped() {
       if (d.ref) {
         const l = reg && reg.layers.find(x => 'ref_' + x.id === s.key);
         if (!l || !window._layersFeaturesIn) { left.push({ name: d.name, reason: 'occurd.\'s layers aren\'t loaded' }); continue; }
+        // Private layers (client boundaries kept in this browser) are never packaged.
+        if (l.private) { left.push({ name: d.name, reason: 'a private layer: kept in this browser, never packaged' }); continue; }
         const seen = new Set();
         try {
           for (const a of list) {
@@ -11266,7 +11278,17 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   const lock = mapStack.el('lock');
   function renderLock(err) {
     if (refActive) {
-      lock.innerHTML = 'Published GIS layers, not the legal plan maps. Click a shape to add it as an area or cut your areas to it. <a href="#" data-forget>Lock and forget</a>';
+      const reg = window._layersRegister && window._layersRegister();
+      const priv = reg ? reg.layers.filter(l => l.private) : [];
+      lock.innerHTML = 'Published GIS layers, not the legal plan maps. Click a shape to add it as an area or cut your areas to it. <a href="#" data-forget>Lock and forget</a>' +
+        (window._layersAddPrivate ?
+          '<div style="margin-top:6px;">' +
+            priv.map(l => '<div style="display:flex;gap:6px;align-items:center;"><span style="flex:1;min-width:0;">' + escHtml(l.name) + ' <span style="color:var(--text3);">(private)</span></span><a href="#" data-unpriv="' + escHtml(l.id) + '" title="Remove this private layer from this browser">remove</a></div>').join('') +
+            '<button type="button" class="dl-btn" data-addpriv style="width:100%;margin-top:4px;" title="A GeoJSON, KML or KMZ file from this computer, such as client boundaries">+ Add a private layer (file)</button>' +
+            '<input type="file" accept=".geojson,.json,.kml,.kmz" hidden data-privfile>' +
+            '<div style="color:var(--text3);margin-top:3px;">Private layers stay in this browser: never uploaded, and never in Export for Louped or other packages.</div>' +
+            (err ? '<div style="color:var(--red);margin-top:4px;">' + escHtml(err) + '</div>' : '') +
+          '</div>' : '');
       return;
     }
     if (tooOld) { lock.textContent = 'occurd.\'s layers module is older than this inferrd., so the reference layers can\'t be listed until occurd. is updated.'; return; }
@@ -11285,7 +11307,19 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     btn.addEventListener('click', go);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   }
-  lock.addEventListener('click', (e) => {
+  lock.addEventListener('click', async (e) => {
+    if (e.target.closest('[data-addpriv]')) { lock.querySelector('[data-privfile]').click(); return; }
+    const un = e.target.closest('[data-unpriv]');
+    if (un) {
+      e.preventDefault();
+      const reg = window._layersRegister && window._layersRegister();
+      const l = reg && reg.layers.find(x => x.id === un.dataset.unpriv);
+      if (!l || !confirm('Remove the private layer "' + l.name + '" from this browser?')) return;
+      mapStack.removeRef(l.id);
+      await window._layersRemovePrivate(l.id);
+      renderLock();
+      return;
+    }
     if (!e.target.closest('[data-forget]')) return;
     e.preventDefault();
     try { localStorage.removeItem('occurd_lris_key'); } catch (err) {}
@@ -11294,6 +11328,18 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     mapStack.setRefActive(false);
     renderLock();
     checkAreasChanged();
+  });
+  lock.addEventListener('change', async (e) => {
+    if (!e.target.matches('[data-privfile]')) return;
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const l = await window._layersAddPrivate(f);
+      const reg = window._layersRegister();
+      mapStack.addRef(l, reg.layers.indexOf(l));
+      mapStack.setOn('ref_' + l.id, true);
+      renderLock();
+    } catch (err) { renderLock('Couldn\'t add ' + f.name + ': ' + (err.message || err)); }
   });
   async function activate() {
     await window._layersActivate();

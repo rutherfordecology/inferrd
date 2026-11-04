@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.64.0 — 2026-11-05
+
+- **Private reference layers.** Under the Reference layers in the Layers
+  panel, + Add a private layer (file) takes a GeoJSON, KML or KMZ from this
+  computer, such as client HCVF boundaries. occurd.'s layers.js (v7.50) keeps
+  it in this browser only. It is listed and drawn like the other reference
+  layers: popups, Analyse this area, Cut areas to this, the layer check and
+  the 3D view's "As on the map". Each one has a remove link. Needs occurd.
+  v7.50 or later; until that is on occurd.'s main site, test with
+  `?occurd=https://occurd.rutherfordecology.co.nz/beta/`.
+- **Never in Export for Louped.** A private layer that's on is listed as
+  left out of the package, never written into it.
+
 ## v0.63.0 — 2026-11-05
 
 - **Points of interest on the Report tab.** The Points of interest list
