@@ -1284,7 +1284,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
 
     <h3>LiDAR tab (New Zealand)</h3>
-    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation; with two or more surveys, the change in vegetation height or in the bare ground between the earliest and the latest, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map (every layer that's on in the Layers panel, in its order and at its opacity, over the basemap: set the map up in 2D, then look at it in 3D), by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
+    <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first, but those with data over all of it before those that only reach an edge (from each survey's LINZ capture area, since a survey's edge tiles can be mostly empty). If a loaded survey turns out to have no data, or almost none, over an area, the tab says so and names one that does. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation; with two or more surveys, the change in vegetation height or in the bare ground between the earliest and the latest, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map (every layer that's on in the Layers panel, in its order and at its opacity, over the basemap: set the map up in 2D, then look at it in 3D), by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
@@ -1346,7 +1346,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.65.4';
+const APP_VERSION = 'v0.65.5';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -5421,6 +5421,40 @@ function lidarCollection(href) {
   if (!lidarCollectionCache.has(href)) lidarCollectionCache.set(href, fetchJson(LIDAR_BUCKET + href).catch(err => { lidarCollectionCache.delete(href); throw err; }));
   return lidarCollectionCache.get(href);
 }
+// Each survey's capture area: LINZ's outline of where it actually has
+// data (lon/lat, simplified, nodata left out). Edge tiles of a survey
+// reach well past it (a Hawke's Bay tile on the Gisborne boundary is
+// mostly empty), so tiles alone can't say a survey covers an area.
+// null when it can't be read: then the tiles are trusted.
+const lidarCaptureCache = new Map();
+function lidarCaptureArea(href) {
+  const url = href.replace(/collection\.json$/, 'capture-area.geojson');
+  if (!lidarCaptureCache.has(url)) lidarCaptureCache.set(url, fetchJson(LIDAR_BUCKET + url).catch(() => null));
+  return lidarCaptureCache.get(url);
+}
+// Share (0–1) of an area inside a capture area.
+function lidarCaptureShare(cap, geojson) {
+  if (!cap) return 1;
+  try {
+    const g = cap.type === 'FeatureCollection' ? null : (cap.geometry || cap);
+    const geoms = g ? [g] : cap.features.map(f => f.geometry);
+    const ab = turf.bbox(geojson), pad = 0.001, box = [ab[0] - pad, ab[1] - pad, ab[2] + pad, ab[3] + pad];
+    const whole = turf.area(geojson);
+    let inside = 0;
+    geoms.forEach(gm => {
+      const polys = gm.type === 'Polygon' ? [gm.coordinates] : gm.type === 'MultiPolygon' ? gm.coordinates : [];
+      polys.forEach(p => {
+        const pb = turf.bbox(turf.polygon(p));
+        if (pb[0] > ab[2] || pb[2] < ab[0] || pb[1] > ab[3] || pb[3] < ab[1]) return;
+        const clip = turf.bboxClip(turf.polygon(p), box);
+        if (!clip.geometry.coordinates.length || clip.geometry.coordinates[0].length < 4) return;
+        const x = turf.intersect(geojson, clip);
+        if (x) inside += turf.area(x);
+      });
+    });
+    return Math.min(1, inside / whole);
+  } catch (e) { return 1; }
+}
 
 // LINZ's sheet grid: 24 × 36 km 1:50k sheets counted from x 988000,
 // y 6234000 (sheet AS00), each cut into n × n tiles at scale 1:s, n =
@@ -5494,19 +5528,29 @@ async function lidarFindSurveys() {
       const eb = col.extent.spatial.bbox[0];
       if (!(eb[0] < bb[2] && eb[2] > bb[0] && eb[1] < bb[3] && eb[3] > bb[1])) return;
       const demPer = per.map(p => lidarTilesIn(col, p.nb));
-      const covers = demPer.filter(t => t.length).length;
+      if (!demPer.some(t => t.length)) return;
+      // Tiles hit the area; how much of it does the survey actually have?
+      // Under 1% counts as not covering it, and its tiles aren't read.
+      const cap = await lidarCaptureArea(c.href);
+      const shares = demPer.map((t, i) => t.length ? lidarCaptureShare(cap, list[i].geojson) : 0);
+      shares.forEach((sh, i) => { if (sh < 0.01) demPer[i] = []; });
+      const covers = shares.filter(sh => sh >= 0.01).length;
       if (!covers) return;
       const dsmHref = c.href.replace('/dem_1m/', '/dsm_1m/');
       const dsmCol = cat.some(d => d.href === dsmHref) ? await lidarCollection(dsmHref) : null;
-      const dsmPer = dsmCol ? per.map(p => lidarTilesIn(dsmCol, p.nb)) : per.map(() => []);
+      const dsmPer = dsmCol ? per.map((p, i) => demPer[i].length ? lidarTilesIn(dsmCol, p.nb) : []) : per.map(() => []);
       const t = col.extent.temporal.interval[0];
       found.push({ id: c.href, title: c.title.replace(/ LiDAR 1m DEM/, ''), start: t[0], end: t[1], covers, of: list.length,
+        share: Math.min(...shares.filter(sh => sh >= 0.01)), // the least-covered area's share
         demDir: c.href.replace(/collection\.json$/, ''), dsmDir: dsmHref.replace(/collection\.json$/, ''),
         demTiles: [...new Set(demPer.flat())], dsmTiles: [...new Set(dsmPer.flat())] });
     }));
     if (lidarSurveyKey !== key) return; // the areas changed while this ran
-    // Newest first, but one covering every area before one that doesn't.
-    lidarSurveys = found.sort((a, b) => (b.covers - a.covers) || b.end.localeCompare(a.end));
+    // Newest first, but one covering every area before one that doesn't,
+    // and one covering all of each area (90% or more) before one that
+    // only reaches an edge of it.
+    const full = (s) => s.share >= 0.9 ? 1 : 0;
+    lidarSurveys = found.sort((a, b) => (b.covers - a.covers) || (full(b) - full(a)) || b.end.localeCompare(a.end));
     const withDsm = lidarSurveys.find(s => s.dsmTiles.length);
     lidarSurveyId = (withDsm || lidarSurveys[0] || {}).id || null;
     lidarPicked = lidarSurveys.filter(s => s.dsmTiles.length).slice(0, 3).map(s => s.id);
@@ -5533,7 +5577,8 @@ function renderLidarSurveys(emptyMsg) {
   list.innerHTML = lidarSurveys.map(s => {
     const on = lidarTimeMode ? lidarPicked.includes(s.id) : s.id === lidarSurveyId;
     const what = s.dsmTiles.length ? '' : ' No surface model, so no vegetation height.';
-    const cover = s.of > 1 && s.covers < s.of ? ' Covers ' + s.covers + ' of ' + s.of + ' areas.' : '';
+    const cover = (s.of > 1 && s.covers < s.of ? ' Covers ' + s.covers + ' of ' + s.of + ' areas.' : '') +
+      (s.share < 0.9 ? ' Only about ' + Math.max(1, Math.round(100 * s.share)) + '% of ' + (s.of > 1 ? 'an area' : 'the area') + ' has data.' : '');
     return '<button class="mode-btn' + (on ? ' active' : '') + '" type="button" role="' + (lidarTimeMode ? 'checkbox' : 'radio') + '" aria-checked="' + on + '" data-id="' + s.id + '">' +
       '<span class="mode-name">' + escHtml(s.title) + '</span>' +
       '<span class="mode-desc">Flown ' + surveyDates(s) + '.' + what + cover + '</span></button>';
@@ -7099,6 +7144,24 @@ async function lidarLoad() {
     syncLidarControls();
     renderLidarLayers();
     renderLidarResultsAll();
+    // A survey with no data (or next to none) over an area loads without
+    // error and shows nothing, so say so and name one that does cover it.
+    const empty = sets.filter(d => {
+      let inside = 0, withDem = 0;
+      for (let i = 0; i < d.mask.length; i++) if (d.mask[i]) { inside++; if (d.dem[i] === d.dem[i]) withDem++; }
+      d.dataShare = inside ? withDem / inside : 0;
+      return d.dataShare < 0.05;
+    });
+    if (empty.length) {
+      const loadedIds = new Set(surveys.map(s => s.id));
+      const msgs = empty.map(d => {
+        const gb = [d.grid.x0, d.grid.y0, d.grid.x1, d.grid.y1];
+        const alt = lidarSurveys.find(s => !loadedIds.has(s.id) && s.share >= 0.5 && s.demTiles.some(t => tileHits(t, gb)));
+        return d.survey.title + ' has ' + (d.dataShare ? 'almost no' : 'no') + ' LiDAR over ' + d.areaName + (d.dataShare ? ' (' + (100 * d.dataShare).toFixed(1) + '% of it)' : '') + '. ' +
+          (alt ? 'Try ' + alt.title + ' instead.' : 'Try another survey from the list, if there is one.');
+      });
+      setLidarStatus('warning', [...new Set(msgs)].join(' '));
+    } else
     setLidarStatus('success', 'Loaded ' + (surveys.length > 1 ? surveys.length + ' surveys' : surveys[0].title) + ' at ' + res + ' m' + (per.length > 1 ? ' for ' + per.length + ' areas' : '') + '. Click the map for heights.');
     expandResultsPane();
   } catch (err) {

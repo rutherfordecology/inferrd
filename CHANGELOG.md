@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.65.5 — 2026-11-05
+
+- **LiDAR: the default survey is one that has data over the area.** A
+  survey's edge tiles reach well past where it was flown, so an area in
+  Gisborne district near the Hawke's Bay boundary (Wharerata, for one)
+  listed Hawke's Bay (2023-2024) first, as the newest, and loading it gave
+  nothing. Each survey's LINZ capture area now sets how much of the area it
+  covers: under 1% and it isn't listed, and one covering 90% or more comes
+  before one that only reaches an edge. A survey reaching under 90% says
+  roughly how much of the area has data.
+- **LiDAR: a warning when a loaded survey has no data over an area.** If
+  under 5% of an area has ground-model cells, the LiDAR tab says so, names
+  the survey and suggests another on the list that covers it.
+
 ## v0.65.4 — 2026-11-05
 
 - **Flags: rounded end, less see-through.** On the map and in 3D the
