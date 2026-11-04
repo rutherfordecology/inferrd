@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.65.1 — 2026-11-05
+
+- **Tidier point-of-interest pins on the map.** A small dot marks the exact
+  point, a dark pole rises from it, and the name hangs from the top of the
+  pole as a brown pennant with white text. The pole no longer runs past the
+  bottom of the label, and a faint white edge keeps the pin clear over dark
+  bush. The 3D flags are unchanged.
+
 ## v0.65.0 — 2026-11-05
 
 - **Taller flag poles in 3D, sized to the area.** A point's flag now stands
