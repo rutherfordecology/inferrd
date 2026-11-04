@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.65.4 — 2026-11-05
+
+- **Flags: rounded end, less see-through.** On the map and in 3D the
+  flag's free end is a half circle instead of a forked notch, and the flags
+  are at 80% opacity (were 50%). Names are dark charcoal, not black.
+
 ## v0.65.3 — 2026-11-05
 
 - **Map pins: longer pole, smaller dot, see-through flag.** On the 2D map
