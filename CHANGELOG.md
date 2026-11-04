@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.65.3 — 2026-11-05
+
+- **Map pins: longer pole, smaller dot, see-through flag.** On the 2D map
+  the pole is 48 px (was 28), the dot marking the exact point is half the
+  size, and the flag is at 50% opacity, as in 3D.
+
 ## v0.65.2 — 2026-11-05
 
 - **Plain white flags on thin white poles,** on the map and in 3D: the
