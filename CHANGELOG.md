@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.65.6 — 2026-11-05
+
+- **No dot at the foot of map pins.** The pole alone marks the point.
+
 ## v0.65.5 — 2026-11-05
 
 - **LiDAR: the default survey is one that has data over the area.** A
