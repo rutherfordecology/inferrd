@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.69.0 — 2026-11-08
+
+- **Export for Louped checks each layer's licence.** Every layer that can go
+  into a package now carries its licence, read from the publisher's
+  metadata on 8 November 2026, and the licence goes into the package's
+  sources so Louped can show it.
+  - **Left out, never packaged:** Potential vegetation of New Zealand and the
+    Vegetative Cover Map (Manaaki Whenua). Both are under the Landcare Data
+    Use Licence, which bars passing the data, or anything made from it, to
+    third parties.
+  - **Packaged but flagged** (no licence stated): Erosion susceptibility and
+    Land use capability class (MPI's Erosion Susceptibility Classification,
+    built on Landcare's NZLRI), and NIWA's "NZ river catchments, all sizes"
+    (published from a staff account). The export status and the Louped
+    studio list them so you can decide before a site goes to anyone. A layer
+    not yet in the licence table is flagged the same way.
+  - **Cleared, CC BY 4.0:** all GDC TRMP layers and parks, QEII covenants,
+    NIWA large river catchments, LCDB v6, PAN-NZ, GNS QMAP geology, faults
+    and landslides, and the LiDAR contours (LINZ). Threatened Environment
+    Classification is CC BY 3.0 NZ.
+
 ## v0.68.0 — 2026-11-07
 
 - **KML/KMZ box under Areas of interest,** as in occurd. Drop a KML or KMZ
