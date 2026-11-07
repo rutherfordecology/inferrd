@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.71.0 — 2026-11-08
+
+- **LiDAR heights in Export for Louped**, for Louped's 3D view. With LiDAR
+  loaded, the package also carries each area's ground model, and its
+  surface model if loaded, as lossless PNGs on the LiDAR grid (NZTM):
+  `images/terrain-N-dem.png` and `-dsm.png`, height in centimetres above
+  −1000 m across red, green and blue; transparent outside the area. The
+  manifest lists them under `terrain` with the grid, the survey and the
+  area outline. One survey per area: the one shown on the LiDAR tab.
+  Grids wider than 2048 cells are thinned (the 3D mesh is coarser anyway).
+  LINZ LiDAR, CC BY 4.0, as the LiDAR layer.
+
 ## v0.70.0 — 2026-11-08
 
 - **Image layers in Export for Louped** (Louped phase 2). Every image layer

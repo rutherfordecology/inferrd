@@ -1346,7 +1346,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.70.0';
+const APP_VERSION = 'v0.71.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -9966,6 +9966,32 @@ async function loupedImagesInPane(pane, bbox) {
   }
   return { images, failed };
 }
+// LiDAR heights for Louped's 3D view: one PNG a grid, lossless. A cell's
+// height is centimetres above -1000 m across red, green and blue (24 bits);
+// alpha 0 outside the area or where there's no height. Grids wider than
+// LOUPED_TERRAIN_MAX are thinned to every f-th cell (the 3D mesh is coarser
+// than that anyway).
+const LOUPED_TERRAIN_MAX = 2048;
+async function loupedHeightPng(d, Z, f) {
+  const g = d.grid, W = Math.ceil(g.W / f), H = Math.ceil(g.H / f), px = new Uint8ClampedArray(W * H * 4);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = (y * f) * g.W + x * f, v = Z[i], o = (y * W + x) * 4;
+    if (!d.mask[i] || v !== v) continue;
+    const n = Math.max(0, Math.min(16777215, Math.round((v + 1000) * 100)));
+    px[o] = n >> 16; px[o + 1] = (n >> 8) & 255; px[o + 2] = n & 255; px[o + 3] = 255;
+  }
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  cv.getContext('2d').putImageData(new ImageData(px, W, H), 0, 0);
+  return { blob: await new Promise(r => cv.toBlob(r, 'image/png')), W, H };
+}
+// One height set per area: the survey shown on the LiDAR tab, else the last loaded.
+function loupedTerrainSets() {
+  const by = new Map();
+  lidarSets.forEach(d => { if (d.dem && (!lidarShowSurveyId || d.survey.id === lidarShowSurveyId)) by.set(d.key, d); });
+  return [...by.values()];
+}
+
 async function rptLouped() {
   if (!rpt || !areas.length || rptExporting) return;
   const doc = rpt, btn = document.getElementById('rptLoupedBtn');
@@ -10057,6 +10083,19 @@ async function rptLouped() {
       records.push({ file, name: f.name, rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: key });
       addSource({ key, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
     });
+    // LiDAR heights, for the 3D view (CC BY 4.0, as the LiDAR layer)
+    const terrain = [], tl = loupedLicence('lidar');
+    if (tl.share !== 'no') for (const [k, d] of loupedTerrainSets().entries()) {
+      btn.textContent = 'Copying LiDAR heights…';
+      const g = d.grid, f = Math.max(1, Math.ceil(Math.max(g.W, g.H) / LOUPED_TERRAIN_MAX));
+      const id = 'terrain-' + (k + 1), dem = await loupedHeightPng(d, d.dem, f), dsm = d.dsm ? await loupedHeightPng(d, d.dsm, f) : null;
+      zip.file('images/' + id + '-dem.png', dem.blob);
+      if (dsm) zip.file('images/' + id + '-dsm.png', dsm.blob);
+      // Cell (x, y)'s centre is at x0 + (x + 0.5) × res, y1 − (y + 0.5) × res
+      terrain.push({ id, name: d.areaName, survey: d.survey.title, crs: 'EPSG:2193', x0: g.x0 + 0.5 * g.res * (1 - f), y1: g.y1 - 0.5 * g.res * (1 - f), res: g.res * f, W: dem.W, H: dem.H,
+        dem: 'images/' + id + '-dem.png', dsm: dsm ? 'images/' + id + '-dsm.png' : null, outline: d.geojson.geometry || d.geojson, source: 'lidar', encoding: 'rgb24-cm-minus1000' });
+    }
+    if (terrain.length) addSource({ key: 'lidar', name: 'LiDAR heights (ground and surface models)', attribution: tl.attribution || '', note: tl.note || '', licence: tl.licence, licenceUrl: tl.licenceUrl || null, share: tl.share });
     const bb = turf.bbox(areaFc);
     const manifest = {
       format: 'louped-package', formatVersion: LOUPED_FORMAT,
@@ -10067,6 +10106,7 @@ async function rptLouped() {
       areas: { file: 'layers/areas.geojson', count: list.length },
       layers, records, sources, leftOut: left, licenceUnclear: unclear
     };
+    if (terrain.length) manifest.terrain = terrain;
     zip.file('louped.json', JSON.stringify(manifest, null, 2));
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
     const a = document.createElement('a'), name = isoDate(now) + '_' + slug + '.louped.zip';
@@ -10075,7 +10115,7 @@ async function rptLouped() {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     setReportStatus(left.length || unclear.length ? 'warning' : 'success', 'Exported ' + name + ': ' + layers.length + (layers.length === 1 ? ' layer' : ' layers') + ', ' +
-      records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records.' + (left.length ? ' Left out: ' + left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
+      records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (terrain.length ? ', LiDAR heights for 3D' : '') + '.' + (left.length ? ' Left out: ' + left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
       (unclear.length ? ' Licence not stated, check before sharing: ' + unclear.map(x => x.name).join(', ') + '.' : ''));
   } catch (e) {
     setReportStatus('error', 'Export for Louped failed: ' + (e && e.message ? e.message : e));
