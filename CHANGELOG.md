@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.72.0 — 2026-11-08
+
+- **Send to Louped.** Under Export for Louped on the Report tab: sends the
+  same package straight into the Louped studio running on this computer
+  (http://localhost:7884/), with no zip to download and drop. Pick a site:
+  a new one (named after the report), or one already there, adding to its
+  data (the default) or replacing it. The report's own site is picked when
+  it has one. When it's sent, a link opens the site in the studio. If the
+  studio isn't running, it says how to start it. On the published inferrd.,
+  Chrome may ask once whether the page may reach devices on this computer's
+  network: allow it.
+
 ## v0.71.0 — 2026-11-08
 
 - **LiDAR heights in Export for Louped**, for Louped's 3D view. With LiDAR

@@ -69,6 +69,9 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
 .results-pane.report-mode > :not(#reportResults), .results-pane:not(.report-mode) > #reportResults { display: none !important; }
+#rptSendBox { margin-top: 8px; border: 1px solid var(--border2); padding: 8px; display: grid; gap: 6px; font-size: 12.5px; }
+#rptSendBox select { width: 100%; }
+#rptSendBox .send-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #reportPanel input[type=text] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); }
 .rpt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .rpt-file { position: relative; overflow: hidden; display: inline-block; cursor: pointer; }
@@ -777,6 +780,18 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <button class="run-btn" id="rptExportBtn" type="button" disabled>Export for report</button>
         <div class="field-hint" style="margin:6px 0 0;">A zip for writing the report elsewhere: the ticked facts with their IDs and sources, the areas as GeoJSON and KML, a map of the areas, and a summary of what was run. The writing, and every call on what the facts mean, happen outside inferrd.</div>
         <button class="run-btn" id="rptLoupedBtn" type="button" disabled style="margin-top:12px;">Export for Louped</button>
+        <button class="run-btn" id="rptSendBtn" type="button" disabled style="margin-top:6px;" title="Straight into the Louped studio on this computer, no zip to move">Send to Louped</button>
+        <div id="rptSendBox" hidden>
+          <label for="rptSendSite">Louped site</label>
+          <select id="rptSendSite"></select>
+          <input type="text" id="rptSendSlug" placeholder="new-site-name (in its web address)" aria-label="New site name">
+          <div id="rptSendMode">
+            <label class="send-row"><input type="radio" name="rptSendMode" value="merge" checked> Add to the site's data (layers with the same name replaced)</label>
+            <label class="send-row"><input type="radio" name="rptSendMode" value="replace"> Replace the site's data</label>
+          </div>
+          <div class="send-row"><button class="run-btn" id="rptSendGo" type="button" style="width:auto;padding:6px 14px;">Send</button><button type="button" id="rptSendCancel" class="dl-btn">Cancel</button></div>
+          <div class="field-hint" id="rptSendNote" style="margin:0;"></div>
+        </div>
         <div class="field-hint" style="margin:6px 0 0;">A package for a client map in Louped: the report's areas, the occurd. records, and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the Layers panel up as the client should see it first. Image layers (LiDAR, index preview, Earth Engine land cover and terrain) go in as pictures, as drawn on the map.</div>
       </div>
     </div>
@@ -1346,7 +1361,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.71.0';
+const APP_VERSION = 'v0.72.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -9314,6 +9329,7 @@ function syncReportControls() {
   run.textContent = rptBusy ? 'Gathering…' : 'Gather the facts';
   document.getElementById('rptExportBtn').disabled = !rpt || !rpt.facts.length || rptBusy || rptExporting;
   document.getElementById('rptLoupedBtn').disabled = !rpt || !areas.length || rptBusy || rptExporting;
+  document.getElementById('rptSendBtn').disabled = document.getElementById('rptSendGo').disabled = !rpt || !areas.length || rptBusy || rptExporting;
 }
 
 function reportAreasChanged() {
@@ -9992,9 +10008,9 @@ function loupedTerrainSets() {
   return [...by.values()];
 }
 
-async function rptLouped() {
+async function rptLouped(send) {
   if (!rpt || !areas.length || rptExporting) return;
-  const doc = rpt, btn = document.getElementById('rptLoupedBtn');
+  const doc = rpt, btn = document.getElementById(send ? 'rptSendGo' : 'rptLoupedBtn');
   rptExporting = true;
   syncReportControls();
   btn.textContent = 'Preparing…';
@@ -10108,24 +10124,91 @@ async function rptLouped() {
     };
     if (terrain.length) manifest.terrain = terrain;
     zip.file('louped.json', JSON.stringify(manifest, null, 2));
-    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-    const a = document.createElement('a'), name = isoDate(now) + '_' + slug + '.louped.zip';
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    setReportStatus(left.length || unclear.length ? 'warning' : 'success', 'Exported ' + name + ': ' + layers.length + (layers.length === 1 ? ' layer' : ' layers') + ', ' +
+    let name;
+    if (send) {
+      // Straight to the Louped studio on this computer
+      btn.textContent = 'Sending…';
+      const files = {};
+      for (const f of Object.values(zip.files)) if (!f.dir) files[f.name] = await f.async('base64');
+      const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites/' + encodeURIComponent(send.slug) + '/package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files, merge: send.merge, create: send.create }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || 'the studio answered ' + r.status);
+      name = 'Louped site ' + j.slug + (send.create ? ' (new)' : send.merge ? ' (added to its data)' : ' (its data replaced)');
+      const note = document.getElementById('rptSendNote');
+      note.innerHTML = 'Sent. <a href="' + escHtml(j.open) + '" target="_blank" rel="noopener">Open ' + escHtml(j.title) + ' in the studio</a>.';
+      loupedSendSites(j.slug);
+    } else {
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const a = document.createElement('a');
+      name = isoDate(now) + '_' + slug + '.louped.zip';
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+    setReportStatus(left.length || unclear.length ? 'warning' : 'success', (send ? 'Sent to ' : 'Exported ') + name + ': ' + layers.length + (layers.length === 1 ? ' layer' : ' layers') + ', ' +
       records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (terrain.length ? ', LiDAR heights for 3D' : '') + '.' + (left.length ? ' Left out: ' + left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
       (unclear.length ? ' Licence not stated, check before sharing: ' + unclear.map(x => x.name).join(', ') + '.' : ''));
   } catch (e) {
-    setReportStatus('error', 'Export for Louped failed: ' + (e && e.message ? e.message : e));
+    setReportStatus('error', (send ? 'Send to Louped' : 'Export for Louped') + ' failed: ' + (e && e.message ? e.message : e));
   } finally {
     rptExporting = false;
-    btn.textContent = 'Export for Louped';
+    btn.textContent = send ? 'Send' : 'Export for Louped';
     syncReportControls();
   }
 }
-document.getElementById('rptLoupedBtn').addEventListener('click', rptLouped);
+document.getElementById('rptLoupedBtn').addEventListener('click', () => rptLouped());
+
+// Send to Louped: the studio (studio/server.mjs in catchment_reports) runs
+// on this computer at LOUPED_STUDIO and takes packages from inferrd.'s
+// pages only. Chrome may ask once whether this page may reach devices on
+// this computer's network (localhost): allow it.
+const LOUPED_STUDIO = 'http://localhost:7884/';
+async function loupedSendSites(select) {
+  const sel = document.getElementById('rptSendSite'), note = document.getElementById('rptSendNote');
+  let list;
+  try {
+    const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites');
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
+    list = (await r.json()).sites;
+  } catch (e) {
+    sel.innerHTML = '';
+    note.textContent = 'The Louped studio isn\'t answering at ' + LOUPED_STUDIO + '. Start it (double-click studio\\start-studio.vbs in catchment_reports, or your bookmark), then press Send to Louped again. If Chrome asked about devices on your network, allow it.';
+    return false;
+  }
+  const keep = select || sel.value;
+  sel.innerHTML = '<option value="">New site…</option>' + list.map(s => '<option value="' + escHtml(s.slug) + '">' + escHtml(s.title) + ' (' + escHtml(s.slug) + ')</option>').join('');
+  // The report's own site, if it has one already
+  const own = loupedId((rpt && rpt.title) || 'report');
+  sel.value = list.some(s => s.slug === keep) ? keep : list.some(s => s.slug === own) ? own : '';
+  loupedSendSync();
+  return true;
+}
+function loupedSendSync() {
+  const isNew = !document.getElementById('rptSendSite').value;
+  document.getElementById('rptSendSlug').hidden = !isNew;
+  document.getElementById('rptSendMode').hidden = isNew;
+  if (isNew && !document.getElementById('rptSendSlug').value) document.getElementById('rptSendSlug').value = loupedId((rpt && rpt.title) || 'report');
+}
+document.getElementById('rptSendSite').addEventListener('change', loupedSendSync);
+document.getElementById('rptSendBtn').addEventListener('click', async () => {
+  const box = document.getElementById('rptSendBox');
+  if (!box.hidden) { box.hidden = true; return; }
+  box.hidden = false;
+  document.getElementById('rptSendNote').textContent = 'Looking for the Louped studio…';
+  if (await loupedSendSites()) document.getElementById('rptSendNote').textContent = '';
+});
+document.getElementById('rptSendCancel').addEventListener('click', () => { document.getElementById('rptSendBox').hidden = true; });
+document.getElementById('rptSendGo').addEventListener('click', () => {
+  const site = document.getElementById('rptSendSite').value, note = document.getElementById('rptSendNote');
+  const slug = site || document.getElementById('rptSendSlug').value.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) { note.textContent = 'A site name is lower-case letters, numbers and dashes, for example waimata-2026.'; return; }
+  if (!document.getElementById('rptSendSite').options.length) { note.textContent = 'Press Send to Louped again once the studio is running.'; return; }
+  const merge = !!site && document.querySelector('input[name=rptSendMode]:checked').value === 'merge';
+  if (site && !merge && !confirm('Replace all of ' + slug + '\'s data with this export? Its wording stays.')) return;
+  note.textContent = '';
+  rptLouped({ slug, create: !site, merge });
+});
 rptInit();
 
 function setAppTab(tab) {
