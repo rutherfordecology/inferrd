@@ -777,7 +777,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <button class="run-btn" id="rptExportBtn" type="button" disabled>Export for report</button>
         <div class="field-hint" style="margin:6px 0 0;">A zip for writing the report elsewhere: the ticked facts with their IDs and sources, the areas as GeoJSON and KML, a map of the areas, and a summary of what was run. The writing, and every call on what the facts mean, happen outside inferrd.</div>
         <button class="run-btn" id="rptLoupedBtn" type="button" disabled style="margin-top:12px;">Export for Louped</button>
-        <div class="field-hint" style="margin:6px 0 0;">A package for a client map in Louped: the report's areas, the occurd. records, and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the Layers panel up as the client should see it first. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out.</div>
+        <div class="field-hint" style="margin:6px 0 0;">A package for a client map in Louped: the report's areas, the occurd. records, and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the Layers panel up as the client should see it first. Image layers (LiDAR, index preview, Earth Engine land cover and terrain) go in as pictures, as drawn on the map.</div>
       </div>
     </div>
 
@@ -1346,7 +1346,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.69.0';
+const APP_VERSION = 'v0.70.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -9829,8 +9829,9 @@ document.getElementById('rptExportBtn').addEventListener('click', rptExport);
    A package for Louped (github.com/rutherfordecology/louped), which turns
    it into a client map; the title and wording are added there. What the
    client sees is what the Layers panel shows here: every layer that's on,
-   top of the map first, with its colours and opacity. Vector layers only
-   for now: image layers are listed in the manifest as left out.
+   top of the map first, with its colours and opacity. Image layers (LiDAR,
+   Earth Engine) go as PNGs on the web map's grid, each with its bounds
+   (layer kind "image", images/<id>.png).
 
      louped.json            manifest (format "louped-package", version 1)
      layers/areas.geojson   the report's areas
@@ -9861,9 +9862,28 @@ const LOUPED_LICENCES = {
   'phys_slides': Object.assign({ attribution: '© GNS Science 2023 (QMAP 1:250 000, 4th ed.)' }, LIC_CCBY4),
   'phys_esc': { share: 'unclear', licence: 'not stated', note: 'MPI\'s Erosion Susceptibility Classification, built on the NZLRI (© Landcare Research); MPI publishes it with no licence. Landcare\'s own NZLRI layers are under the Landcare Data Use Licence, which bars passing them on.' },
   'phys_luc': { share: 'unclear', licence: 'not stated', note: 'LUC classes from MPI\'s Erosion Susceptibility Classification, built on the NZLRI (© Landcare Research); MPI publishes it with no licence. Landcare\'s own NZLRI layers are under the Landcare Data Use Licence, which bars passing them on.' },
+  'lidar': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4),
   'lidar_contours': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4),
   'lidar_contours_dsm': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4)
 };
+// Earth Engine layers: each dataset is open, but the pictures are computed
+// on Earth Engine under inferrd.'s non-commercial registration, so they are
+// fine on unpaid work and need a commercial Earth Engine licence for a paid
+// deliverable. Flagged, so the choice is made per site.
+const LOUPED_EE_NOTE = 'Computed on Google Earth Engine under a non-commercial registration: fine for unpaid work; a paid deliverable needs a commercial Earth Engine licence.';
+[['ir_index', 'Contains modified Copernicus Sentinel data (Sentinel-2, ESA); NASA HLS Landsat'],
+ ['ir_change', 'Contains modified Copernicus Sentinel data (Sentinel-2, ESA); NASA HLS Landsat'],
+ ['ir_trend', 'Contains modified Copernicus Sentinel data (Sentinel-2, ESA); NASA HLS Landsat'],
+ ['cover_loss', 'Hansen/UMD/Google/USGS/NASA Global Forest Change (CC BY 4.0)'],
+ ['cover_burn', 'NASA MODIS MCD64A1 burned area'],
+ ['cover_water', 'EC JRC/Google Global Surface Water'],
+ ['cover_canopy', 'Lang et al. 2023, ETH Global Canopy Height 2020 (CC BY 4.0)'],
+ ['cover_dw', 'Google and World Resources Institute, Dynamic World (CC BY 4.0)'],
+ ['cover_worldcover', '© ESA WorldCover project 2021, contains modified Copernicus Sentinel data (CC BY 4.0)'],
+ ['phys_slope', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA'],
+ ['phys_aspect', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA'],
+ ['phys_elev', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA']
+].forEach(([k, attribution]) => { LOUPED_LICENCES[k] = { share: 'unclear', licence: 'open data, via Earth Engine (non-commercial)', attribution, note: LOUPED_EE_NOTE }; });
 const loupedLicence = (key) => LOUPED_LICENCES[key] || (/^occurd:gdc_/.test(key) && LOUPED_LICENCES['occurd:gdc_*']) || { share: 'unclear', licence: 'not checked' };
 const loupedId = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'layer';
 // Plain values only: a feature's properties can hold objects layers.js or a
@@ -9895,6 +9915,56 @@ function loupedVectorsInPane(pane) {
     out.push({ type: 'Feature', geometry: f.geometry, properties: props });
   });
   return { features: out, images };
+}
+// The pictures a layer draws into its pane, as PNGs with their bounds, for
+// the package. Image overlays go as they are (the LiDAR layer is already
+// drawn onto the web map's grid), shrunk if wider than LOUPED_IMG_MAX. Tile
+// layers (Earth Engine, already cut to the areas) are read again over the
+// areas' box at the finest zoom that keeps the picture within LOUPED_IMG_MAX
+// a side and LOUPED_IMG_TILES tiles. → { images: [{ blob, bounds }], failed }
+const LOUPED_IMG_MAX = 4096, LOUPED_IMG_TILES = 400;
+const loupedCanvasBlob = (cv) => new Promise((resolve, reject) => { try { cv.toBlob(b => b ? resolve(b) : reject(new Error('no picture')), 'image/png'); } catch (e) { reject(e); } });
+async function loupedImagesInPane(pane, bbox) {
+  const images = [];
+  let failed = 0;
+  const ls = [];
+  map.eachLayer(l => { if (l.options && l.options.pane === pane && (l instanceof L.ImageOverlay || l instanceof L.TileLayer)) ls.push(l); });
+  for (const l of ls) {
+    try {
+      if (l instanceof L.ImageOverlay) {
+        const blob = await (await fetch(l._url)).blob();
+        const im = await createImageBitmap(blob), k = Math.min(1, LOUPED_IMG_MAX / Math.max(im.width, im.height));
+        if (k < 1 || blob.type !== 'image/png') {
+          const cv = document.createElement('canvas');
+          cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k));
+          cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+          images.push({ blob: await loupedCanvasBlob(cv), bounds: l.getBounds() });
+        } else images.push({ blob, bounds: l.getBounds() });
+        continue;
+      }
+      const o = l.options, crs = L.CRS.EPSG3857;
+      const zMax = Math.min(17, o.maxNativeZoom != null ? o.maxNativeZoom : o.maxZoom != null ? o.maxZoom : 18);
+      const nw = L.latLng(bbox[3], bbox[0]), se = L.latLng(bbox[1], bbox[2]);
+      let z = zMax, p0, p1, t0, t1;
+      for (; z >= 1; z--) {
+        p0 = crs.latLngToPoint(nw, z).floor(); p1 = crs.latLngToPoint(se, z).ceil();
+        t0 = p0.divideBy(256).floor(); t1 = p1.divideBy(256).floor();
+        if (Math.max(p1.x - p0.x, p1.y - p0.y) <= LOUPED_IMG_MAX && (t1.x - t0.x + 1) * (t1.y - t0.y + 1) <= LOUPED_IMG_TILES) break;
+      }
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, p1.x - p0.x); cv.height = Math.max(1, p1.y - p0.y);
+      const ctx = cv.getContext('2d'), jobs = [];
+      let got = 0;
+      for (let y = t0.y; y <= t1.y; y++) for (let x = t0.x; x <= t1.x; x++) {
+        const url = L.Util.template(l._url, L.extend({}, o, { s: l._getSubdomain({ x, y }), r: '', x, y: o.tms ? 2 ** z - 1 - y : y, z }));
+        jobs.push(v3dTileImg(url).then(im => { if (im) { ctx.drawImage(im, x * 256 - p0.x, y * 256 - p0.y, 256, 256); got++; } }));
+      }
+      await Promise.all(jobs);
+      if (!got) { failed++; continue; }
+      images.push({ blob: await loupedCanvasBlob(cv), bounds: L.latLngBounds(crs.pointToLatLng(L.point(p0.x, p1.y), z), crs.pointToLatLng(L.point(p1.x, p0.y), z)) });
+    } catch (e) { failed++; }
+  }
+  return { images, failed };
 }
 async function rptLouped() {
   if (!rpt || !areas.length || rptExporting) return;
@@ -9945,9 +10015,28 @@ async function rptLouped() {
       } else {
         const v = loupedVectorsInPane(s.pane);
         features = v.features;
-        if (!features.length) { left.push({ name: d.name, reason: v.images ? 'an image layer; packages hold vector layers only for now' : 'nothing drawn for these areas' }); continue; }
         source = LOUPED_LICENCES[s.key] ? s.key : 'inferrd';
-        if (source !== 'inferrd') addSource({ key: source, name: d.name, attribution: lic.attribution || '', note: lic.note || '', licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share });
+        const addSrc = () => { if (source !== 'inferrd') addSource({ key: source, name: d.name, attribution: lic.attribution || '', note: lic.note || '', licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share }); };
+        if (!features.length && v.images) {
+          // An image layer: its pictures, as drawn on the map
+          btn.textContent = 'Copying ' + d.name + '…';
+          const r = await loupedImagesInPane(s.pane, turf.bbox(areaFc));
+          if (!r.images.length) { left.push({ name: d.name, reason: 'its pictures couldn\'t be copied (the server doesn\'t allow it, or it isn\'t drawn yet)' }); continue; }
+          const id = loupedId(s.key) + (layers.some(x => x.id === loupedId(s.key)) ? '-' + layers.length : '');
+          const imgs = r.images.map((im, k) => {
+            const file = 'images/' + id + (r.images.length > 1 ? '-' + (k + 1) : '') + '.png';
+            zip.file(file, im.blob);
+            const b = im.bounds;
+            return { file, bounds: [[+b.getSouth().toFixed(7), +b.getWest().toFixed(7)], [+b.getNorth().toFixed(7), +b.getEast().toFixed(7)]] };
+          });
+          layers.push({ id, kind: 'image', name: d.name, group: d.group || '', images: imgs, on: true, opacity: s.op, legend: d.legend, notes: d.notes, source });
+          addSrc();
+          if (r.failed) left.push({ name: d.name, reason: r.failed + ' of its pictures couldn\'t be copied' });
+          if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
+          continue;
+        }
+        if (!features.length) { left.push({ name: d.name, reason: 'nothing drawn for these areas' }); continue; }
+        addSrc();
       }
       if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
       const id = loupedId(d.ref ? s.key.slice(4) : s.key) + (layers.some(x => x.id === loupedId(d.ref ? s.key.slice(4) : s.key)) ? '-' + layers.length : '');

@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.70.0 — 2026-11-08
+
+- **Image layers in Export for Louped** (Louped phase 2). Every image layer
+  that's on now goes into the package as a PNG with its bounds, as drawn
+  on the map: the LiDAR layer (vegetation height, bare ground, surface,
+  elevation, ground change) and the Earth Engine layers (index preview,
+  change, condition trend, land cover, canopy height, tree cover loss,
+  burned area, surface water, slope, aspect, elevation). The LiDAR picture
+  is the one already drawn on the web map's grid; Earth Engine layers are
+  read again as tiles over the areas, at the finest zoom (up to 17) that
+  keeps a picture within 4096 pixels a side. Needs Louped v0.9.0.
+- **Earth Engine layers are flagged in the licence check.** Their data is
+  open, but the pictures are computed on Earth Engine under inferrd.'s
+  non-commercial registration: fine for unpaid work, and a paid deliverable
+  needs a commercial Earth Engine licence. The LiDAR layer is CC BY 4.0
+  (LINZ) and is cleared.
+
 ## v0.69.0 — 2026-11-08
 
 - **Export for Louped checks each layer's licence.** Every layer that can go
