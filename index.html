@@ -407,6 +407,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div class="sidebar-section">
       <div class="section-label">2 · Areas of interest</div>
       <div class="instruction-box">Draw one or more areas on the map. Draw more than one to compare them.</div>
+      <label class="rpt-drop" id="areaKmlDrop" style="margin-bottom:8px;" title="Each polygon placemark in the file becomes an area, named as in the file">Drop <strong>KML/KMZ</strong> here, or <span style="color:var(--brand);text-decoration:underline;">browse</span>, or draw on the map<input type="file" id="areaKmlFile" accept=".kml,.kmz" multiple></label>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
       <div id="poiBlock">
@@ -1345,7 +1346,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.67.0';
+const APP_VERSION = 'v0.68.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -9699,6 +9700,32 @@ async function rptAddKml(f) {
   if (skipped) throw new Error(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
 }
 document.getElementById('rptKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
+// The KML / KMZ box under Areas of interest, as in occurd.: dropped or
+// chosen files add their polygon placemarks as areas, on any tab.
+async function areaTakeKml(files) {
+  const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), other = files.filter(f => !/\.km[lz]$/i.test(f.name));
+  const added = [], problems = [];
+  for (const f of kml) {
+    try {
+      const { out, skipped } = await rptReadKml(f);
+      if (!out.length) { problems.push(f.name + ' has no polygons' + (skipped ? ' (' + skipped + ' points or lines left out)' : '')); continue; }
+      out.forEach(x => addAreaFromGeometry(x.geometry, x.name));
+      added.push(f.name + ' (' + out.length + (out.length === 1 ? ' area' : ' areas') + ')');
+      if (skipped) problems.push(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
+    } catch (err) { problems.push(err.message || String(err)); }
+  }
+  if (added.length) map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
+  if (other.length) problems.push('Not read: ' + other.map(f => f.name).join(', ') + ' (KML or KMZ only)');
+  const msg = (added.length ? 'Added ' + added.join(', ') + '. ' : '') + problems.join('. ');
+  if (msg) setStatus(problems.length ? (added.length ? 'warning' : 'error') : 'success', msg.trim());
+}
+(() => {
+  const box = document.getElementById('areaKmlDrop');
+  document.getElementById('areaKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; areaTakeKml(fl); });
+  box.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; box.classList.add('over'); });
+  box.addEventListener('dragleave', () => box.classList.remove('over'));
+  box.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); box.classList.remove('over'); areaTakeKml([...e.dataTransfer.files]); });
+})();
 document.getElementById('rptOccurdList').addEventListener('click', (e) => {
   const fail = e.target.closest('[data-fail]');
   if (fail && e.target.dataset.del === 'fail') { rptFailed = rptFailed.filter(x => x.id !== fail.dataset.fail); rptRenderLists(); return; }

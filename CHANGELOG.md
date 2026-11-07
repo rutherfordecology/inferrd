@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.68.0 — 2026-11-07
+
+- **KML/KMZ box under Areas of interest,** as in occurd. Drop a KML or KMZ
+  on it, or click to browse: each polygon placemark becomes an area, named
+  as in the file, and the map zooms to them. Points and lines are left out
+  and the status bar says how many. The Report tab's Load KML or KMZ works
+  as before.
+
 ## v0.67.0 — 2026-11-07
 
 - **3D view: Black background.** A tick box in the 3D view's bar sets the
