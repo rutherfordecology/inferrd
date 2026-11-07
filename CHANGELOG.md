@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.67.0 — 2026-11-07
+
+- **3D view: Black background.** A tick box in the 3D view's bar sets the
+  background to black and draws the wire sides in light grey. It switches
+  without redrawing the model, and the choice is remembered in this browser.
+
+## v0.66.0 — 2026-11-07
+
+- **3D view: wire sides, so the model reads as a block cut out of the
+  landscape.** Thin black lines run from the area's edge on the model down
+  to the same outline on a flat base, with a vertical every 1/40 of the
+  model's width. The base sits a quarter of the relief below the lowest
+  point (at least 4% of the width, so flat ground still shows a slab), and
+  stretches with Height ×. A new **Sides** tick box turns them off; the
+  choice is remembered in this browser.
+
 ## v0.65.6 — 2026-11-05
 
 - **No dot at the foot of map pins.** The pole alone marks the point.
