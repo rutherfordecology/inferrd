@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.75.0 — 2026-11-08
+
+- **Louped is part of the map now, not a separate step.**
+  - **No folder to choose.** Sites are kept in this browser, ready whenever
+    inferrd. opens on this computer, and the browser is asked to keep them.
+    A folder (such as the studio's catchment_reports\sites) is still an
+    option, under "Where sites are kept" at the foot of the tab.
+  - **A button in the Layers panel:** "Make a client site from these" once
+    there are areas and layers on, or "Add these to <site>" when a site is
+    open. It goes to the Louped tab with the new site named after the
+    report or the first area, or brings the layers into the open site.
+  - **The tab compares the site with the map.** Layers (one section, in
+    place of Data and In the client's view) names the map layers not in the
+    site yet, with **Add them to the site**, or **Refresh from the map**
+    when there are none. Replacing everything, and adding an older Export
+    for Louped, are under More.
+  - The last site you had open opens again.
+
+## v0.74.0 — 2026-11-08
+
+- **Louped tab: Put online** (phase 2 of Louped moving into inferrd.). The
+  tab's Online section puts the site on louped.pages.dev/<site>/ itself,
+  through the louped-admin Worker (Louped v0.15.0), with no studio and no
+  deploy:
+  - Enter your Louped key once (catchment_reports\cloudflare.json); this
+    browser keeps it.
+  - Choose who can see it: a list of emails or whole domains, or anyone
+    with the link. Until Louped has a Cloudflare token, a new site is
+    yours alone until you add people in Cloudflare; the tab says so.
+  - **Put online** sends the client's files (hidden layers left out) and
+    the viewer, then switches the site over in one step. **Put the changes
+    online** does the same for a site already up; **Take offline** removes
+    it (your copy in the folder stays).
+  - The published `job.json` no longer carries your list of people or
+    publishing notes.
+
 ## v0.73.0 — 2026-11-08
 
 - **Louped tab** (phase 1 of Louped moving into inferrd.). Client sites

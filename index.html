@@ -77,6 +77,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lp-site { text-align: left; background: var(--white); border: 1px solid var(--border2); padding: 6px 8px; cursor: pointer; display: grid; font: 12.5px var(--font-sans); color: var(--text); }
 .lp-site small { color: var(--muted, #777); font-size: 11px; }
 .lp-site.on { border-color: var(--base); box-shadow: inset 3px 0 0 var(--base); }
+.lp-site-new { color: var(--base); font-weight: 600; }
+.lp-diff { margin-top: 8px; padding: 8px; border: 1px dashed var(--border2); font-size: 12px; line-height: 1.45; }
+.lp-diff .run-btn { width: 100%; }
+.lp-more { margin-top: 8px; font-size: 12px; }
+.lp-more summary { cursor: pointer; color: var(--muted, #777); }
 .lp-row { display: flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 2px 0; }
 .lp-g { color: var(--muted, #888); font-size: 11px; }
 .lp-warn { font-size: 12px; border-left: 3px solid #d4580a; padding: 3px 8px; margin-top: 6px; }
@@ -840,36 +845,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
     </div>
 
     <div id="loupedPanel">
-      <div class="sidebar-section">
-        <div class="section-label">1 · Folder</div>
-        <div class="field-hint" id="lpFolderNote" style="margin:0 0 8px;"></div>
-        <button class="run-btn" id="lpAllowBtn" type="button" hidden>Open the folder</button>
-        <button class="dl-btn" id="lpFolderBtn" type="button" style="margin-top:6px;">Choose the Louped folder</button>
-      </div>
       <div class="sidebar-section" id="lpSitesSec" hidden>
-        <div class="section-label">2 · Sites</div>
+        <div class="section-label">1 · Client site</div>
         <div class="lp-sites" id="lpSites"></div>
-        <label class="lp-f">New site from this map: its name in the web address<input type="text" id="lpNewSlug" placeholder="waimata-2026"></label>
-        <button class="run-btn" id="lpNewBtn" type="button" style="margin-top:8px;">Make the site</button>
-        <div class="field-hint" style="margin:6px 0 0;">Takes the areas, every layer that's on in the Layers panel (in its order, colours and opacity; licences applied as in Export for Louped), the Report tab's occurd. records and any LiDAR heights loaded.</div>
+        <div id="lpNewBox">
+          <label class="lp-f">New site from the layers on the map: its name in the web address<input type="text" id="lpNewSlug" placeholder="waimata-2026"></label>
+          <button class="run-btn" id="lpNewBtn" type="button" style="margin-top:8px;">Make the site</button>
+          <div class="field-hint" id="lpNewNote" style="margin:6px 0 0;"></div>
+        </div>
       </div>
       <div id="lpEdit" hidden>
         <div class="sidebar-section">
-          <div class="section-label">3 · Data</div>
+          <div class="section-label">2 · Layers</div>
           <div class="field-hint" id="lpFacts" style="margin:0;"></div>
-          <div id="lpWarn"></div>
-          <label class="lp-row" style="margin-top:8px;"><input type="radio" name="lpUpdMode" value="merge" checked> Add to the data (a layer already there is replaced)</label>
-          <label class="lp-row"><input type="radio" name="lpUpdMode" value="replace"> Replace the data</label>
-          <button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">Update from this map</button>
-          <label class="field-hint" style="margin:6px 0 0;display:block;">Or from an older export: <input type="file" id="lpZip" accept=".zip"></label>
-        </div>
-        <div class="sidebar-section">
-          <div class="section-label">4 · In the client's view</div>
+          <div id="lpMapDiff"></div>
           <div id="lpShow"></div>
-          <div class="field-hint" style="margin:6px 0 0;">Untick to leave a layer out. It isn't just switched off: it won't be sent to the client, and its source leaves the About page. Saved as you tick.</div>
+          <div class="field-hint" style="margin:6px 0 0;">Untick to leave a layer out of the client's site (it isn't sent at all, and its source leaves the About page). Saved as you tick.</div>
+          <div id="lpWarn"></div>
+          <details class="lp-more"><summary>More</summary>
+            <button class="dl-btn" id="lpReplaceBtn" type="button" style="margin-top:6px;">Replace all the site's data with the map</button>
+            <label class="field-hint" style="margin:6px 0 0;display:block;">Add an older Export for Louped: <input type="file" id="lpZip" accept=".zip"></label>
+          </details>
         </div>
         <div class="sidebar-section">
-          <div class="section-label">5 · Wording</div>
+          <div class="section-label">3 · Wording</div>
           <label class="lp-f">Title<input type="text" id="lpF_title"></label>
           <label class="lp-f">Subtitle<input type="text" id="lpF_subtitle" placeholder="Optional"></label>
           <label class="lp-f">Client or group (in the header)<input type="text" id="lpF_client" placeholder="Optional"></label>
@@ -882,11 +881,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <button class="run-btn" id="lpSaveBtn" type="button" style="margin-top:8px;">Save</button>
         </div>
         <div class="sidebar-section">
-          <div class="section-label">6 · Online</div>
-          <div class="field-hint" style="margin:0;">Putting sites online from here comes next. Until then the Louped studio's <b>Put online</b> publishes them: it reads this same folder when it's catchment_reports\sites.</div>
+          <div class="section-label">4 · Online</div>
+          <div class="field-hint" id="lpOnState" style="margin:0;"></div>
+          <div id="lpKeyRow">
+            <label class="lp-f">Louped key<input type="password" id="lpKey" autocomplete="off" spellcheck="false"></label>
+            <button class="dl-btn" id="lpKeySave" type="button" style="margin-top:6px;">Use this key</button>
+          </div>
+          <div id="lpAccess" hidden>
+            <label class="lp-row" style="margin-top:8px;"><input type="radio" name="lpAcc" value="people" checked> Only these people (they sign in with a code sent to their email)</label>
+            <label class="lp-f">Emails, or whole domains such as catchmentgroup.org.nz, one a line<textarea id="lpPeople" placeholder="someone@example.com&#10;catchmentgroup.org.nz"></textarea></label>
+            <label class="lp-row" style="margin-top:6px;"><input type="radio" name="lpAcc" value="link"> Anyone with the link (no sign-in)</label>
+            <div class="field-hint" id="lpAccNote" style="margin:6px 0 0;"></div>
+          </div>
+          <button class="run-btn" id="lpOnBtn" type="button" style="margin-top:8px;" hidden>Put online</button>
+          <button class="dl-btn" id="lpOffBtn" type="button" style="margin-top:6px;" hidden>Take offline</button>
         </div>
       </div>
       <div class="status-bar" id="lpStatus"></div>
+      <div class="sidebar-section">
+        <div class="section-label">Where sites are kept</div>
+        <div class="field-hint" id="lpFolderNote" style="margin:0 0 6px;"></div>
+        <button class="run-btn" id="lpAllowBtn" type="button" hidden>Open the folder</button>
+        <button class="dl-btn" id="lpFolderBtn" type="button" style="margin-top:6px;">Use a folder instead</button>
+        <button class="dl-btn" id="lpBrowserBtn" type="button" style="margin-top:6px;" hidden>Keep sites in this browser</button>
+      </div>
     </div>
 
     <div id="physicalPanel">
@@ -1440,7 +1458,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.73.0';
+const APP_VERSION = 'v0.75.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1717,6 +1735,7 @@ const mapStack = (() => {
       return '<button class="lpanel-grp" type="button" data-grp="' + esc(g) + '" aria-expanded="' + !closed + '"><span class="chev">' + (closed ? '▸' : '▾') + '</span>' + esc(g) + '</button>' +
         (closed ? '' : '<ul class="mstack-list">' + refs.filter(k => E[k].group === g).map(k => rowHtml(k)).join('') + '</ul>');
     }).join('');
+    if (window.lpFootHook) window.lpFootHook(); // the Louped button at the foot
   }
   box.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-fold]');
@@ -10483,7 +10502,9 @@ function lpClientManifest(m, hidden) {
 }
 // The site as a client gets it: { path in the site: Blob }
 async function lpClientFiles(site) {
-  const files = { 'job.json': new Blob([JSON.stringify(site.job)], { type: 'application/json' }) };
+  const pub = Object.assign({}, site.job);
+  delete pub.access; delete pub.online; // yours, not the client's
+  const files = { 'job.json': new Blob([JSON.stringify(pub)], { type: 'application/json' }) };
   if (!site.m) return files;
   const { manifest, drop } = lpClientManifest(site.m, new Set(site.job.hidden || []));
   const all = await lpWalk(await site.h.getDirectoryHandle('package'));
@@ -10493,35 +10514,99 @@ async function lpClientFiles(site) {
 }
 
 // ── The tab ──
+// Sites are kept in this browser (its private storage: nothing to pick, and
+// nothing to allow again each visit), or in a folder you pick, such as the
+// studio's catchment_reports\sites. Browser storage is asked to be kept.
+const lpWhere = (v) => v === undefined ? (lpStore('inferrd.loupedWhere') || 'browser') : lpStore('inferrd.loupedWhere', v);
+async function lpUseBrowser() {
+  const root = await navigator.storage.getDirectory();
+  LP.dir = await root.getDirectoryHandle('louped-sites', { create: true });
+  LP.where = 'browser'; LP.pending = null;
+  if (navigator.storage.persist) navigator.storage.persist().catch(() => {});
+}
 async function lpOpenTab() {
-  if (!window.showDirectoryPicker) {
-    lp$('lpFolderNote').textContent = 'The Louped tab needs Chrome or Edge on a computer (it keeps sites in a folder there).';
-    lp$('lpFolderBtn').hidden = true;
-    return;
+  if (LP.online === undefined) lpOnlineLoad();
+  if (!LP.dir && !LP.pending) {
+    try {
+      const h = lpWhere() === 'folder' && window.showDirectoryPicker ? await lpKept() : null;
+      if (h && (await h.queryPermission({ mode: 'readwrite' })) === 'granted') { LP.dir = h; LP.where = 'folder'; }
+      else if (h) LP.pending = h;
+      else if (navigator.storage && navigator.storage.getDirectory) await lpUseBrowser();
+    } catch (e) { lpSay('error', 'Couldn\'t open where the sites are kept: ' + e.message); }
+    if (LP.dir) {
+      await lpLoadSites();
+      const last = lpStore('inferrd.loupedSite');
+      if (!LP.cur && LP.sites.some(s => s.slug === last)) return lpSelect(last);
+    }
   }
-  if (LP.dir) return lpRender();
-  const h = await lpKept();
-  if (!h) return lpRender();
-  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') { LP.dir = h; await lpLoadSites(); return lpRender(); }
-  LP.pending = h;
   lpRender();
 }
+// The map's layers that are on, by the id they get in a site
+function lpMapLayers() {
+  return mapStack.shown().slice().reverse().map(s => {
+    const d = mapStack.describe(s.key);
+    return d ? { id: loupedId(d.ref ? s.key.slice(4) : s.key), name: d.name } : null;
+  }).filter(Boolean);
+}
+// The Layers panel's own button: make a site from what's on, or add to the
+// one open in the Louped tab
+function lpFoot() {
+  const host = document.querySelector('.lpanel-foot');
+  if (!host) return;
+  let foot = document.getElementById('lpFootSlot');
+  if (!foot) { foot = document.createElement('div'); foot.id = 'lpFootSlot'; foot.style.marginTop = '6px'; host.appendChild(foot); }
+  const n = areas.length ? lpMapLayers().length : 0;
+  if (!n) { foot.innerHTML = ''; return; }
+  const cur = LP.cur;
+  foot.innerHTML = '<button class="run-btn" type="button" id="lpFootBtn">' + escHtml(cur ? 'Add these to ' + (cur.job.title || cur.slug) : 'Make a client site from these') + '</button>';
+  if (appTab === 'louped' && cur) lpDiffRender();
+}
+window.lpFootHook = () => { try { lpFoot(); } catch (e) {} };
+document.addEventListener('click', (ev) => {
+  if (!ev.target.closest('#lpFootBtn')) return;
+  setAppTab('louped');
+  if (LP.cur) return lpUpdate(null, 'the map', null, true);
+  if (!LP.slugTyped) lp$('lpNewSlug').value = loupedId(lpNameFromMap());
+  setTimeout(() => { lp$('lpNewSlug').focus(); lp$('lpNewSlug').select(); }, 50);
+});
+// A name for a new site: the report's own title, else the first area's
+const lpNameFromMap = () => (rpt && rpt.title && rpt.title !== 'New report' && rpt.title) || (areas[0] && areas[0].name) || 'client-site';
+function lpDiffRender() {
+  const s = LP.cur, el = lp$('lpMapDiff');
+  if (!s) { el.innerHTML = ''; return; }
+  const have = new Set(((s.m && s.m.layers) || []).map(l => l.id)), map = lpMapLayers();
+  const missing = map.filter(l => !have.has(l.id)), both = map.filter(l => have.has(l.id));
+  el.innerHTML = !map.length ? '<div class="field-hint" style="margin:8px 0 0;">Switch layers on in the map\'s Layers panel to add them here.</div>'
+    : '<div class="lp-diff">' + (missing.length ? '<b>On the map, not in the site yet:</b> ' + missing.map(l => escHtml(l.name)).join(', ') + '.' : 'Everything on the map is in the site.') +
+      (both.length ? ' ' + both.length + ' already in it will be refreshed from the map.' : '') +
+      '<button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">' + (missing.length ? 'Add ' + (missing.length === 1 ? 'it' : 'them') + ' to the site' : 'Refresh from the map') + '</button></div>';
+}
 function lpRender() {
-  const has = !!LP.dir;
-  lp$('lpFolderNote').innerHTML = has ? 'Sites are kept in <b>' + escHtml(LP.dir.name) + '</b>.'
+  const has = !!LP.dir, inBrowser = LP.where === 'browser';
+  lp$('lpFolderNote').innerHTML = !has && !LP.pending ? 'This browser can\'t keep sites. Use Chrome or Edge on a computer.'
     : LP.pending ? 'Your Louped folder, <b>' + escHtml(LP.pending.name) + '</b>: the browser needs your OK to open it again.'
-    : 'Pick the folder your client sites live in. The Louped studio\'s folder (catchment_reports\\sites) works as it is, so sites made there show here.';
+    : inBrowser ? 'In this browser, so they\'re here whenever you open inferrd. on this computer. Clearing this site\'s data in the browser deletes them; what\'s online stays online.'
+    : 'In the folder <b>' + escHtml(LP.dir.name) + '</b>. The Louped studio\'s folder (catchment_reports\\sites) works as it is.';
   lp$('lpAllowBtn').hidden = !(LP.pending && !has);
   if (LP.pending && !has) lp$('lpAllowBtn').textContent = 'Open ' + LP.pending.name;
-  lp$('lpFolderBtn').textContent = has || LP.pending ? 'Choose another folder' : 'Choose the Louped folder';
+  lp$('lpFolderBtn').hidden = !window.showDirectoryPicker;
+  lp$('lpFolderBtn').textContent = inBrowser || !has ? 'Use a folder instead' : 'Choose another folder';
+  lp$('lpBrowserBtn').hidden = inBrowser || !(navigator.storage && navigator.storage.getDirectory);
   lp$('lpSitesSec').hidden = !has;
-  lp$('lpSites').innerHTML = LP.sites.map(s => '<button type="button" class="lp-site' + (LP.cur && LP.cur.slug === s.slug ? ' on' : '') + '" data-slug="' + escHtml(s.slug) + '"><b>' + escHtml(s.job.title || s.slug) + '</b><small>' + escHtml(s.slug) + (s.m ? ' · data from ' + escHtml(new Date(s.m.exported).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })) : '') + '</small></button>').join('') || '<div class="field-hint">No sites in this folder yet.</div>';
-  if (!lp$('lpNewSlug').value) lp$('lpNewSlug').value = loupedId((rpt && rpt.title) || 'report');
+  lp$('lpSites').innerHTML = LP.sites.map(s => '<button type="button" class="lp-site' + (LP.cur && LP.cur.slug === s.slug ? ' on' : '') + '" data-slug="' + escHtml(s.slug) + '"><b>' + escHtml(s.job.title || s.slug) + '</b><small>' + escHtml(s.slug) + (s.m ? ' · data from ' + escHtml(new Date(s.m.exported).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })) : '') + '</small></button>').join('') +
+    (LP.cur ? '<button type="button" class="lp-site lp-site-new" data-slug="">+ New site</button>' : '');
+  lp$('lpNewBox').hidden = !!LP.cur;
+  if (!LP.slugTyped) lp$('lpNewSlug').value = loupedId(lpNameFromMap()); // until you type your own
+  const ml = lpMapLayers();
+  lp$('lpNewNote').innerHTML = ml.length ? 'Takes the areas, the ' + ml.length + ' layer' + (ml.length === 1 ? '' : 's') + ' on in the Layers panel (' + ml.map(l => escHtml(l.name)).join(', ') + '), the Report tab\'s occurd. records and any LiDAR heights loaded. Licences are applied as in Export for Louped.'
+    : 'Switch on the layers you want in the map\'s Layers panel first. The areas, the Report tab\'s occurd. records and any LiDAR heights loaded come too.';
+  lpFoot();
   const s = LP.cur;
   lp$('lpEdit').hidden = !s;
   lp$('lpEmpty').hidden = !!s;
   lp$('lpPreviewWrap').hidden = !s;
   if (!s) return;
+  lpDiffRender();
   const m = s.m;
   lp$('lpFacts').innerHTML = m ? '<div>Data from ' + escHtml(m.producer.tool + ' ' + m.producer.version) + ', ' + escHtml(new Date(m.exported).toLocaleString('en-NZ')) + (m.merged && m.merged.length > 1 ? ' (' + m.merged.length + ' updates merged)' : '') + '</div>' +
     '<div>' + (m.areas ? m.areas.count : 0) + ' area' + (m.areas && m.areas.count === 1 ? '' : 's') + ', ' + (m.layers || []).length + ' layer' + ((m.layers || []).length === 1 ? '' : 's') + ', ' + (m.records || []).reduce((t, r) => t + r.rows, 0).toLocaleString() + ' species records' + ((m.terrain || []).length ? ', LiDAR heights for 3D' : '') + '</div>' : '<div>No data yet: update it from the map.</div>';
@@ -10536,6 +10621,7 @@ function lpRender() {
   LP_FIELDS.forEach(k => { lp$('lpF_' + k).value = s.job[k] || ''; });
   lp$('lpF_aerial').value = s.job.basemap && s.job.basemap.aerialLayer || '';
   lp$('lpPreviewName').textContent = (s.job.title || s.slug) + ' · as the client sees it';
+  lpOnlineRender();
 }
 async function lpPreview() {
   if (!LP.cur) return;
@@ -10561,6 +10647,7 @@ async function lpRun(what, fn) {
 }
 async function lpSelect(slug) {
   LP.cur = LP.sites.find(s => s.slug === slug) || null;
+  lpStore('inferrd.loupedSite', LP.cur ? LP.cur.slug : '');
   lpRender();
   await lpPreview();
 }
@@ -10572,10 +10659,19 @@ async function lpBuildFromMap() {
 const lpBuildNote = (b) => (b.left.length ? ' Left out: ' + b.left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
   (b.unclear.length ? ' Licence not stated, check before sharing: ' + b.unclear.map(x => x.name).join(', ') + '.' : '');
 
+lp$('lpBrowserBtn').addEventListener('click', async () => {
+  await lpUseBrowser();
+  lpWhere('browser');
+  LP.cur = null;
+  await lpLoadSites();
+  lpRender();
+  lpSay('', '');
+});
 lp$('lpFolderBtn').addEventListener('click', async () => {
   try {
     const h = await window.showDirectoryPicker({ id: 'louped', mode: 'readwrite' });
-    LP.dir = h; LP.pending = null; LP.cur = null;
+    LP.dir = h; LP.pending = null; LP.cur = null; LP.where = 'folder';
+    lpWhere('folder');
     await lpKeep(h);
     await lpLoadSites();
     lpRender();
@@ -10585,11 +10681,14 @@ lp$('lpFolderBtn').addEventListener('click', async () => {
 lp$('lpAllowBtn').addEventListener('click', async () => {
   if (!LP.pending) return;
   if ((await LP.pending.requestPermission({ mode: 'readwrite' })) !== 'granted') return lpSay('warning', 'The browser wasn\'t allowed to open the folder.');
-  LP.dir = LP.pending; LP.pending = null;
+  LP.dir = LP.pending; LP.pending = null; LP.where = 'folder';
   await lpLoadSites();
   lpRender();
 });
+lp$('lpNewSlug').addEventListener('input', () => { LP.slugTyped = !!lp$('lpNewSlug').value.trim(); });
 lp$('lpSites').addEventListener('click', (ev) => { const b = ev.target.closest('[data-slug]'); if (b) lpSelect(b.dataset.slug); });
+lp$('lpMapDiff').addEventListener('click', (ev) => { if (ev.target.closest('#lpUpdBtn')) lpUpdate(null, 'the map', null, true); });
+lp$('lpReplaceBtn').addEventListener('click', () => lpUpdate(null, 'the map', null, false));
 lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async () => {
   const slug = lp$('lpNewSlug').value.trim().toLowerCase();
   if (!lpSlugOk(slug)) throw new Error('a site name is lower-case letters, numbers and dashes, for example waimata-2026');
@@ -10597,33 +10696,32 @@ lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async (
   const b = await lpBuildFromMap();
   const h = await LP.dir.getDirectoryHandle(slug, { create: true });
   const job = Object.fromEntries(LP_FIELDS.map(k => [k, '']));
-  job.title = (rpt && rpt.title) || slug;
+  job.title = lpNameFromMap();
   job.packages = ['package'];
   await lpPutPackage({ slug, h }, b.files);
   await lpWrite(h, 'job.json', JSON.stringify(job, null, 2) + '\n');
   await lpLoadSites();
-  lp$('lpNewSlug').value = '';
+  LP.slugTyped = false;
   await lpSelect(slug);
-  lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Made ' + slug + ' from the map: ' + b.layers.length + ' layers, ' + b.records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (b.terrain.length ? ', LiDAR heights' : '') + '.' + lpBuildNote(b));
+  lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Made ' + slug + ' from the map: ' + b.layers.length + ' layer' + (b.layers.length === 1 ? '' : 's') + ', ' + b.records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (b.terrain.length ? ', LiDAR heights' : '') + '.' + lpBuildNote(b));
 }));
-const lpUpdate = (files, from, b) => lpRun('Updating the data', async () => {
-  const s = LP.cur, merge = document.querySelector('input[name=lpUpdMode]:checked').value === 'merge';
+const lpUpdate = (files, from, b, merge) => lpRun('Updating the site', async () => {
+  const s = LP.cur;
   if (!merge && !confirm('Replace all of ' + s.slug + '\'s data with ' + from + '? The wording stays.')) return lpSay('', '');
   if (!files) { b = await lpBuildFromMap(); files = b.files; }
   if (merge) await lpMergePackage(s, files); else await lpPutPackage(s, files);
   await lpLoadSites();
   lpRender();
   await lpPreview();
-  lpSay(b && (b.left.length || b.unclear.length) ? 'warning' : 'success', (merge ? 'Added ' : 'Replaced the data with ') + from + '.' + (b ? lpBuildNote(b) : ''));
+  lpSay(b && (b.left.length || b.unclear.length) ? 'warning' : 'success', (merge ? 'Updated the site from ' : 'Replaced the site\'s data with ') + from + '.' + (b ? lpBuildNote(b) : ''));
 });
-lp$('lpUpdBtn').addEventListener('click', () => lpUpdate(null, 'this map'));
 lp$('lpZip').addEventListener('change', async (ev) => {
   const f = ev.target.files[0];
   ev.target.value = '';
   if (!f || !LP.cur) return;
   const JSZip = await loadJSZip(), zip = await JSZip.loadAsync(f), files = {};
   for (const e of Object.values(zip.files)) if (!e.dir) files[e.name.replace(/^\.?\//, '')] = await e.async('blob');
-  lpUpdate(files, f.name);
+  lpUpdate(files, f.name, null, true);
 });
 lp$('lpShow').addEventListener('change', () => lpRun('Saving', async () => {
   const s = LP.cur;
@@ -10647,6 +10745,113 @@ lp$('lpReloadBtn').addEventListener('click', () => lpPreview());
 // Opened at once (a popup has to open in the click itself); it asks for the
 // files the frame was last sent, which every change keeps current.
 lp$('lpTabBtn').addEventListener('click', () => { if (LP.files) window.open('louped/index.html?t=' + Date.now() + '#preview', '_blank'); });
+
+// ── Online: publishing through the louped-admin Worker (catchment_reports
+// host/admin/worker.js), which writes the site to Workers KV for the
+// `louped` Pages project to serve. Your Louped key is kept in this browser.
+const LOUPED_ADMIN = 'https://louped-admin.rutherfordecology.workers.dev/';
+const lpStore = (k, v) => { try { if (v === undefined) return localStorage.getItem(k) || ''; if (v) localStorage.setItem(k, v); else localStorage.removeItem(k); } catch (e) { return ''; } };
+const lpAdminUrl = () => lpStore('inferrd.loupedAdmin') || LOUPED_ADMIN;
+const LP_TYPES = { html: 'text/html; charset=utf-8', json: 'application/json', geojson: 'application/geo+json', png: 'image/png' };
+const lpTypeOf = (p) => LP_TYPES[(p.split('.').pop() || '').toLowerCase()] || 'application/octet-stream';
+async function lpAdmin(method, path, body, type) {
+  const r = await fetch(lpAdminUrl() + path, {
+    method,
+    headers: Object.assign({ Authorization: 'Bearer ' + lpStore('inferrd.loupedKey') }, type ? { 'Content-Type': type } : body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    body: type ? body : body !== undefined ? JSON.stringify(body) : undefined
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || 'the Louped host answered ' + r.status);
+  return j;
+}
+async function lpOnlineLoad() {
+  LP.online = null;
+  if (!lpStore('inferrd.loupedKey')) return lpOnlineRender();
+  try { LP.online = await lpAdmin('GET', 'sites'); LP.onlineErr = ''; }
+  catch (e) { LP.onlineErr = e.message; }
+  lpOnlineRender();
+}
+const lpSplitPeople = (text) => {
+  const emails = [], domains = [], bad = [];
+  for (const raw of String(text || '').split(/[\s,;]+/)) {
+    const t = raw.trim().toLowerCase().replace(/^@/, '');
+    if (!t) continue;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t)) emails.push(t);
+    else if (/^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(t)) domains.push(t);
+    else bad.push(raw);
+  }
+  return { emails: [...new Set(emails)], domains: [...new Set(domains)], bad };
+};
+function lpOnlineRender() {
+  const s = LP.cur, key = !!lpStore('inferrd.loupedKey'), on = LP.online;
+  lp$('lpKeyRow').hidden = key && !LP.onlineErr;
+  if (!s) return;
+  const live = on && on.sites.find(x => x.slug === s.slug);
+  const url = on ? on.host + s.slug + '/' : '';
+  lp$('lpOnState').innerHTML = !key ? 'Enter your Louped key to put sites online from here. It\'s in catchment_reports\\cloudflare.json (loupedAdminKey); this browser keeps it.'
+    : LP.onlineErr ? '<b>Couldn\'t reach the Louped host:</b> ' + escHtml(LP.onlineErr) + (/key/.test(LP.onlineErr) ? '. Check the key.' : '')
+    : !on ? 'Checking what\'s online…'
+    : live ? '<b>Online</b> since ' + escHtml(new Date(live.published).toLocaleString('en-NZ')) + ': <a href="' + escHtml(url) + '" target="_blank" rel="noopener">' + escHtml(url) + '</a>. Changes here go live when you put it online again.'
+    : 'Not online. It will be at ' + escHtml(url) + '.';
+  const a = s.job.access || {};
+  document.querySelectorAll('input[name=lpAcc]').forEach(r => { r.checked = r.value === (a.mode === 'link' ? 'link' : 'people'); });
+  lp$('lpPeople').value = [].concat(a.emails || [], a.domains || []).join('\n');
+  lpAccNote();
+  lp$('lpAccess').hidden = !on;
+  lp$('lpOnBtn').hidden = !on;
+  lp$('lpOnBtn').textContent = live ? 'Put the changes online' : 'Put online';
+  lp$('lpOffBtn').hidden = !live;
+}
+function lpAccNote() {
+  const link = (document.querySelector('input[name=lpAcc]:checked') || {}).value === 'link', on = LP.online;
+  lp$('lpPeople').disabled = link;
+  lp$('lpAccNote').innerHTML = (link ? '<b>Anyone who has the address, or guesses it, can open it.</b> Give it a name that\'s hard to guess (add a few random letters), and don\'t use this for anything private. ' : '') +
+    (on && !on.accessManaged ? 'Who can see it is set in Cloudflare for now: your sign-in covers every site, so only you can open it until you add people to its Access application in Cloudflare Zero Trust, or give Louped a Cloudflare token (catchment_reports HOSTING.md) and choose them here.' : '');
+}
+lp$('lpKeySave').addEventListener('click', () => {
+  const v = lp$('lpKey').value.trim();
+  if (!v) return;
+  lpStore('inferrd.loupedKey', v);
+  lp$('lpKey').value = '';
+  lpOnlineLoad();
+});
+document.querySelectorAll('input[name=lpAcc]').forEach(r => r.addEventListener('change', lpAccNote));
+lp$('lpOnBtn').addEventListener('click', () => lpRun('Putting it online', async () => {
+  const s = LP.cur, mode = document.querySelector('input[name=lpAcc]:checked').value === 'link' ? 'link' : 'people';
+  const { emails, domains, bad } = lpSplitPeople(lp$('lpPeople').value);
+  if (bad.length) throw new Error('not an email or a domain: ' + bad.slice(0, 5).join(', '));
+  if (!s.m) throw new Error('the site has no data yet: update it from the map first');
+  s.job.access = Object.assign({}, s.job.access, { mode, emails, domains });
+  await lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n');
+  // The client's files, and the viewer as this inferrd. has it
+  const files = await lpClientFiles(s);
+  const viewer = await fetch('louped/index.html', { cache: 'no-cache' });
+  if (!viewer.ok) throw new Error('couldn\'t read the viewer (louped/index.html)');
+  files['index.html'] = await viewer.blob();
+  const b = await lpAdmin('POST', 'sites/' + s.slug + '/begin', { access: s.job.access });
+  const list = Object.keys(files);
+  let n = 0;
+  for (const p of list) {
+    lpSay('info', 'Sending ' + (++n) + ' of ' + list.length + ': ' + p + '…');
+    await lpAdmin('PUT', 'sites/' + s.slug + '/v/' + b.v + '/' + p.split('/').map(encodeURIComponent).join('/'), files[p], lpTypeOf(p));
+  }
+  const c = await lpAdmin('POST', 'sites/' + s.slug + '/commit', { v: b.v, files: list, title: s.job.title || s.slug });
+  s.job.online = { url: c.url, published: c.published };
+  await lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n');
+  await lpOnlineLoad();
+  lpSay('success', 'Online at ' + c.url + (b.accessManaged ? (mode === 'link' ? ' for anyone with the link.' : ' for the people listed.') : '. Only you can open it until you add people in Cloudflare.') + ' It can take a minute to show everywhere.');
+}));
+lp$('lpOffBtn').addEventListener('click', () => lpRun('Taking it offline', async () => {
+  const s = LP.cur;
+  if (!confirm('Take ' + s.slug + ' offline? Its link stops working. Your copy in the folder stays.')) return lpSay('', '');
+  const removeAccess = !!(LP.online && LP.online.accessManaged) && confirm('Also delete its Access application in Cloudflare? (Keep it if you\'ll put the site back.)');
+  await lpAdmin('DELETE', 'sites/' + s.slug, { removeAccess });
+  delete s.job.online;
+  await lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n');
+  await lpOnlineLoad();
+  lpSay('success', s.slug + ' is offline.');
+}));
+
 
 rptInit();
 
