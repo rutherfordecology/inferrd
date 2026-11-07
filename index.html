@@ -68,6 +68,24 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .sidebar.cover-mode > :not(#coverPanel), .sidebar:not(.cover-mode) > #coverPanel { display: none !important; }
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
+.sidebar.louped-mode > :not(#loupedPanel), .sidebar:not(.louped-mode) > #loupedPanel { display: none !important; }
+.results-pane.louped-mode > :not(#loupedResults), .results-pane:not(.louped-mode) > #loupedResults { display: none !important; }
+#loupedPanel input[type=text], #loupedPanel textarea { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); box-sizing: border-box; }
+#loupedPanel textarea { min-height: 70px; resize: vertical; }
+#loupedPanel label.lp-f { display: grid; gap: 3px; font-size: 12px; margin-top: 8px; }
+.lp-sites { display: grid; gap: 4px; margin-bottom: 8px; }
+.lp-site { text-align: left; background: var(--white); border: 1px solid var(--border2); padding: 6px 8px; cursor: pointer; display: grid; font: 12.5px var(--font-sans); color: var(--text); }
+.lp-site small { color: var(--muted, #777); font-size: 11px; }
+.lp-site.on { border-color: var(--base); box-shadow: inset 3px 0 0 var(--base); }
+.lp-row { display: flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 2px 0; }
+.lp-g { color: var(--muted, #888); font-size: 11px; }
+.lp-warn { font-size: 12px; border-left: 3px solid #d4580a; padding: 3px 8px; margin-top: 6px; }
+#loupedResults { height: 100%; display: flex; flex-direction: column; }
+#lpPreviewWrap { flex: 1; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+#lpPreviewWrap[hidden] { display: none; }
+.lp-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12.5px; }
+.lp-bar span { margin-right: auto; font-weight: 600; }
+#lpFrame { flex: 1; width: 100%; min-height: 480px; border: 1px solid var(--border2); background: #fff; }
 .results-pane.report-mode > :not(#reportResults), .results-pane:not(.report-mode) > #reportResults { display: none !important; }
 #rptSendBox { margin-top: 8px; border: 1px solid var(--border2); padding: 8px; display: grid; gap: 6px; font-size: 12.5px; }
 #rptSendBox select { width: 100%; }
@@ -376,6 +394,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
     <button class="app-tab" id="tabReport" data-tab="report" type="button" role="tab" aria-selected="false" title="Build a report: brief, emails, areas, and a fact sheet from the other tabs and occurd.">Report</button>
+    <button class="app-tab" id="tabLouped" data-tab="louped" type="button" role="tab" aria-selected="false" title="Client maps: build a Louped site from this map, word it and preview it">Louped</button>
   </nav>
   <div class="header-right">
     <a href="https://occurd.rutherfordecology.co.nz/" target="_blank" rel="noopener" class="about-btn">occurd. ↗</a>
@@ -820,6 +839,56 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <div id="loupedPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Folder</div>
+        <div class="field-hint" id="lpFolderNote" style="margin:0 0 8px;"></div>
+        <button class="run-btn" id="lpAllowBtn" type="button" hidden>Open the folder</button>
+        <button class="dl-btn" id="lpFolderBtn" type="button" style="margin-top:6px;">Choose the Louped folder</button>
+      </div>
+      <div class="sidebar-section" id="lpSitesSec" hidden>
+        <div class="section-label">2 · Sites</div>
+        <div class="lp-sites" id="lpSites"></div>
+        <label class="lp-f">New site from this map: its name in the web address<input type="text" id="lpNewSlug" placeholder="waimata-2026"></label>
+        <button class="run-btn" id="lpNewBtn" type="button" style="margin-top:8px;">Make the site</button>
+        <div class="field-hint" style="margin:6px 0 0;">Takes the areas, every layer that's on in the Layers panel (in its order, colours and opacity; licences applied as in Export for Louped), the Report tab's occurd. records and any LiDAR heights loaded.</div>
+      </div>
+      <div id="lpEdit" hidden>
+        <div class="sidebar-section">
+          <div class="section-label">3 · Data</div>
+          <div class="field-hint" id="lpFacts" style="margin:0;"></div>
+          <div id="lpWarn"></div>
+          <label class="lp-row" style="margin-top:8px;"><input type="radio" name="lpUpdMode" value="merge" checked> Add to the data (a layer already there is replaced)</label>
+          <label class="lp-row"><input type="radio" name="lpUpdMode" value="replace"> Replace the data</label>
+          <button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">Update from this map</button>
+          <label class="field-hint" style="margin:6px 0 0;display:block;">Or from an older export: <input type="file" id="lpZip" accept=".zip"></label>
+        </div>
+        <div class="sidebar-section">
+          <div class="section-label">4 · In the client's view</div>
+          <div id="lpShow"></div>
+          <div class="field-hint" style="margin:6px 0 0;">Untick to leave a layer out. It isn't just switched off: it won't be sent to the client, and its source leaves the About page. Saved as you tick.</div>
+        </div>
+        <div class="sidebar-section">
+          <div class="section-label">5 · Wording</div>
+          <label class="lp-f">Title<input type="text" id="lpF_title"></label>
+          <label class="lp-f">Subtitle<input type="text" id="lpF_subtitle" placeholder="Optional"></label>
+          <label class="lp-f">Client or group (in the header)<input type="text" id="lpF_client" placeholder="Optional"></label>
+          <label class="lp-f">Date shown<input type="text" id="lpF_date" placeholder="e.g. November 2026 (optional)"></label>
+          <label class="lp-f">Introduction (a blank line starts a new paragraph)<textarea id="lpF_intro"></textarea></label>
+          <label class="lp-f">Name for the areas layer<input type="text" id="lpF_areasName" placeholder="Area / Areas"></label>
+          <label class="lp-f">About page text<textarea id="lpF_about" placeholder="Optional: methods, caveats, who it's for"></textarea></label>
+          <label class="lp-f">Contact line<input type="text" id="lpF_contact" placeholder="e.g. Malcolm Rutherford, rutherfordecology@gmail.com"></label>
+          <label class="lp-f">LINZ aerial photo layer (optional)<input type="text" id="lpF_aerial" placeholder="LDS layer number, e.g. 121749"></label>
+          <button class="run-btn" id="lpSaveBtn" type="button" style="margin-top:8px;">Save</button>
+        </div>
+        <div class="sidebar-section">
+          <div class="section-label">6 · Online</div>
+          <div class="field-hint" style="margin:0;">Putting sites online from here comes next. Until then the Louped studio's <b>Put online</b> publishes them: it reads this same folder when it's catchment_reports\sites.</div>
+        </div>
+      </div>
+      <div class="status-bar" id="lpStatus"></div>
+    </div>
+
     <div id="physicalPanel">
       <div class="sidebar-section">
         <div class="section-label">1 · Areas</div>
@@ -894,6 +963,16 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <div class="card-title">Reading this</div>
             <div id="climateNotes"></div>
           </div>
+        </div>
+      </div>
+      <div id="loupedResults">
+        <div class="results-empty" id="lpEmpty">
+          <span class="big">◱</span>
+          Choose a site, or make one from this map, to see it here as the client will.
+        </div>
+        <div id="lpPreviewWrap" hidden>
+          <div class="lp-bar"><span id="lpPreviewName"></span><button class="dl-btn" id="lpReloadBtn" type="button">Reload</button><button class="dl-btn" id="lpTabBtn" type="button">Open in a new tab</button></div>
+          <iframe id="lpFrame" title="The client's view"></iframe>
         </div>
       </div>
       <div id="reportResults">
@@ -1361,7 +1440,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.72.0';
+const APP_VERSION = 'v0.73.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1537,7 +1616,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', report: 'Report' };
+const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -1622,7 +1701,7 @@ const mapStack = (() => {
     cond.hidden = curTab !== 'Infrared';
     $('[data-h="tab"]').innerHTML = esc(curTab) + (mine.length ? ' <span class="n">' + onOf(mine) + '</span>' : '');
     $('[data-list="tab"]').innerHTML = mine.map(k => rowHtml(k)).join('');
-    $('.lpanel-none').textContent = mine.length || condOn ? '' : curTab === 'Report' ? 'The Report tab makes no layers of its own.' : 'Nothing yet: this tab\'s layers are listed once it has something to show for your areas.';
+    $('.lpanel-none').textContent = mine.length || condOn ? '' : curTab === 'Report' || curTab === 'Louped' ? 'The ' + curTab + ' tab makes no layers of its own.' : 'Nothing yet: this tab\'s layers are listed once it has something to show for your areas.';
     const chev = (f) => '<span class="chev">' + (fold[f] ? '▸' : '▾') + '</span>';
     $('[data-sec="other"]').hidden = !others.length;
     $('[data-fold="other"]').innerHTML = 'Other tabs <span class="n">' + (others.length ? onOf(others) : '') + '</span>' + chev('other');
@@ -10008,6 +10087,130 @@ function loupedTerrainSets() {
   return [...by.values()];
 }
 
+// The Louped package for the areas and the map as they are now: the areas,
+// every layer that's on in the Layers panel (licences applied), the report's
+// occurd. records and the LiDAR heights. → { files: { path: Blob or text },
+// manifest, left, unclear, slug }. Used by Export for Louped, Send to Louped
+// and the Louped tab. say(text) reports progress.
+async function loupedBuild(doc, say) {
+  const files = {}, put = (path, data) => { files[path] = data; }, now = new Date();
+  const slug = loupedId((doc && doc.title) || 'report');
+  const list = areas.filter(a => a.geojson && a.geojson.geometry && /Polygon$/.test(a.geojson.geometry.type));
+  const areaFc = { type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geojson.geometry, properties: { name: a.name, area_ha: +(turf.area(a.geojson) / 1e4).toFixed(2) } })) };
+  put('layers/areas.geojson', JSON.stringify(areaFc));
+  const layers = [], left = [], sources = [], used = new Set(), unclear = [];
+  const addSource = (s) => { if (!used.has(s.key)) { used.add(s.key); sources.push(s); } };
+  addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
+  const reg = window._layersRegister ? window._layersRegister() : null;
+  // Top of the map first
+  const shown = mapStack.shown().slice().reverse();
+  for (const s of shown) {
+    const d = mapStack.describe(s.key);
+    if (!d) continue;
+    say('Preparing ' + d.name + '…');
+    let features = [], style = null, source;
+    const lic = loupedLicence(d.ref ? 'occurd:' + s.key.slice(4) : s.key);
+    if (lic.share === 'no') { left.push({ name: d.name, reason: lic.licence + ': ' + lic.note }); continue; }
+    if (d.ref) {
+      const l = reg && reg.layers.find(x => 'ref_' + x.id === s.key);
+      if (!l || !window._layersFeaturesIn) { left.push({ name: d.name, reason: 'occurd.\'s layers aren\'t loaded' }); continue; }
+      // Private layers (client boundaries kept in this browser) are never packaged.
+      if (l.private) { left.push({ name: d.name, reason: 'a private layer: kept in this browser, never packaged' }); continue; }
+      const seen = new Set();
+      try {
+        for (const a of list) {
+          (await window._layersFeaturesIn(l.id, a.geojson.geometry)).forEach(f => {
+            const k = JSON.stringify(f.geometry);
+            if (seen.has(k)) return;
+            seen.add(k);
+            const props = loupedProps(f.properties);
+            if (f.label) props._label = f.label;
+            features.push({ type: 'Feature', geometry: f.geometry, properties: props });
+          });
+        }
+      } catch (e) { left.push({ name: d.name, reason: e.message || String(e) }); continue; }
+      style = { c: l.color, w: 2, o: 1, f: l.color, fo: 0.15 };
+      source = 'occurd:' + l.id;
+      addSource({ key: source, name: l.name, attribution: lic.attribution || l.attribution || '', note: [l.notes, lic.note].filter(Boolean).join(' '), licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share });
+    } else {
+      const v = loupedVectorsInPane(s.pane);
+      features = v.features;
+      source = LOUPED_LICENCES[s.key] ? s.key : 'inferrd';
+      const addSrc = () => { if (source !== 'inferrd') addSource({ key: source, name: d.name, attribution: lic.attribution || '', note: lic.note || '', licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share }); };
+      if (!features.length && v.images) {
+        // An image layer: its pictures, as drawn on the map
+        say('Copying ' + d.name + '…');
+        const r = await loupedImagesInPane(s.pane, turf.bbox(areaFc));
+        if (!r.images.length) { left.push({ name: d.name, reason: 'its pictures couldn\'t be copied (the server doesn\'t allow it, or it isn\'t drawn yet)' }); continue; }
+        const id = loupedId(s.key) + (layers.some(x => x.id === loupedId(s.key)) ? '-' + layers.length : '');
+        const imgs = r.images.map((im, k) => {
+          const file = 'images/' + id + (r.images.length > 1 ? '-' + (k + 1) : '') + '.png';
+          put(file, im.blob);
+          const b = im.bounds;
+          return { file, bounds: [[+b.getSouth().toFixed(7), +b.getWest().toFixed(7)], [+b.getNorth().toFixed(7), +b.getEast().toFixed(7)]] };
+        });
+        layers.push({ id, kind: 'image', name: d.name, group: d.group || '', images: imgs, on: true, opacity: s.op, legend: d.legend, notes: d.notes, source });
+        addSrc();
+        if (r.failed) left.push({ name: d.name, reason: r.failed + ' of its pictures couldn\'t be copied' });
+        if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
+        continue;
+      }
+      if (!features.length) { left.push({ name: d.name, reason: 'nothing drawn for these areas' }); continue; }
+      addSrc();
+    }
+    if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
+    const id = loupedId(d.ref ? s.key.slice(4) : s.key) + (layers.some(x => x.id === loupedId(d.ref ? s.key.slice(4) : s.key)) ? '-' + layers.length : '');
+    put('layers/' + id + '.geojson', JSON.stringify({ type: 'FeatureCollection', features }));
+    layers.push({ id, name: d.name, group: d.group || '', file: 'layers/' + id + '.geojson', on: true, opacity: s.op, style, legend: d.legend, notes: d.notes, source, features: features.length });
+  }
+  // occurd. records, with their coordinates (files added before inferrd
+  // v0.62.0 didn't keep them: add those again)
+  const records = [];
+  ((doc && doc.occurd) || []).forEach((f, i) => {
+    if (f.kind !== 'records') { left.push({ name: f.name, reason: 'a species checklist, not records: export "Occurrences CSV" from occurd. for the map' }); return; }
+    const rows = f.rows.filter(r => isFinite(r.lat) && isFinite(r.lng));
+    if (!rows.length) { left.push({ name: f.name, reason: 'no coordinates kept: remove it and add the file again' }); return; }
+    const cols = ['gbifID', 'lat', 'lng', 'species', 'scientificName', 'vernacularName', 'kingdom', 'phylum', 'class', 'order', 'family', 'year', 'eventDate', 'uncertainty_m', 'basisOfRecord', 'datasetName', 'establishmentMeans', 'polygon', 'nztcs_status', 'nztcs_category', 'nztcs_year'];
+    const file = 'records/occurd-' + (i + 1) + '.json';
+    put(file, JSON.stringify({ cols, rows: rows.map(r => [r.id || null, r.lat, r.lng, r.sp, r.sn || r.sp, r.vn || null, r.kingdom || null, r.ph || null, r.cl || null, r.or || null, r.fa || null, r.year, r.date || null, isFinite(r.unc) ? r.unc : null, r.basis || null, r.ds || null, r.em || null, r.poly || null, r.st || null, r.cat || null, r.sy || null]) }));
+    const key = 'occurd-' + (i + 1);
+    records.push({ file, name: f.name, rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: key });
+    addSource({ key, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
+  });
+  // LiDAR heights, for the 3D view (CC BY 4.0, as the LiDAR layer)
+  const terrain = [], tl = loupedLicence('lidar');
+  if (tl.share !== 'no') for (const [k, d] of loupedTerrainSets().entries()) {
+    say('Copying LiDAR heights…');
+    const g = d.grid, f = Math.max(1, Math.ceil(Math.max(g.W, g.H) / LOUPED_TERRAIN_MAX));
+    const id = 'terrain-' + (k + 1), dem = await loupedHeightPng(d, d.dem, f), dsm = d.dsm ? await loupedHeightPng(d, d.dsm, f) : null;
+    put('images/' + id + '-dem.png', dem.blob);
+    if (dsm) put('images/' + id + '-dsm.png', dsm.blob);
+    // Cell (x, y)'s centre is at x0 + (x + 0.5) × res, y1 − (y + 0.5) × res
+    terrain.push({ id, name: d.areaName, survey: d.survey.title, crs: 'EPSG:2193', x0: g.x0 + 0.5 * g.res * (1 - f), y1: g.y1 - 0.5 * g.res * (1 - f), res: g.res * f, W: dem.W, H: dem.H,
+      dem: 'images/' + id + '-dem.png', dsm: dsm ? 'images/' + id + '-dsm.png' : null, outline: d.geojson.geometry || d.geojson, source: 'lidar', encoding: 'rgb24-cm-minus1000' });
+  }
+  if (terrain.length) addSource({ key: 'lidar', name: 'LiDAR heights (ground and surface models)', attribution: tl.attribution || '', note: tl.note || '', licence: tl.licence, licenceUrl: tl.licenceUrl || null, share: tl.share });
+  const bb = turf.bbox(areaFc);
+  const manifest = {
+    format: 'louped-package', formatVersion: LOUPED_FORMAT,
+    producer: { tool: 'inferrd', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/' },
+    exported: now.toISOString(),
+    title: (doc && doc.title) || '',
+    bbox: bb.map(v => +v.toFixed(6)),
+    areas: { file: 'layers/areas.geojson', count: list.length },
+    layers, records, sources, leftOut: left, licenceUnclear: unclear
+  };
+  if (terrain.length) manifest.terrain = terrain;
+  put('louped.json', JSON.stringify(manifest, null, 2));
+  return { files, manifest, left, unclear, slug, layers, records, terrain };
+}
+const loupedBase64 = async (d) => {
+  const u = new Uint8Array(d instanceof Blob ? await d.arrayBuffer() : new TextEncoder().encode(d));
+  let s = '';
+  for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
 async function rptLouped(send) {
   if (!rpt || !areas.length || rptExporting) return;
   const doc = rpt, btn = document.getElementById(send ? 'rptSendGo' : 'rptLoupedBtn');
@@ -10015,122 +10218,15 @@ async function rptLouped(send) {
   syncReportControls();
   btn.textContent = 'Preparing…';
   try {
-    const JSZip = await loadJSZip(), zip = new JSZip(), now = new Date();
-    const slug = loupedId(doc.title || 'report');
-    const list = areas.filter(a => a.geojson && a.geojson.geometry && /Polygon$/.test(a.geojson.geometry.type));
-    const areaFc = { type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geojson.geometry, properties: { name: a.name, area_ha: +(turf.area(a.geojson) / 1e4).toFixed(2) } })) };
-    zip.file('layers/areas.geojson', JSON.stringify(areaFc));
-    const layers = [], left = [], sources = [], used = new Set(), unclear = [];
-    const addSource = (s) => { if (!used.has(s.key)) { used.add(s.key); sources.push(s); } };
-    addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
-    const reg = window._layersRegister ? window._layersRegister() : null;
-    // Top of the map first
-    const shown = mapStack.shown().slice().reverse();
-    for (const s of shown) {
-      const d = mapStack.describe(s.key);
-      if (!d) continue;
-      btn.textContent = 'Preparing ' + d.name + '…';
-      let features = [], style = null, source;
-      const lic = loupedLicence(d.ref ? 'occurd:' + s.key.slice(4) : s.key);
-      if (lic.share === 'no') { left.push({ name: d.name, reason: lic.licence + ': ' + lic.note }); continue; }
-      if (d.ref) {
-        const l = reg && reg.layers.find(x => 'ref_' + x.id === s.key);
-        if (!l || !window._layersFeaturesIn) { left.push({ name: d.name, reason: 'occurd.\'s layers aren\'t loaded' }); continue; }
-        // Private layers (client boundaries kept in this browser) are never packaged.
-        if (l.private) { left.push({ name: d.name, reason: 'a private layer: kept in this browser, never packaged' }); continue; }
-        const seen = new Set();
-        try {
-          for (const a of list) {
-            (await window._layersFeaturesIn(l.id, a.geojson.geometry)).forEach(f => {
-              const k = JSON.stringify(f.geometry);
-              if (seen.has(k)) return;
-              seen.add(k);
-              const props = loupedProps(f.properties);
-              if (f.label) props._label = f.label;
-              features.push({ type: 'Feature', geometry: f.geometry, properties: props });
-            });
-          }
-        } catch (e) { left.push({ name: d.name, reason: e.message || String(e) }); continue; }
-        style = { c: l.color, w: 2, o: 1, f: l.color, fo: 0.15 };
-        source = 'occurd:' + l.id;
-        addSource({ key: source, name: l.name, attribution: lic.attribution || l.attribution || '', note: [l.notes, lic.note].filter(Boolean).join(' '), licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share });
-      } else {
-        const v = loupedVectorsInPane(s.pane);
-        features = v.features;
-        source = LOUPED_LICENCES[s.key] ? s.key : 'inferrd';
-        const addSrc = () => { if (source !== 'inferrd') addSource({ key: source, name: d.name, attribution: lic.attribution || '', note: lic.note || '', licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share }); };
-        if (!features.length && v.images) {
-          // An image layer: its pictures, as drawn on the map
-          btn.textContent = 'Copying ' + d.name + '…';
-          const r = await loupedImagesInPane(s.pane, turf.bbox(areaFc));
-          if (!r.images.length) { left.push({ name: d.name, reason: 'its pictures couldn\'t be copied (the server doesn\'t allow it, or it isn\'t drawn yet)' }); continue; }
-          const id = loupedId(s.key) + (layers.some(x => x.id === loupedId(s.key)) ? '-' + layers.length : '');
-          const imgs = r.images.map((im, k) => {
-            const file = 'images/' + id + (r.images.length > 1 ? '-' + (k + 1) : '') + '.png';
-            zip.file(file, im.blob);
-            const b = im.bounds;
-            return { file, bounds: [[+b.getSouth().toFixed(7), +b.getWest().toFixed(7)], [+b.getNorth().toFixed(7), +b.getEast().toFixed(7)]] };
-          });
-          layers.push({ id, kind: 'image', name: d.name, group: d.group || '', images: imgs, on: true, opacity: s.op, legend: d.legend, notes: d.notes, source });
-          addSrc();
-          if (r.failed) left.push({ name: d.name, reason: r.failed + ' of its pictures couldn\'t be copied' });
-          if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
-          continue;
-        }
-        if (!features.length) { left.push({ name: d.name, reason: 'nothing drawn for these areas' }); continue; }
-        addSrc();
-      }
-      if (lic.share !== 'yes') unclear.push({ name: d.name, licence: lic.licence, note: lic.note || '' });
-      const id = loupedId(d.ref ? s.key.slice(4) : s.key) + (layers.some(x => x.id === loupedId(d.ref ? s.key.slice(4) : s.key)) ? '-' + layers.length : '');
-      zip.file('layers/' + id + '.geojson', JSON.stringify({ type: 'FeatureCollection', features }));
-      layers.push({ id, name: d.name, group: d.group || '', file: 'layers/' + id + '.geojson', on: true, opacity: s.op, style, legend: d.legend, notes: d.notes, source, features: features.length });
-    }
-    // occurd. records, with their coordinates (files added before inferrd
-    // v0.62.0 didn't keep them: add those again)
-    const records = [];
-    doc.occurd.forEach((f, i) => {
-      if (f.kind !== 'records') { left.push({ name: f.name, reason: 'a species checklist, not records: export "Occurrences CSV" from occurd. for the map' }); return; }
-      const rows = f.rows.filter(r => isFinite(r.lat) && isFinite(r.lng));
-      if (!rows.length) { left.push({ name: f.name, reason: 'no coordinates kept: remove it and add the file again' }); return; }
-      const cols = ['gbifID', 'lat', 'lng', 'species', 'scientificName', 'vernacularName', 'kingdom', 'phylum', 'class', 'order', 'family', 'year', 'eventDate', 'uncertainty_m', 'basisOfRecord', 'datasetName', 'establishmentMeans', 'polygon', 'nztcs_status', 'nztcs_category', 'nztcs_year'];
-      const file = 'records/occurd-' + (i + 1) + '.json';
-      zip.file(file, JSON.stringify({ cols, rows: rows.map(r => [r.id || null, r.lat, r.lng, r.sp, r.sn || r.sp, r.vn || null, r.kingdom || null, r.ph || null, r.cl || null, r.or || null, r.fa || null, r.year, r.date || null, isFinite(r.unc) ? r.unc : null, r.basis || null, r.ds || null, r.em || null, r.poly || null, r.st || null, r.cat || null, r.sy || null]) }));
-      const key = 'occurd-' + (i + 1);
-      records.push({ file, name: f.name, rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: key });
-      addSource({ key, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
-    });
-    // LiDAR heights, for the 3D view (CC BY 4.0, as the LiDAR layer)
-    const terrain = [], tl = loupedLicence('lidar');
-    if (tl.share !== 'no') for (const [k, d] of loupedTerrainSets().entries()) {
-      btn.textContent = 'Copying LiDAR heights…';
-      const g = d.grid, f = Math.max(1, Math.ceil(Math.max(g.W, g.H) / LOUPED_TERRAIN_MAX));
-      const id = 'terrain-' + (k + 1), dem = await loupedHeightPng(d, d.dem, f), dsm = d.dsm ? await loupedHeightPng(d, d.dsm, f) : null;
-      zip.file('images/' + id + '-dem.png', dem.blob);
-      if (dsm) zip.file('images/' + id + '-dsm.png', dsm.blob);
-      // Cell (x, y)'s centre is at x0 + (x + 0.5) × res, y1 − (y + 0.5) × res
-      terrain.push({ id, name: d.areaName, survey: d.survey.title, crs: 'EPSG:2193', x0: g.x0 + 0.5 * g.res * (1 - f), y1: g.y1 - 0.5 * g.res * (1 - f), res: g.res * f, W: dem.W, H: dem.H,
-        dem: 'images/' + id + '-dem.png', dsm: dsm ? 'images/' + id + '-dsm.png' : null, outline: d.geojson.geometry || d.geojson, source: 'lidar', encoding: 'rgb24-cm-minus1000' });
-    }
-    if (terrain.length) addSource({ key: 'lidar', name: 'LiDAR heights (ground and surface models)', attribution: tl.attribution || '', note: tl.note || '', licence: tl.licence, licenceUrl: tl.licenceUrl || null, share: tl.share });
-    const bb = turf.bbox(areaFc);
-    const manifest = {
-      format: 'louped-package', formatVersion: LOUPED_FORMAT,
-      producer: { tool: 'inferrd', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/' },
-      exported: now.toISOString(),
-      title: doc.title || '',
-      bbox: bb.map(v => +v.toFixed(6)),
-      areas: { file: 'layers/areas.geojson', count: list.length },
-      layers, records, sources, leftOut: left, licenceUnclear: unclear
-    };
-    if (terrain.length) manifest.terrain = terrain;
-    zip.file('louped.json', JSON.stringify(manifest, null, 2));
+    const now = new Date();
+    const { files, left, unclear, slug, layers, records, terrain } = await loupedBuild(doc, (t) => { btn.textContent = t; });
     let name;
     if (send) {
       // Straight to the Louped studio on this computer
       btn.textContent = 'Sending…';
-      const files = {};
-      for (const f of Object.values(zip.files)) if (!f.dir) files[f.name] = await f.async('base64');
-      const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites/' + encodeURIComponent(send.slug) + '/package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files, merge: send.merge, create: send.create }) });
+      const b64 = {};
+      for (const [path, d] of Object.entries(files)) b64[path] = await loupedBase64(d);
+      const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites/' + encodeURIComponent(send.slug) + '/package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: b64, merge: send.merge, create: send.create }) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || 'the studio answered ' + r.status);
       name = 'Louped site ' + j.slug + (send.create ? ' (new)' : send.merge ? ' (added to its data)' : ' (its data replaced)');
@@ -10138,6 +10234,8 @@ async function rptLouped(send) {
       note.innerHTML = 'Sent. <a href="' + escHtml(j.open) + '" target="_blank" rel="noopener">Open ' + escHtml(j.title) + ' in the studio</a>.';
       loupedSendSites(j.slug);
     } else {
+      const JSZip = await loadJSZip(), zip = new JSZip();
+      Object.entries(files).forEach(([path, d]) => zip.file(path, d));
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
       const a = document.createElement('a');
       name = isoDate(now) + '_' + slug + '.louped.zip';
@@ -10209,6 +10307,347 @@ document.getElementById('rptSendGo').addEventListener('click', () => {
   note.textContent = '';
   rptLouped({ slug, create: !site, merge });
 });
+
+/* ---------------------------------------------------------------------
+   Louped tab: client sites built straight from this map. Sites live in a
+   folder you pick (File System Access: Chrome or Edge), laid out as the
+   Louped studio's sites folder, so the two can share one:
+     <site>/job.json   your wording and choices (title, intro, hidden…)
+     <site>/package/   the data: a Louped package (louped.json, layers/,
+                       records/, images/)
+   The preview is louped/index.html (the viewer), sent the files directly.
+   --------------------------------------------------------------------- */
+const LP = { dir: null, sites: [], cur: null, busy: false, files: null };
+const LP_FIELDS = ['title', 'subtitle', 'client', 'date', 'intro', 'areasName', 'about', 'contact'];
+const lpSlugOk = (s) => /^[a-z0-9][a-z0-9-]{0,62}$/.test(s);
+const lpPathOk = (p) => p === 'louped.json' || /^(layers|records|images)\/[A-Za-z0-9._-]+$/.test(p);
+const lp$ = (id) => document.getElementById(id);
+function lpSay(kind, msg) {
+  const el = lp$('lpStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// The folder's handle, kept between visits (IndexedDB holds handles)
+function lpIdb(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const o = indexedDB.open('inferrd-louped', 1);
+    o.onupgradeneeded = () => o.result.createObjectStore('kv');
+    o.onerror = () => reject(o.error);
+    o.onsuccess = () => {
+      const tx = o.result.transaction('kv', mode), r = fn(tx.objectStore('kv'));
+      tx.oncomplete = () => resolve(r && r.result);
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+const lpKeep = (h) => lpIdb('readwrite', st => st.put(h, 'dir'));
+const lpKept = () => lpIdb('readonly', st => st.get('dir')).catch(() => null);
+
+// Files in the folder, by path
+async function lpDirAt(root, parts, create) { let d = root; for (const p of parts) d = await d.getDirectoryHandle(p, { create }); return d; }
+async function lpFile(root, path) {
+  const parts = path.split('/');
+  return (await (await lpDirAt(root, parts.slice(0, -1), false)).getFileHandle(parts[parts.length - 1])).getFile();
+}
+const lpJson = async (root, path) => JSON.parse(await (await lpFile(root, path)).text());
+async function lpWrite(root, path, data) {
+  const parts = path.split('/');
+  const fh = await (await lpDirAt(root, parts.slice(0, -1), true)).getFileHandle(parts[parts.length - 1], { create: true });
+  const w = await fh.createWritable();
+  await w.write(data);
+  await w.close();
+}
+async function lpRemove(root, path, recursive) {
+  const parts = path.split('/');
+  try { await (await lpDirAt(root, parts.slice(0, -1), false)).removeEntry(parts[parts.length - 1], { recursive: !!recursive }); }
+  catch (e) { if (e.name !== 'NotFoundError') throw e; }
+}
+// Every file under a folder: { 'sub/name': File }
+async function lpWalk(dir, pre = '', out = {}) {
+  for await (const [name, h] of dir.entries()) {
+    if (name.startsWith('.')) continue;
+    if (h.kind === 'directory') await lpWalk(h, pre + name + '/', out);
+    else out[pre + name] = await h.getFile();
+  }
+  return out;
+}
+const lpText = async (d) => d instanceof Blob ? d.text() : String(d);
+
+async function lpLoadSites() {
+  const out = [];
+  for await (const [name, h] of LP.dir.entries()) {
+    if (h.kind !== 'directory' || !lpSlugOk(name)) continue;
+    let job;
+    try { job = await lpJson(h, 'job.json'); } catch (e) { continue; }
+    let m = null;
+    try { m = await lpJson(h, 'package/louped.json'); } catch (e) {}
+    out.push({ slug: name, h, job, m });
+  }
+  out.sort((a, b) => ((b.m && b.m.exported) || '').localeCompare((a.m && a.m.exported) || ''));
+  LP.sites = out;
+  if (LP.cur) LP.cur = out.find(s => s.slug === LP.cur.slug) || null;
+}
+
+// A package into a site: replace its data, or merge into it (as the studio
+// does: areas each once; a layer with the same id, or records with the same
+// name, replaced; others added; LiDAR heights replaced when the new package
+// has some). files: { path: Blob or text }.
+function lpCheck(files) {
+  if (!files['louped.json']) throw new Error('not a Louped package: it has no louped.json');
+  const bad = Object.keys(files).filter(p => !lpPathOk(p));
+  if (bad.length) throw new Error('unexpected files in the package: ' + bad.slice(0, 5).join(', '));
+}
+async function lpPutPackage(site, files) {
+  lpCheck(files);
+  const add = JSON.parse(await lpText(files['louped.json']));
+  if (add.format !== 'louped-package') throw new Error('louped.json isn\'t a Louped package');
+  await lpRemove(site.h, 'package', true);
+  for (const [p, d] of Object.entries(files)) if (p !== 'louped.json') await lpWrite(site.h, 'package/' + p, d);
+  await lpWrite(site.h, 'package/louped.json', await lpText(files['louped.json']));
+}
+async function lpMergePackage(site, files) {
+  if (!site.m) return lpPutPackage(site, files);
+  lpCheck(files);
+  const add = JSON.parse(await lpText(files['louped.json']));
+  if (add.format !== 'louped-package') throw new Error('louped.json isn\'t a Louped package');
+  const pk = await site.h.getDirectoryHandle('package');
+  const old = site.m, m = JSON.parse(JSON.stringify(old));
+  const filesOf = (l) => l.kind === 'image' ? (l.images || []).map(i => i.file) : [l.file];
+  if (add.areas && files[add.areas.file]) {
+    const a0 = await lpJson(pk, old.areas ? old.areas.file : 'layers/areas.geojson').catch(() => ({ type: 'FeatureCollection', features: [] }));
+    const a1 = JSON.parse(await lpText(files[add.areas.file]));
+    const seen = new Set(a0.features.map(f => JSON.stringify(f.geometry)));
+    a1.features.forEach(f => { const k = JSON.stringify(f.geometry); if (!seen.has(k)) { seen.add(k); a0.features.push(f); } });
+    m.areas = { file: 'layers/areas.geojson', count: a0.features.length };
+    await lpWrite(pk, 'layers/areas.geojson', JSON.stringify(a0));
+  }
+  m.layers = m.layers || [];
+  for (const l of add.layers || []) {
+    const i = m.layers.findIndex(x => x.id === l.id);
+    if (i >= 0) { for (const f of filesOf(m.layers[i])) await lpRemove(pk, f); m.layers.splice(i, 1); }
+  }
+  const taken = new Set(m.layers.flatMap(filesOf));
+  for (const l of add.layers || []) for (const f of filesOf(l)) {
+    if (taken.has(f)) throw new Error('layer file ' + f + ' clashes with one already here');
+    if (files[f]) await lpWrite(pk, f, files[f]);
+  }
+  m.layers = (add.layers || []).concat(m.layers);
+  m.records = m.records || [];
+  for (const r of add.records || []) {
+    const i = m.records.findIndex(x => x.name === r.name);
+    if (i >= 0) { await lpRemove(pk, m.records[i].file); m.records.splice(i, 1); }
+    let n = 1, file;
+    do file = 'records/occurd-' + n++ + '.json'; while (m.records.some(x => x.file === file));
+    if (files[r.file]) await lpWrite(pk, file, files[r.file]);
+    m.records.push(Object.assign({}, r, { file }));
+  }
+  if (add.terrain && add.terrain.length) {
+    for (const t of m.terrain || []) for (const f of [t.dem, t.dsm]) if (f) await lpRemove(pk, f);
+    for (const t of add.terrain) for (const f of [t.dem, t.dsm]) if (f && files[f]) await lpWrite(pk, f, files[f]);
+    m.terrain = add.terrain;
+  }
+  const join = (a, b, k) => (a || []).filter(x => !(b || []).some(y => y[k] === x[k])).concat(b || []);
+  m.sources = join(m.sources, add.sources, 'key');
+  m.leftOut = join(m.leftOut, add.leftOut, 'name');
+  m.licenceUnclear = join(m.licenceUnclear, add.licenceUnclear, 'name');
+  if (old.bbox && add.bbox) m.bbox = [Math.min(old.bbox[0], add.bbox[0]), Math.min(old.bbox[1], add.bbox[1]), Math.max(old.bbox[2], add.bbox[2]), Math.max(old.bbox[3], add.bbox[3])];
+  m.merged = (old.merged || [{ producer: old.producer, exported: old.exported, title: old.title }]).concat([{ producer: add.producer, exported: add.exported, title: add.title }]);
+  if ((add.exported || '') > (m.exported || '')) { m.exported = add.exported; m.producer = add.producer; }
+  await lpWrite(pk, 'louped.json', JSON.stringify(m, null, 2));
+}
+
+// What a client gets: hidden layers (job.hidden: layer ids, '_records',
+// '_terrain') taken out of the manifest and their files left out, as the
+// studio's deploy does. Notes meant for you only are dropped.
+function lpClientManifest(m, hidden) {
+  const drop = new Set(), gone = new Set(), kept = new Set();
+  const layers = (m.layers || []).filter(l => {
+    if (!hidden.has(l.id)) { kept.add(l.source); return true; }
+    if (l.file) drop.add(l.file);
+    (l.images || []).forEach(i => drop.add(i.file));
+    gone.add(l.source);
+    return false;
+  });
+  let records = m.records || [];
+  if (hidden.has('_records')) { records.forEach(r => { drop.add(r.file); gone.add(r.source); }); records = []; }
+  else records.forEach(r => kept.add(r.source));
+  let terrain = m.terrain || [];
+  if (hidden.has('_terrain')) { terrain.forEach(t => { drop.add(t.dem); if (t.dsm) drop.add(t.dsm); gone.add(t.source); }); terrain = []; }
+  else terrain.forEach(t => kept.add(t.source));
+  const out = Object.assign({}, m, { layers, records, sources: (m.sources || []).filter(s => !(gone.has(s.key) && !kept.has(s.key))) });
+  if (terrain.length) out.terrain = terrain; else delete out.terrain;
+  delete out.leftOut; delete out.licenceUnclear;
+  return { manifest: out, drop };
+}
+// The site as a client gets it: { path in the site: Blob }
+async function lpClientFiles(site) {
+  const files = { 'job.json': new Blob([JSON.stringify(site.job)], { type: 'application/json' }) };
+  if (!site.m) return files;
+  const { manifest, drop } = lpClientManifest(site.m, new Set(site.job.hidden || []));
+  const all = await lpWalk(await site.h.getDirectoryHandle('package'));
+  Object.entries(all).forEach(([p, f]) => { if (p !== 'louped.json' && !drop.has(p) && lpPathOk(p)) files['package/' + p] = f; });
+  files['package/louped.json'] = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  return files;
+}
+
+// ── The tab ──
+async function lpOpenTab() {
+  if (!window.showDirectoryPicker) {
+    lp$('lpFolderNote').textContent = 'The Louped tab needs Chrome or Edge on a computer (it keeps sites in a folder there).';
+    lp$('lpFolderBtn').hidden = true;
+    return;
+  }
+  if (LP.dir) return lpRender();
+  const h = await lpKept();
+  if (!h) return lpRender();
+  if ((await h.queryPermission({ mode: 'readwrite' })) === 'granted') { LP.dir = h; await lpLoadSites(); return lpRender(); }
+  LP.pending = h;
+  lpRender();
+}
+function lpRender() {
+  const has = !!LP.dir;
+  lp$('lpFolderNote').innerHTML = has ? 'Sites are kept in <b>' + escHtml(LP.dir.name) + '</b>.'
+    : LP.pending ? 'Your Louped folder, <b>' + escHtml(LP.pending.name) + '</b>: the browser needs your OK to open it again.'
+    : 'Pick the folder your client sites live in. The Louped studio\'s folder (catchment_reports\\sites) works as it is, so sites made there show here.';
+  lp$('lpAllowBtn').hidden = !(LP.pending && !has);
+  if (LP.pending && !has) lp$('lpAllowBtn').textContent = 'Open ' + LP.pending.name;
+  lp$('lpFolderBtn').textContent = has || LP.pending ? 'Choose another folder' : 'Choose the Louped folder';
+  lp$('lpSitesSec').hidden = !has;
+  lp$('lpSites').innerHTML = LP.sites.map(s => '<button type="button" class="lp-site' + (LP.cur && LP.cur.slug === s.slug ? ' on' : '') + '" data-slug="' + escHtml(s.slug) + '"><b>' + escHtml(s.job.title || s.slug) + '</b><small>' + escHtml(s.slug) + (s.m ? ' · data from ' + escHtml(new Date(s.m.exported).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' })) : '') + '</small></button>').join('') || '<div class="field-hint">No sites in this folder yet.</div>';
+  if (!lp$('lpNewSlug').value) lp$('lpNewSlug').value = loupedId((rpt && rpt.title) || 'report');
+  const s = LP.cur;
+  lp$('lpEdit').hidden = !s;
+  lp$('lpEmpty').hidden = !!s;
+  lp$('lpPreviewWrap').hidden = !s;
+  if (!s) return;
+  const m = s.m;
+  lp$('lpFacts').innerHTML = m ? '<div>Data from ' + escHtml(m.producer.tool + ' ' + m.producer.version) + ', ' + escHtml(new Date(m.exported).toLocaleString('en-NZ')) + (m.merged && m.merged.length > 1 ? ' (' + m.merged.length + ' updates merged)' : '') + '</div>' +
+    '<div>' + (m.areas ? m.areas.count : 0) + ' area' + (m.areas && m.areas.count === 1 ? '' : 's') + ', ' + (m.layers || []).length + ' layer' + ((m.layers || []).length === 1 ? '' : 's') + ', ' + (m.records || []).reduce((t, r) => t + r.rows, 0).toLocaleString() + ' species records' + ((m.terrain || []).length ? ', LiDAR heights for 3D' : '') + '</div>' : '<div>No data yet: update it from the map.</div>';
+  const left = (m && m.leftOut) || [], unc = (m && m.licenceUnclear) || [];
+  lp$('lpWarn').innerHTML = (left.length ? '<div class="lp-warn"><b>Left out</b> (only you see this): ' + left.map(x => escHtml(x.name) + ' (' + escHtml(x.reason) + ')').join('; ') + '</div>' : '') +
+    (unc.length ? '<div class="lp-warn"><b>Licence not stated: decide before this goes to anyone</b>: ' + unc.map(x => escHtml(x.name)).join(', ') + '</div>' : '');
+  // In the client's view
+  const hid = new Set(s.job.hidden || []), rows = (m && m.layers || []).map(l => [l.id, l.name, l.group]);
+  if (m && (m.terrain || []).length) rows.push(['_terrain', '3D view (LiDAR heights)', 'LiDAR']);
+  if (m && (m.records || []).length) rows.push(['_records', 'Species records', 'Species']);
+  lp$('lpShow').innerHTML = rows.length ? rows.map(([id, name, g]) => '<label class="lp-row"><input type="checkbox" data-layer="' + escHtml(id) + '"' + (hid.has(id) ? '' : ' checked') + '> ' + escHtml(name) + (g ? ' <span class="lp-g">' + escHtml(g) + '</span>' : '') + '</label>').join('') : '<div class="field-hint">No layers yet.</div>';
+  LP_FIELDS.forEach(k => { lp$('lpF_' + k).value = s.job[k] || ''; });
+  lp$('lpF_aerial').value = s.job.basemap && s.job.basemap.aerialLayer || '';
+  lp$('lpPreviewName').textContent = (s.job.title || s.slug) + ' · as the client sees it';
+}
+async function lpPreview() {
+  if (!LP.cur) return;
+  LP.files = await lpClientFiles(LP.cur);
+  lp$('lpFrame').src = 'louped/index.html?t=' + Date.now() + '#preview';
+}
+// The viewer asks for the files when it opens (in the frame or a new tab)
+window.addEventListener('message', (ev) => {
+  if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'louped-ready' || !LP.files) return;
+  ev.source.postMessage({ type: 'louped-files', files: LP.files }, location.origin);
+});
+async function lpRun(what, fn) {
+  if (LP.busy) return;
+  LP.busy = true;
+  document.querySelectorAll('#loupedPanel button').forEach(b => { b.disabled = true; });
+  lpSay('info', what + '…');
+  try { await fn(); }
+  catch (e) { lpSay('error', what + ' failed: ' + (e && e.message ? e.message : e)); }
+  finally {
+    LP.busy = false;
+    document.querySelectorAll('#loupedPanel button').forEach(b => { b.disabled = false; });
+  }
+}
+async function lpSelect(slug) {
+  LP.cur = LP.sites.find(s => s.slug === slug) || null;
+  lpRender();
+  await lpPreview();
+}
+async function lpBuildFromMap() {
+  if (!areas.length) throw new Error('draw or add the areas on the map first');
+  const b = await loupedBuild(rpt, (t) => lpSay('info', t));
+  return b;
+}
+const lpBuildNote = (b) => (b.left.length ? ' Left out: ' + b.left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
+  (b.unclear.length ? ' Licence not stated, check before sharing: ' + b.unclear.map(x => x.name).join(', ') + '.' : '');
+
+lp$('lpFolderBtn').addEventListener('click', async () => {
+  try {
+    const h = await window.showDirectoryPicker({ id: 'louped', mode: 'readwrite' });
+    LP.dir = h; LP.pending = null; LP.cur = null;
+    await lpKeep(h);
+    await lpLoadSites();
+    lpRender();
+    lpSay('', '');
+  } catch (e) { if (e.name !== 'AbortError') lpSay('error', 'Couldn\'t open that folder: ' + e.message); }
+});
+lp$('lpAllowBtn').addEventListener('click', async () => {
+  if (!LP.pending) return;
+  if ((await LP.pending.requestPermission({ mode: 'readwrite' })) !== 'granted') return lpSay('warning', 'The browser wasn\'t allowed to open the folder.');
+  LP.dir = LP.pending; LP.pending = null;
+  await lpLoadSites();
+  lpRender();
+});
+lp$('lpSites').addEventListener('click', (ev) => { const b = ev.target.closest('[data-slug]'); if (b) lpSelect(b.dataset.slug); });
+lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async () => {
+  const slug = lp$('lpNewSlug').value.trim().toLowerCase();
+  if (!lpSlugOk(slug)) throw new Error('a site name is lower-case letters, numbers and dashes, for example waimata-2026');
+  if (LP.sites.some(s => s.slug === slug)) throw new Error('there\'s already a site called ' + slug + ': pick it and update its data instead');
+  const b = await lpBuildFromMap();
+  const h = await LP.dir.getDirectoryHandle(slug, { create: true });
+  const job = Object.fromEntries(LP_FIELDS.map(k => [k, '']));
+  job.title = (rpt && rpt.title) || slug;
+  job.packages = ['package'];
+  await lpPutPackage({ slug, h }, b.files);
+  await lpWrite(h, 'job.json', JSON.stringify(job, null, 2) + '\n');
+  await lpLoadSites();
+  lp$('lpNewSlug').value = '';
+  await lpSelect(slug);
+  lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Made ' + slug + ' from the map: ' + b.layers.length + ' layers, ' + b.records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (b.terrain.length ? ', LiDAR heights' : '') + '.' + lpBuildNote(b));
+}));
+const lpUpdate = (files, from, b) => lpRun('Updating the data', async () => {
+  const s = LP.cur, merge = document.querySelector('input[name=lpUpdMode]:checked').value === 'merge';
+  if (!merge && !confirm('Replace all of ' + s.slug + '\'s data with ' + from + '? The wording stays.')) return lpSay('', '');
+  if (!files) { b = await lpBuildFromMap(); files = b.files; }
+  if (merge) await lpMergePackage(s, files); else await lpPutPackage(s, files);
+  await lpLoadSites();
+  lpRender();
+  await lpPreview();
+  lpSay(b && (b.left.length || b.unclear.length) ? 'warning' : 'success', (merge ? 'Added ' : 'Replaced the data with ') + from + '.' + (b ? lpBuildNote(b) : ''));
+});
+lp$('lpUpdBtn').addEventListener('click', () => lpUpdate(null, 'this map'));
+lp$('lpZip').addEventListener('change', async (ev) => {
+  const f = ev.target.files[0];
+  ev.target.value = '';
+  if (!f || !LP.cur) return;
+  const JSZip = await loadJSZip(), zip = await JSZip.loadAsync(f), files = {};
+  for (const e of Object.values(zip.files)) if (!e.dir) files[e.name.replace(/^\.?\//, '')] = await e.async('blob');
+  lpUpdate(files, f.name);
+});
+lp$('lpShow').addEventListener('change', () => lpRun('Saving', async () => {
+  const s = LP.cur;
+  s.job.hidden = [...lp$('lpShow').querySelectorAll('input[data-layer]')].filter(c => !c.checked).map(c => c.dataset.layer);
+  await lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n');
+  await lpPreview();
+  lpSay('success', 'Saved what the client sees.');
+}));
+lp$('lpSaveBtn').addEventListener('click', () => lpRun('Saving', async () => {
+  const s = LP.cur;
+  LP_FIELDS.forEach(k => { s.job[k] = lp$('lpF_' + k).value; });
+  const a = Number(lp$('lpF_aerial').value.trim());
+  if (a > 0) s.job.basemap = { aerialLayer: a }; else delete s.job.basemap;
+  await lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n');
+  await lpLoadSites();
+  lpRender();
+  await lpPreview();
+  lpSay('success', 'Saved ' + new Date().toLocaleTimeString('en-NZ') + '.');
+}));
+lp$('lpReloadBtn').addEventListener('click', () => lpPreview());
+// Opened at once (a popup has to open in the click itself); it asks for the
+// files the frame was last sent, which every change keeps current.
+lp$('lpTabBtn').addEventListener('click', () => { if (LP.files) window.open('louped/index.html?t=' + Date.now() + '#preview', '_blank'); });
+
 rptInit();
 
 function setAppTab(tab) {
@@ -10228,6 +10667,8 @@ function setAppTab(tab) {
   document.getElementById('resultsPane').classList.toggle('cover-mode', tab === 'cover');
   document.querySelector('.sidebar').classList.toggle('report-mode', tab === 'report');
   document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
+  document.querySelector('.sidebar').classList.toggle('louped-mode', tab === 'louped');
+  document.getElementById('resultsPane').classList.toggle('louped-mode', tab === 'louped');
   map.closePopup();
   // Points of interest sit under the areas on Infrared and on Report.
   const poiBlock = document.getElementById('poiBlock');
@@ -10239,12 +10680,13 @@ function setAppTab(tab) {
   if (tab === 'physical') physicalAreasChanged();
   if (tab === 'cover') coverAreasChanged();
   if (tab === 'report') reportAreasChanged();
+  if (tab === 'louped') lpOpenTab();
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report') setAppTab(t); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report' || t === 'louped') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------

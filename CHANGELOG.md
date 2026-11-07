@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.73.0 — 2026-11-08
+
+- **Louped tab** (phase 1 of Louped moving into inferrd.). Client sites
+  built straight from the map, with no export:
+  - **Folder:** sites live in a folder you pick (Chrome or Edge), laid out
+    as the Louped studio's `sites` folder, so the studio's own folder works
+    as it is. The browser asks once a session to open it again.
+  - **Make a site from this map:** the areas, every layer that's on in the
+    Layers panel (licences applied as in Export for Louped), the Report
+    tab's occurd. records and any LiDAR heights loaded.
+  - **Update from this map**, adding to the data (a layer already there is
+    replaced) or replacing it; or from an older .louped.zip.
+  - **In the client's view:** tick boxes to leave layers, species records
+    or the 3D heights out; saved as you tick.
+  - **Wording:** title, subtitle, client, date, introduction, areas name,
+    About text, contact, LINZ aerial layer.
+  - **Preview** in the results pane, exactly as the client gets it (hidden
+    layers taken out, your private notes dropped, Esri base maps), or in a
+    new tab.
+  Putting sites online from the tab is phase 2; until then the studio's
+  Put online publishes the same folder.
+- **The Louped viewer now lives in inferrd.** (`louped/index.html`, Louped
+  v0.14.0). With `#preview` it takes the site's files from the Louped tab
+  instead of a server. Export for Louped, Send to Louped and the tab share
+  one package builder (`loupedBuild`).
+
 ## v0.72.0 — 2026-11-08
 
 - **Send to Louped.** Under Export for Louped on the Report tab: sends the
