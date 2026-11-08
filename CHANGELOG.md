@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.76.0 — 2026-11-08
+
+- **A Louped column in the Layers panel.** Every layer has a tick box: tick
+  the layers that belong in the client site, on any tab.
+  - With a site open in the Louped tab, the ticks are that site's layers,
+    saved with it. **Update <site>** at the foot of the panel (or **Update
+    the site** in the Louped tab) adds the newly ticked layers, refreshes
+    the rest from the map, and takes out the ones you unticked. A ticked
+    layer that's switched off is left as it is; ticking a layer switches it
+    on. Sites made before this count the layers already in them as ticked.
+  - With no site open, the ticks are kept for the next site: **Make a
+    client site from the N ticked**.
+  - The Louped tab's own tick list now covers only what the map doesn't:
+    species records, the 3D view and layers that aren't on the map now.
+  - The last site open is found when inferrd. opens, so the ticks show
+    straight away.
+- **Report tab:** Export for Louped and Send to Louped are gone (the studio
+  they sent to is retiring). The site's data can still be downloaded as a
+  Louped package zip from the Louped tab, under More.
+
 ## v0.75.0 — 2026-11-08
 
 - **Louped is part of the map now, not a separate step.**

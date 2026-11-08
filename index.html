@@ -92,9 +92,6 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lp-bar span { margin-right: auto; font-weight: 600; }
 #lpFrame { flex: 1; width: 100%; min-height: 480px; border: 1px solid var(--border2); background: #fff; }
 .results-pane.report-mode > :not(#reportResults), .results-pane:not(.report-mode) > #reportResults { display: none !important; }
-#rptSendBox { margin-top: 8px; border: 1px solid var(--border2); padding: 8px; display: grid; gap: 6px; font-size: 12.5px; }
-#rptSendBox select { width: 100%; }
-#rptSendBox .send-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 #reportPanel input[type=text] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); }
 .rpt-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .rpt-file { position: relative; overflow: hidden; display: inline-block; cursor: pointer; }
@@ -133,7 +130,9 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lpanel-fold { background: none; border: none; cursor: pointer; color: var(--text2); font-size: 16px; line-height: 1; padding: 0 4px 0 0; }
 .lpanel.folded { width: 34px; }
 .lpanel.folded .lpanel-head { justify-content: center; padding: 8px 0; border-bottom: none; }
-.lpanel.folded .lpanel-head strong, .lpanel.folded .lpanel-body { display: none; }
+.lpanel.folded .lpanel-head strong, .lpanel.folded .lpanel-body, .lpanel.folded .lpanel-lpcol { display: none; }
+.lpanel-lpcol { margin-left: auto; font: 600 10px var(--font-sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--base); cursor: help; }
+.mstack-lp { margin: 0; width: 14px; height: 14px; accent-color: var(--base); cursor: pointer; }
 .lpanel-body { overflow-y: auto; padding: 0 10px 10px; min-height: 0; }
 .lpanel-h { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 9px 0 4px; font: 600 10.5px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); text-align: left; }
 .lpanel-tog { cursor: pointer; }
@@ -150,7 +149,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lpanel-msg { font-size: 11.5px; color: var(--text2); line-height: 1.45; margin-top: 6px; }
 .lpanel-msg a { color: var(--orange-dark); }
 .mstack-list { list-style: none; margin: 0; padding: 0; }
-.mstack-row { display: grid; grid-template-columns: 12px 24px 16px minmax(0, 1fr) 64px; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.mstack-row { display: grid; grid-template-columns: 12px 24px 16px minmax(0, 1fr) 64px 16px; gap: 6px; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--rule); }
 .mstack-row.off .mstack-name, .mstack-row.off .mstack-sw { opacity: 0.4; }
 .mstack-row.drop-above { box-shadow: inset 0 2px 0 var(--base); }
 .mstack-row.drop-below { box-shadow: inset 0 -2px 0 var(--base); }
@@ -803,20 +802,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">5 · Export</div>
         <button class="run-btn" id="rptExportBtn" type="button" disabled>Export for report</button>
         <div class="field-hint" style="margin:6px 0 0;">A zip for writing the report elsewhere: the ticked facts with their IDs and sources, the areas as GeoJSON and KML, a map of the areas, and a summary of what was run. The writing, and every call on what the facts mean, happen outside inferrd.</div>
-        <button class="run-btn" id="rptLoupedBtn" type="button" disabled style="margin-top:12px;">Export for Louped</button>
-        <button class="run-btn" id="rptSendBtn" type="button" disabled style="margin-top:6px;" title="Straight into the Louped studio on this computer, no zip to move">Send to Louped</button>
-        <div id="rptSendBox" hidden>
-          <label for="rptSendSite">Louped site</label>
-          <select id="rptSendSite"></select>
-          <input type="text" id="rptSendSlug" placeholder="new-site-name (in its web address)" aria-label="New site name">
-          <div id="rptSendMode">
-            <label class="send-row"><input type="radio" name="rptSendMode" value="merge" checked> Add to the site's data (layers with the same name replaced)</label>
-            <label class="send-row"><input type="radio" name="rptSendMode" value="replace"> Replace the site's data</label>
-          </div>
-          <div class="send-row"><button class="run-btn" id="rptSendGo" type="button" style="width:auto;padding:6px 14px;">Send</button><button type="button" id="rptSendCancel" class="dl-btn">Cancel</button></div>
-          <div class="field-hint" id="rptSendNote" style="margin:0;"></div>
-        </div>
-        <div class="field-hint" style="margin:6px 0 0;">A package for a client map in Louped: the report's areas, the occurd. records, and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the Layers panel up as the client should see it first. Image layers (LiDAR, index preview, Earth Engine land cover and terrain) go in as pictures, as drawn on the map.</div>
+        <div class="field-hint" id="rptLpHint" style="margin:12px 0 0;">For a client map: tick layers in the <b>Louped</b> column of the map's Layers panel, then make or update the site in the <a href="#" data-go="louped">Louped</a> tab.</div>
       </div>
     </div>
 
@@ -865,6 +851,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <details class="lp-more"><summary>More</summary>
             <button class="dl-btn" id="lpReplaceBtn" type="button" style="margin-top:6px;">Replace all the site's data with the map</button>
             <label class="field-hint" style="margin:6px 0 0;display:block;">Add an older Export for Louped: <input type="file" id="lpZip" accept=".zip"></label>
+            <button class="dl-btn" id="lpDownBtn" type="button" style="margin-top:6px;">Download the site's data (a Louped package zip)</button>
           </details>
         </div>
         <div class="sidebar-section">
@@ -1458,7 +1445,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.75.0';
+const APP_VERSION = 'v0.76.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1667,7 +1654,7 @@ const mapStack = (() => {
 
   const box = L.DomUtil.create('div', 'lpanel');
   box.innerHTML =
-    '<div class="lpanel-head"><button class="lpanel-fold" type="button"></button><strong>Layers</strong></div>' +
+    '<div class="lpanel-head"><button class="lpanel-fold" type="button"></button><strong>Layers</strong><span class="lpanel-lpcol" title="Tick a layer to put it in the client site open in the Louped tab (or the next one you make). Unticked, it comes out next time the site is updated.">Louped</span></div>' +
     '<div class="lpanel-body">' +
       '<div class="lpanel-sec"><div class="lpanel-h" data-h="tab"></div><div class="lpanel-cond"></div><ul class="mstack-list" data-list="tab"></ul><div class="lpanel-none"></div></div>' +
       '<div class="lpanel-sec" data-sec="other"><button class="lpanel-h lpanel-tog" type="button" data-fold="other"></button><ul class="mstack-list" data-list="other"></ul></div>' +
@@ -1709,7 +1696,9 @@ const mapStack = (() => {
       '<button class="mstack-eye" type="button" aria-pressed="' + e.on + '" aria-label="' + (e.on ? 'Hide ' : 'Show ') + esc(nm) + '">' + (e.on ? EYE_ON : EYE_OFF) + '</button>' +
       '<span class="mstack-sw" style="background:' + e.swatch + '"></span>' +
       '<span class="mstack-name" title="' + esc(e.notes || nm) + '">' + esc(nm) + (withTab ? '<small>' + esc(e.tab) + '</small>' : '') + '</span>' +
-      '<input type="range" min="0" max="100" step="5" value="' + Math.round(e.op * 100) + '" aria-label="' + esc(nm) + ' opacity" title="Opacity ' + Math.round(e.op * 100) + '%"></li>' + key;
+      '<input type="range" min="0" max="100" step="5" value="' + Math.round(e.op * 100) + '" aria-label="' + esc(nm) + ' opacity" title="Opacity ' + Math.round(e.op * 100) + '%">' +
+      '<input type="checkbox" class="mstack-lp" data-lp' + (window.mapPick && window.mapPick.has(k) ? ' checked' : '') + ' aria-label="' + esc(nm) + ' in the Louped site" title="In the Louped site">' +
+      '</li>' + key;
   }
   const onOf = (keys) => keys.filter(k => E[k].on).length + ' of ' + keys.length + ' on';
   function render() {
@@ -1763,6 +1752,13 @@ const mapStack = (() => {
     render();
   }
   box.addEventListener('change', (ev) => {
+    const t = ev.target.closest('[data-lp]');
+    if (t) {
+      const k = t.closest('.mstack-row').dataset.key;
+      if (t.checked && !E[k].on) setOn(k, true);
+      if (window.mapPick) window.mapPick.set(k, t.checked);
+      return;
+    }
     const c = ev.target.closest('[data-opt]');
     if (!c) return;
     E[c.closest('.mstack-key').dataset.key].opts[+c.dataset.opt].set(c.checked);
@@ -1915,6 +1911,8 @@ const mapStack = (() => {
     shown: () => order.filter(k => E[k].on && avail(E[k]))
       .map(k => ({ key: k, name: nameOf(E[k]), pane: E[k].pane, op: E[k].op }))
       .sort((a, b) => Number(map.getPane(a.pane).style.zIndex) - Number(map.getPane(b.pane).style.zIndex)),
+    // Every layer listed in the panel, on or off.
+    listed: () => order.filter(k => avail(E[k])),
     // What the panel shows for one layer, for Export for Louped.
     describe(key) {
       const e = E[key];
@@ -9426,8 +9424,6 @@ function syncReportControls() {
   run.disabled = !rpt || !areas.length || rptBusy;
   run.textContent = rptBusy ? 'Gathering…' : 'Gather the facts';
   document.getElementById('rptExportBtn').disabled = !rpt || !rpt.facts.length || rptBusy || rptExporting;
-  document.getElementById('rptLoupedBtn').disabled = !rpt || !areas.length || rptBusy || rptExporting;
-  document.getElementById('rptSendBtn').disabled = document.getElementById('rptSendGo').disabled = !rpt || !areas.length || rptBusy || rptExporting;
 }
 
 function reportAreasChanged() {
@@ -10111,7 +10107,8 @@ function loupedTerrainSets() {
 // occurd. records and the LiDAR heights. → { files: { path: Blob or text },
 // manifest, left, unclear, slug }. Used by Export for Louped, Send to Louped
 // and the Louped tab. say(text) reports progress.
-async function loupedBuild(doc, say) {
+// keys: only these map layers (a Set of Layers panel keys); else every one that's on
+async function loupedBuild(doc, say, keys) {
   const files = {}, put = (path, data) => { files[path] = data; }, now = new Date();
   const slug = loupedId((doc && doc.title) || 'report');
   const list = areas.filter(a => a.geojson && a.geojson.geometry && /Polygon$/.test(a.geojson.geometry.type));
@@ -10122,7 +10119,7 @@ async function loupedBuild(doc, say) {
   addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
   const reg = window._layersRegister ? window._layersRegister() : null;
   // Top of the map first
-  const shown = mapStack.shown().slice().reverse();
+  const shown = mapStack.shown().slice().reverse().filter(s => !keys || keys.has(s.key));
   for (const s of shown) {
     const d = mapStack.describe(s.key);
     if (!d) continue;
@@ -10230,102 +10227,6 @@ const loupedBase64 = async (d) => {
   return btoa(s);
 };
 
-async function rptLouped(send) {
-  if (!rpt || !areas.length || rptExporting) return;
-  const doc = rpt, btn = document.getElementById(send ? 'rptSendGo' : 'rptLoupedBtn');
-  rptExporting = true;
-  syncReportControls();
-  btn.textContent = 'Preparing…';
-  try {
-    const now = new Date();
-    const { files, left, unclear, slug, layers, records, terrain } = await loupedBuild(doc, (t) => { btn.textContent = t; });
-    let name;
-    if (send) {
-      // Straight to the Louped studio on this computer
-      btn.textContent = 'Sending…';
-      const b64 = {};
-      for (const [path, d] of Object.entries(files)) b64[path] = await loupedBase64(d);
-      const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites/' + encodeURIComponent(send.slug) + '/package', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: b64, merge: send.merge, create: send.create }) });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || 'the studio answered ' + r.status);
-      name = 'Louped site ' + j.slug + (send.create ? ' (new)' : send.merge ? ' (added to its data)' : ' (its data replaced)');
-      const note = document.getElementById('rptSendNote');
-      note.innerHTML = 'Sent. <a href="' + escHtml(j.open) + '" target="_blank" rel="noopener">Open ' + escHtml(j.title) + ' in the studio</a>.';
-      loupedSendSites(j.slug);
-    } else {
-      const JSZip = await loadJSZip(), zip = new JSZip();
-      Object.entries(files).forEach(([path, d]) => zip.file(path, d));
-      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
-      const a = document.createElement('a');
-      name = isoDate(now) + '_' + slug + '.louped.zip';
-      a.href = URL.createObjectURL(blob);
-      a.download = name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }
-    setReportStatus(left.length || unclear.length ? 'warning' : 'success', (send ? 'Sent to ' : 'Exported ') + name + ': ' + layers.length + (layers.length === 1 ? ' layer' : ' layers') + ', ' +
-      records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (terrain.length ? ', LiDAR heights for 3D' : '') + '.' + (left.length ? ' Left out: ' + left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
-      (unclear.length ? ' Licence not stated, check before sharing: ' + unclear.map(x => x.name).join(', ') + '.' : ''));
-  } catch (e) {
-    setReportStatus('error', (send ? 'Send to Louped' : 'Export for Louped') + ' failed: ' + (e && e.message ? e.message : e));
-  } finally {
-    rptExporting = false;
-    btn.textContent = send ? 'Send' : 'Export for Louped';
-    syncReportControls();
-  }
-}
-document.getElementById('rptLoupedBtn').addEventListener('click', () => rptLouped());
-
-// Send to Louped: the studio (studio/server.mjs in catchment_reports) runs
-// on this computer at LOUPED_STUDIO and takes packages from inferrd.'s
-// pages only. Chrome may ask once whether this page may reach devices on
-// this computer's network (localhost): allow it.
-const LOUPED_STUDIO = 'http://localhost:7884/';
-async function loupedSendSites(select) {
-  const sel = document.getElementById('rptSendSite'), note = document.getElementById('rptSendNote');
-  let list;
-  try {
-    const r = await fetch(LOUPED_STUDIO + 'api/inferrd/sites');
-    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'HTTP ' + r.status);
-    list = (await r.json()).sites;
-  } catch (e) {
-    sel.innerHTML = '';
-    note.textContent = 'The Louped studio isn\'t answering at ' + LOUPED_STUDIO + '. Start it (double-click studio\\start-studio.vbs in catchment_reports, or your bookmark), then press Send to Louped again. If Chrome asked about devices on your network, allow it.';
-    return false;
-  }
-  const keep = select || sel.value;
-  sel.innerHTML = '<option value="">New site…</option>' + list.map(s => '<option value="' + escHtml(s.slug) + '">' + escHtml(s.title) + ' (' + escHtml(s.slug) + ')</option>').join('');
-  // The report's own site, if it has one already
-  const own = loupedId((rpt && rpt.title) || 'report');
-  sel.value = list.some(s => s.slug === keep) ? keep : list.some(s => s.slug === own) ? own : '';
-  loupedSendSync();
-  return true;
-}
-function loupedSendSync() {
-  const isNew = !document.getElementById('rptSendSite').value;
-  document.getElementById('rptSendSlug').hidden = !isNew;
-  document.getElementById('rptSendMode').hidden = isNew;
-  if (isNew && !document.getElementById('rptSendSlug').value) document.getElementById('rptSendSlug').value = loupedId((rpt && rpt.title) || 'report');
-}
-document.getElementById('rptSendSite').addEventListener('change', loupedSendSync);
-document.getElementById('rptSendBtn').addEventListener('click', async () => {
-  const box = document.getElementById('rptSendBox');
-  if (!box.hidden) { box.hidden = true; return; }
-  box.hidden = false;
-  document.getElementById('rptSendNote').textContent = 'Looking for the Louped studio…';
-  if (await loupedSendSites()) document.getElementById('rptSendNote').textContent = '';
-});
-document.getElementById('rptSendCancel').addEventListener('click', () => { document.getElementById('rptSendBox').hidden = true; });
-document.getElementById('rptSendGo').addEventListener('click', () => {
-  const site = document.getElementById('rptSendSite').value, note = document.getElementById('rptSendNote');
-  const slug = site || document.getElementById('rptSendSlug').value.trim().toLowerCase();
-  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) { note.textContent = 'A site name is lower-case letters, numbers and dashes, for example waimata-2026.'; return; }
-  if (!document.getElementById('rptSendSite').options.length) { note.textContent = 'Press Send to Louped again once the studio is running.'; return; }
-  const merge = !!site && document.querySelector('input[name=rptSendMode]:checked').value === 'merge';
-  if (site && !merge && !confirm('Replace all of ' + slug + '\'s data with this export? Its wording stays.')) return;
-  note.textContent = '';
-  rptLouped({ slug, create: !site, merge });
-});
 
 /* ---------------------------------------------------------------------
    Louped tab: client sites built straight from this map. Sites live in a
@@ -10524,9 +10425,11 @@ async function lpUseBrowser() {
   LP.where = 'browser'; LP.pending = null;
   if (navigator.storage.persist) navigator.storage.persist().catch(() => {});
 }
-async function lpOpenTab() {
-  if (LP.online === undefined) lpOnlineLoad();
-  if (!LP.dir && !LP.pending) {
+// Where sites are kept and the last site open, found once at start, so the
+// Layers panel's Louped ticks show that site's layers from the outset.
+function lpInit() {
+  if (LP.inited) return LP.inited;
+  return LP.inited = (async () => {
     try {
       const h = lpWhere() === 'folder' && window.showDirectoryPicker ? await lpKept() : null;
       if (h && (await h.queryPermission({ mode: 'readwrite' })) === 'granted') { LP.dir = h; LP.where = 'folder'; }
@@ -10536,36 +10439,74 @@ async function lpOpenTab() {
     if (LP.dir) {
       await lpLoadSites();
       const last = lpStore('inferrd.loupedSite');
-      if (!LP.cur && LP.sites.some(s => s.slug === last)) return lpSelect(last);
+      LP.cur = LP.sites.find(s => s.slug === last) || null;
     }
-  }
+    lpPickLoad();
+    mapStack.render();
+  })();
+}
+async function lpOpenTab() {
+  if (LP.online === undefined) lpOnlineLoad();
+  await lpInit();
   lpRender();
+  if (LP.cur && !LP.files) lpPreview();
 }
-// The map's layers that are on, by the id they get in a site
-function lpMapLayers() {
-  return mapStack.shown().slice().reverse().map(s => {
-    const d = mapStack.describe(s.key);
-    return d ? { id: loupedId(d.ref ? s.key.slice(4) : s.key), name: d.name } : null;
-  }).filter(Boolean);
+
+// ── Louped ticks in the Layers panel: the layers that make up the open site
+// (job.pick, the panel's keys), or the next site made (kept in this browser).
+// A site from before the ticks counts the map layers already in it as ticked.
+const lpIdOf = (k) => { const d = mapStack.describe(k); return loupedId(d && d.ref ? k.slice(4) : k); };
+const lpInSite = (s, k) => ((s.m && s.m.layers) || []).some(l => l.id === lpIdOf(k));
+function lpPickLoad() {
+  const s = LP.cur;
+  if (s) LP.pick = Array.isArray(s.job.pick) ? new Set(s.job.pick) : null;
+  else {
+    let d = [];
+    try { d = JSON.parse(lpStore('inferrd.loupedPick') || '[]'); } catch (e) {}
+    LP.pick = new Set(Array.isArray(d) ? d : []);
+  }
 }
-// The Layers panel's own button: make a site from what's on, or add to the
-// one open in the Louped tab
+window.mapPick = {
+  has: (k) => LP.pick ? LP.pick.has(k) : !!LP.cur && lpInSite(LP.cur, k),
+  set(k, on) {
+    if (!LP.pick) LP.pick = new Set(mapStack.listed().filter(x => window.mapPick.has(x)));
+    if (on) LP.pick.add(k); else LP.pick.delete(k);
+    const s = LP.cur;
+    if (s) {
+      s.job.pick = [...LP.pick];
+      lpWrite(s.h, 'job.json', JSON.stringify(s.job, null, 2) + '\n').catch(e => lpSay('error', 'Couldn\'t save the ticks: ' + e.message));
+    } else lpStore('inferrd.loupedPick', JSON.stringify([...LP.pick]));
+    if (appTab === 'louped') lpRender(); else lpFoot();
+  }
+};
+// What updating the open site (or making a new one) from the ticks would do
+function lpPlan() {
+  const s = LP.cur, listed = mapStack.listed(), on = new Set(mapStack.shown().map(x => x.key));
+  const picked = listed.filter(k => window.mapPick.has(k));
+  const take = picked.filter(k => on.has(k)), off = picked.filter(k => !on.has(k));
+  const add = s ? take.filter(k => !lpInSite(s, k)) : take, refresh = s ? take.filter(k => lpInSite(s, k)) : [];
+  const unticked = new Set(listed.filter(k => !window.mapPick.has(k)).map(lpIdOf));
+  const drop = s ? ((s.m && s.m.layers) || []).filter(l => unticked.has(l.id)) : [];
+  return { take, off, add, refresh, drop, name: (k) => mapStack.describe(k).name };
+}
+// The Layers panel's own button
 function lpFoot() {
   const host = document.querySelector('.lpanel-foot');
   if (!host) return;
   let foot = document.getElementById('lpFootSlot');
   if (!foot) { foot = document.createElement('div'); foot.id = 'lpFootSlot'; foot.style.marginTop = '6px'; host.appendChild(foot); }
-  const n = areas.length ? lpMapLayers().length : 0;
-  if (!n) { foot.innerHTML = ''; return; }
-  const cur = LP.cur;
-  foot.innerHTML = '<button class="run-btn" type="button" id="lpFootBtn">' + escHtml(cur ? 'Add these to ' + (cur.job.title || cur.slug) : 'Make a client site from these') + '</button>';
-  if (appTab === 'louped' && cur) lpDiffRender();
+  const s = LP.cur, p = areas.length ? lpPlan() : null;
+  const n = p ? (s ? p.add.length + p.drop.length : p.take.length) : 0;
+  const what = s && p ? [p.add.length ? p.add.length + ' to add' : '', p.drop.length ? p.drop.length + ' to take out' : ''].filter(Boolean).join(', ') : '';
+  foot.innerHTML = !n ? '' : '<button class="run-btn" type="button" id="lpFootBtn">' +
+    escHtml(s ? 'Update ' + (s.job.title || s.slug) + ' (' + what + ')' : 'Make a client site from the ' + n + ' ticked') + '</button>';
+  if (appTab === 'louped' && s) lpDiffRender();
 }
 window.lpFootHook = () => { try { lpFoot(); } catch (e) {} };
 document.addEventListener('click', (ev) => {
   if (!ev.target.closest('#lpFootBtn')) return;
   setAppTab('louped');
-  if (LP.cur) return lpUpdate(null, 'the map', null, true);
+  if (LP.cur) return lpUpdateFromPicks();
   if (!LP.slugTyped) lp$('lpNewSlug').value = loupedId(lpNameFromMap());
   setTimeout(() => { lp$('lpNewSlug').focus(); lp$('lpNewSlug').select(); }, 50);
 });
@@ -10574,13 +10515,43 @@ const lpNameFromMap = () => (rpt && rpt.title && rpt.title !== 'New report' && r
 function lpDiffRender() {
   const s = LP.cur, el = lp$('lpMapDiff');
   if (!s) { el.innerHTML = ''; return; }
-  const have = new Set(((s.m && s.m.layers) || []).map(l => l.id)), map = lpMapLayers();
-  const missing = map.filter(l => !have.has(l.id)), both = map.filter(l => have.has(l.id));
-  el.innerHTML = !map.length ? '<div class="field-hint" style="margin:8px 0 0;">Switch layers on in the map\'s Layers panel to add them here.</div>'
-    : '<div class="lp-diff">' + (missing.length ? '<b>On the map, not in the site yet:</b> ' + missing.map(l => escHtml(l.name)).join(', ') + '.' : 'Everything on the map is in the site.') +
-      (both.length ? ' ' + both.length + ' already in it will be refreshed from the map.' : '') +
-      '<button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">' + (missing.length ? 'Add ' + (missing.length === 1 ? 'it' : 'them') + ' to the site' : 'Refresh from the map') + '</button></div>';
+  const p = lpPlan(), nm = (ks) => ks.map(k => escHtml(p.name(k))).join(', ');
+  const parts = [];
+  if (p.add.length) parts.push('<b>adds</b> ' + nm(p.add));
+  if (p.drop.length) parts.push('<b>takes out</b> ' + p.drop.map(l => escHtml(l.name)).join(', '));
+  if (p.refresh.length) parts.push('refreshes ' + nm(p.refresh));
+  el.innerHTML = '<div class="lp-diff">' + (!p.take.length && !p.drop.length
+      ? 'Tick layers in the <b>Louped</b> column of the map\'s Layers panel to put them in this site.'
+      : p.add.length || p.drop.length ? 'Updating from the map ' + parts.join('; ') + '.'
+      : 'Everything ticked is in the site. Updating refreshes it from the map (' + nm(p.refresh) + ').') +
+    (p.off.length ? ' Ticked but switched off, so left as they are: ' + nm(p.off) + '.' : '') +
+    (p.take.length || p.drop.length ? '<button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">Update the site</button>' : '') + '</div>';
 }
+// A site's layers taken out, with their files and any sources only they used
+async function lpDropLayers(site, ids) {
+  if (!ids.length || !site.m) return;
+  const pk = await site.h.getDirectoryHandle('package'), gone = new Set(ids), m = JSON.parse(JSON.stringify(site.m));
+  const out = (m.layers || []).filter(l => gone.has(l.id)), names = new Set(out.map(l => l.name));
+  for (const l of out) for (const f of l.kind === 'image' ? (l.images || []).map(i => i.file) : [l.file]) if (f) await lpRemove(pk, f);
+  m.layers = (m.layers || []).filter(l => !gone.has(l.id));
+  const used = new Set(['inferrd'].concat(m.layers.map(l => l.source), (m.records || []).map(r => r.source), (m.terrain || []).map(t => t.source)));
+  m.sources = (m.sources || []).filter(x => used.has(x.key));
+  m.licenceUnclear = (m.licenceUnclear || []).filter(x => !names.has(x.name));
+  m.leftOut = (m.leftOut || []).filter(x => !names.has(x.name));
+  await lpWrite(pk, 'louped.json', JSON.stringify(m, null, 2));
+}
+const lpUpdateFromPicks = () => lpRun('Updating the site', async () => {
+  const p = lpPlan();
+  const b = await lpBuildFromMap();
+  await lpMergePackage(LP.cur, b.files);
+  await lpLoadSites();
+  await lpDropLayers(LP.cur, p.drop.map(l => l.id));
+  await lpLoadSites();
+  lpRender();
+  await lpPreview();
+  const did = [p.add.length ? 'added ' + p.add.map(p.name).join(', ') : '', p.drop.length ? 'took out ' + p.drop.map(l => l.name).join(', ') : ''].filter(Boolean).join('; ');
+  lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Updated the site' + (did ? ': ' + did : '') + '.' + lpBuildNote(b));
+});
 function lpRender() {
   const has = !!LP.dir, inBrowser = LP.where === 'browser';
   lp$('lpFolderNote').innerHTML = !has && !LP.pending ? 'This browser can\'t keep sites. Use Chrome or Edge on a computer.'
@@ -10597,9 +10568,10 @@ function lpRender() {
     (LP.cur ? '<button type="button" class="lp-site lp-site-new" data-slug="">+ New site</button>' : '');
   lp$('lpNewBox').hidden = !!LP.cur;
   if (!LP.slugTyped) lp$('lpNewSlug').value = loupedId(lpNameFromMap()); // until you type your own
-  const ml = lpMapLayers();
-  lp$('lpNewNote').innerHTML = ml.length ? 'Takes the areas, the ' + ml.length + ' layer' + (ml.length === 1 ? '' : 's') + ' on in the Layers panel (' + ml.map(l => escHtml(l.name)).join(', ') + '), the Report tab\'s occurd. records and any LiDAR heights loaded. Licences are applied as in Export for Louped.'
-    : 'Switch on the layers you want in the map\'s Layers panel first. The areas, the Report tab\'s occurd. records and any LiDAR heights loaded come too.';
+  const np = LP.cur ? null : lpPlan();
+  if (np) lp$('lpNewNote').innerHTML = (np.take.length ? 'Takes the ' + np.take.length + ' layer' + (np.take.length === 1 ? '' : 's') + ' ticked in the <b>Louped</b> column of the map\'s Layers panel (' + np.take.map(k => escHtml(np.name(k))).join(', ') + '), the areas'
+      : 'Tick the layers you want in the <b>Louped</b> column of the map\'s Layers panel. It takes those, the areas') +
+    ', the Report tab\'s occurd. records and any LiDAR heights loaded. Licences are applied as in Export for Louped.' + (np.off.length ? ' Ticked but switched off, so not taken: ' + np.off.map(k => escHtml(np.name(k))).join(', ') + '.' : '');
   lpFoot();
   const s = LP.cur;
   lp$('lpEdit').hidden = !s;
@@ -10614,10 +10586,11 @@ function lpRender() {
   lp$('lpWarn').innerHTML = (left.length ? '<div class="lp-warn"><b>Left out</b> (only you see this): ' + left.map(x => escHtml(x.name) + ' (' + escHtml(x.reason) + ')').join('; ') + '</div>' : '') +
     (unc.length ? '<div class="lp-warn"><b>Licence not stated: decide before this goes to anyone</b>: ' + unc.map(x => escHtml(x.name)).join(', ') + '</div>' : '');
   // In the client's view
-  const hid = new Set(s.job.hidden || []), rows = (m && m.layers || []).map(l => [l.id, l.name, l.group]);
+  const fromMap = new Set(mapStack.listed().map(lpIdOf));
+  const hid = new Set(s.job.hidden || []), rows = (m && m.layers || []).filter(l => !fromMap.has(l.id)).map(l => [l.id, l.name, l.group]);
   if (m && (m.terrain || []).length) rows.push(['_terrain', '3D view (LiDAR heights)', 'LiDAR']);
   if (m && (m.records || []).length) rows.push(['_records', 'Species records', 'Species']);
-  lp$('lpShow').innerHTML = rows.length ? rows.map(([id, name, g]) => '<label class="lp-row"><input type="checkbox" data-layer="' + escHtml(id) + '"' + (hid.has(id) ? '' : ' checked') + '> ' + escHtml(name) + (g ? ' <span class="lp-g">' + escHtml(g) + '</span>' : '') + '</label>').join('') : '<div class="field-hint">No layers yet.</div>';
+  lp$('lpShow').innerHTML = rows.length ? '<div class="field-hint" style="margin:8px 0 2px;">Also in the site (not on the map now):</div>' + rows.map(([id, name, g]) => '<label class="lp-row"><input type="checkbox" data-layer="' + escHtml(id) + '"' + (hid.has(id) ? '' : ' checked') + '> ' + escHtml(name) + (g ? ' <span class="lp-g">' + escHtml(g) + '</span>' : '') + '</label>').join('') : '';
   LP_FIELDS.forEach(k => { lp$('lpF_' + k).value = s.job[k] || ''; });
   lp$('lpF_aerial').value = s.job.basemap && s.job.basemap.aerialLayer || '';
   lp$('lpPreviewName').textContent = (s.job.title || s.slug) + ' · as the client sees it';
@@ -10648,13 +10621,14 @@ async function lpRun(what, fn) {
 async function lpSelect(slug) {
   LP.cur = LP.sites.find(s => s.slug === slug) || null;
   lpStore('inferrd.loupedSite', LP.cur ? LP.cur.slug : '');
+  lpPickLoad();
+  mapStack.render();
   lpRender();
   await lpPreview();
 }
 async function lpBuildFromMap() {
   if (!areas.length) throw new Error('draw or add the areas on the map first');
-  const b = await loupedBuild(rpt, (t) => lpSay('info', t));
-  return b;
+  return loupedBuild(rpt, (t) => lpSay('info', t), new Set(lpPlan().take));
 }
 const lpBuildNote = (b) => (b.left.length ? ' Left out: ' + b.left.map(x => x.name + ' (' + x.reason + ')').join('; ') + '.' : '') +
   (b.unclear.length ? ' Licence not stated, check before sharing: ' + b.unclear.map(x => x.name).join(', ') + '.' : '');
@@ -10664,6 +10638,8 @@ lp$('lpBrowserBtn').addEventListener('click', async () => {
   lpWhere('browser');
   LP.cur = null;
   await lpLoadSites();
+  lpPickLoad();
+  mapStack.render();
   lpRender();
   lpSay('', '');
 });
@@ -10674,6 +10650,8 @@ lp$('lpFolderBtn').addEventListener('click', async () => {
     lpWhere('folder');
     await lpKeep(h);
     await lpLoadSites();
+    lpPickLoad();
+    mapStack.render();
     lpRender();
     lpSay('', '');
   } catch (e) { if (e.name !== 'AbortError') lpSay('error', 'Couldn\'t open that folder: ' + e.message); }
@@ -10683,11 +10661,17 @@ lp$('lpAllowBtn').addEventListener('click', async () => {
   if ((await LP.pending.requestPermission({ mode: 'readwrite' })) !== 'granted') return lpSay('warning', 'The browser wasn\'t allowed to open the folder.');
   LP.dir = LP.pending; LP.pending = null; LP.where = 'folder';
   await lpLoadSites();
+  const last = lpStore('inferrd.loupedSite');
+  LP.cur = LP.sites.find(s => s.slug === last) || null;
+  lpPickLoad();
+  mapStack.render();
   lpRender();
+  if (LP.cur) lpPreview();
 });
+lp$('rptLpHint').addEventListener('click', (e) => { if (e.target.closest('[data-go]')) { e.preventDefault(); setAppTab('louped'); } });
 lp$('lpNewSlug').addEventListener('input', () => { LP.slugTyped = !!lp$('lpNewSlug').value.trim(); });
 lp$('lpSites').addEventListener('click', (ev) => { const b = ev.target.closest('[data-slug]'); if (b) lpSelect(b.dataset.slug); });
-lp$('lpMapDiff').addEventListener('click', (ev) => { if (ev.target.closest('#lpUpdBtn')) lpUpdate(null, 'the map', null, true); });
+lp$('lpMapDiff').addEventListener('click', (ev) => { if (ev.target.closest('#lpUpdBtn')) lpUpdateFromPicks(); });
 lp$('lpReplaceBtn').addEventListener('click', () => lpUpdate(null, 'the map', null, false));
 lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async () => {
   const slug = lp$('lpNewSlug').value.trim().toLowerCase();
@@ -10698,10 +10682,12 @@ lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async (
   const job = Object.fromEntries(LP_FIELDS.map(k => [k, '']));
   job.title = lpNameFromMap();
   job.packages = ['package'];
+  job.pick = [...(LP.pick || [])];
   await lpPutPackage({ slug, h }, b.files);
   await lpWrite(h, 'job.json', JSON.stringify(job, null, 2) + '\n');
   await lpLoadSites();
   LP.slugTyped = false;
+  lpStore('inferrd.loupedPick', '');
   await lpSelect(slug);
   lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Made ' + slug + ' from the map: ' + b.layers.length + ' layer' + (b.layers.length === 1 ? '' : 's') + ', ' + b.records.reduce((t, r) => t + r.rows, 0).toLocaleString() + ' records' + (b.terrain.length ? ', LiDAR heights' : '') + '.' + lpBuildNote(b));
 }));
@@ -10742,6 +10728,18 @@ lp$('lpSaveBtn').addEventListener('click', () => lpRun('Saving', async () => {
   lpSay('success', 'Saved ' + new Date().toLocaleTimeString('en-NZ') + '.');
 }));
 lp$('lpReloadBtn').addEventListener('click', () => lpPreview());
+lp$('lpDownBtn').addEventListener('click', () => lpRun('Making the zip', async () => {
+  const s = LP.cur;
+  if (!s.m) throw new Error('the site has no data yet');
+  const JSZip = await loadJSZip(), zip = new JSZip();
+  Object.entries(await lpWalk(await s.h.getDirectoryHandle('package'))).forEach(([path, f]) => zip.file(path, f));
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }));
+  a.download = isoDate(new Date()) + '_' + s.slug + '.louped.zip';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  lpSay('success', 'Downloaded ' + a.download + '.');
+}));
 // Opened at once (a popup has to open in the click itself); it asks for the
 // files the frame was last sent, which every change keeps current.
 lp$('lpTabBtn').addEventListener('click', () => { if (LP.files) window.open('louped/index.html?t=' + Date.now() + '#preview', '_blank'); });
@@ -10851,6 +10849,7 @@ lp$('lpOffBtn').addEventListener('click', () => lpRun('Taking it offline', async
   await lpOnlineLoad();
   lpSay('success', s.slug + ' is offline.');
 }));
+lpInit();
 
 
 rptInit();
