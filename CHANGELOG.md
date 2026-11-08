@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.79.0 — 2026-11-08
+
+- **Louped viewer v0.15.0: layers in the 3D view.** A **Layers** button in
+  the 3D view's bar lists the map's layers and base maps: tick or untick
+  one and the model is redrawn with it, keeping the view where it is. It
+  switches the layer on the 2D map too, so the two stay the same. Species
+  records aren't draped. Sites already online get this when you put them
+  online again.
+
 ## v0.78.1 — 2026-11-08
 
 - **Fix: the Louped 3D view.** It stopped with "src is not a function" in
