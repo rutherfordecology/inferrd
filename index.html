@@ -1517,7 +1517,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.79.0';
+const APP_VERSION = 'v0.80.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -6843,10 +6843,26 @@ function v3dClear() {
 
 // The cut-out's sides: thin black wire from the area's edge on the model
 // down to the same outline on a flat base at yBase (below the lowest
-// point), with a vertical every `tick` metres around it, so the model reads
+// point), with a vertical at each corner (v3dCorners), so the model reads
 // as a block lifted out of the landscape. Heights in the group's units
 // (above zBase, before Height ×, which the group's scale applies).
-function v3dSides(d, cx, cy, zBase, yBase, tick) {
+// A corner is a vertex of a closed ring where the outline turns by
+// V3D_CORNER_DEG or more, so a rectangle gets four and the many small
+// bends of a traced or buffered edge get none.
+const V3D_CORNER_DEG = 20;
+function v3dCorners(r) {
+  const m = r.length - 1, out = new Set(); // closed ring: r[m] repeats r[0]
+  for (let k = 0; k < m; k++) {
+    const a = r[(k - 1 + m) % m], b = r[k], c = r[(k + 1) % m];
+    const ux = b[0] - a[0], uy = b[1] - a[1], wx = c[0] - b[0], wy = c[1] - b[1];
+    const lu = Math.hypot(ux, uy), lw = Math.hypot(wx, wy);
+    if (!lu || !lw) continue;
+    const cos = Math.max(-1, Math.min(1, (ux * wx + uy * wy) / (lu * lw)));
+    if (Math.acos(cos) * 180 / Math.PI >= V3D_CORNER_DEG) out.add(k);
+  }
+  return out;
+}
+function v3dSides(d, cx, cy, zBase, yBase) {
   const rings = [];
   turf.geomEach(d.geojson, gm => {
     if (!gm) return;
@@ -6859,17 +6875,16 @@ function v3dSides(d, cx, cy, zBase, yBase, tick) {
   const step = Math.max(d.grid.res, perim / 4000); // the top edge follows the model at this spacing
   const v = [];
   nz.forEach(r => {
-    let prev = null, run = 0, last = zBase;
+    let prev = null, last = zBase;
+    const corners = v3dCorners(r);
     const at = (X, Y) => { const z = v3dHeightAt([d], X, Y); if (z === z) last = z; return [X - cx, last - zBase, -(Y - cy)]; };
     for (let i = 1; i < r.length; i++) {
       const [ax, ay] = r[i - 1], [bx, by] = r[i], len = Math.hypot(bx - ax, by - ay), n = Math.max(1, Math.ceil(len / step));
       for (let j = i === 1 ? 0 : 1; j <= n; j++) {
         const t = j / n, p = at(ax + (bx - ax) * t, ay + (by - ay) * t);
-        if (prev) {
-          v.push(...prev, ...p, prev[0], yBase, prev[2], p[0], yBase, p[2]);
-          run += Math.hypot(p[0] - prev[0], p[2] - prev[2]);
-        }
-        if (!prev || run >= tick) { v.push(p[0], p[1], p[2], p[0], yBase, p[2]); run = 0; }
+        if (prev) v.push(...prev, ...p, prev[0], yBase, prev[2], p[0], yBase, p[2]);
+        const vert = j === 0 ? 0 : j === n ? i : -1; // which ring vertex p is, if any
+        if (vert >= 0 && vert < r.length - 1 && corners.has(vert)) v.push(p[0], p[1], p[2], p[0], yBase, p[2]);
         prev = p;
       }
     }
@@ -7089,7 +7104,7 @@ async function v3dBuildRun(run) {
   // The base sits a quarter of the relief below the lowest point (at least
   // 4% of the width, so flat ground still shows a slab).
   const span0 = Math.max(x1 - x0, y1 - y0), yBase = -Math.max(0.25 * (zTop - zBase), 0.04 * span0);
-  sets.forEach(d => { const w = v3dSides(d, cx, cy, zBase, yBase, span0 / 40); if (w) v3d.group.add(w); });
+  sets.forEach(d => { const w = v3dSides(d, cx, cy, zBase, yBase); if (w) v3d.group.add(w); });
   const cut = v3d.group.children.some(m => m.userData.cut);
   v3d.group.scale.y = v3dSrc.exag;
   v3d.frame = { sets, cx, cy, zBase, pole: V3D_POI_FRAC * Math.max(x1 - x0, y1 - y0) };

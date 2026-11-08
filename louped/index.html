@@ -200,7 +200,7 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
-const VIEWER_VERSION = 'v0.15.0';
+const VIEWER_VERSION = 'v0.16.0';
 const LOOKLIKE = 'https://occurd.rutherfordecology.co.nz/looklike/';
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -769,8 +769,21 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       return best;
     }
     // The cut-out's sides: thin wire from the area's edge on the model down
-    // to the same outline on a flat base, with a vertical every `tick` metres
-    function sides(d, Z, cx, cy, zBase, yBase, tick) {
+    // to the same outline on a flat base, with a vertical at each corner: a
+    // vertex where the outline turns by CORNER_DEG or more (a rectangle has
+    // four; the small bends of a traced edge have none)
+    const CORNER_DEG = 20;
+    function corners(r) {
+      const m = r.length - 1, out = new Set(); // closed ring: r[m] repeats r[0]
+      for (let k = 0; k < m; k++) {
+        const a = r[(k - 1 + m) % m], b = r[k], c = r[(k + 1) % m];
+        const ux = b[0] - a[0], uy = b[1] - a[1], wx = c[0] - b[0], wy = c[1] - b[1], lu = Math.hypot(ux, uy), lw = Math.hypot(wx, wy);
+        if (!lu || !lw) continue;
+        if (Math.acos(Math.max(-1, Math.min(1, (ux * wx + uy * wy) / (lu * lw)))) * 180 / Math.PI >= CORNER_DEG) out.add(k);
+      }
+      return out;
+    }
+    function sides(d, Z, cx, cy, zBase, yBase) {
       const gm = d.t.outline, rings = [];
       if (gm && gm.type === 'Polygon') rings.push(...gm.coordinates);
       else if (gm && gm.type === 'MultiPolygon') gm.coordinates.forEach(p => rings.push(...p));
@@ -779,14 +792,16 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       const perim = nz.reduce((t, r) => t + r.reduce((s, p, i) => i ? s + Math.hypot(p[0] - r[i - 1][0], p[1] - r[i - 1][1]) : s, 0), 0);
       const step = Math.max(d.g.res, perim / 4000), v = [];
       nz.forEach(r => {
-        let prev = null, runL = 0, last = zBase;
+        let prev = null, last = zBase;
+        const cs = corners(r);
         const at = (X, Y) => { const z = heightAt(d, Z, X, Y); if (z === z) last = z; return [X - cx, last - zBase, -(Y - cy)]; };
         for (let i = 1; i < r.length; i++) {
           const [ax, ay] = r[i - 1], [bx, by] = r[i], n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / step));
           for (let j = i === 1 ? 0 : 1; j <= n; j++) {
             const p = at(ax + (bx - ax) * j / n, ay + (by - ay) * j / n);
-            if (prev) { v.push(...prev, ...p, prev[0], yBase, prev[2], p[0], yBase, p[2]); runL += Math.hypot(p[0] - prev[0], p[2] - prev[2]); }
-            if (!prev || runL >= tick) { v.push(p[0], p[1], p[2], p[0], yBase, p[2]); runL = 0; }
+            if (prev) v.push(...prev, ...p, prev[0], yBase, prev[2], p[0], yBase, p[2]);
+            const vert = j === 0 ? 0 : j === n ? i : -1; // which ring vertex p is, if any
+            if (vert >= 0 && vert < r.length - 1 && cs.has(vert)) v.push(p[0], p[1], p[2], p[0], yBase, p[2]);
             prev = p;
           }
         }
@@ -822,7 +837,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
         S.forEach((d, k) => v3.group.add(mesh(d, d[model], cx, cy, zBase, drapes[k])));
         // The base a quarter of the relief below the lowest point (at least 4% of the width)
         const span = Math.max(x1 - x0, y1 - y0), yBase = -Math.max(0.25 * (zTop - zBase), 0.04 * span);
-        S.forEach(d => { const w = sides(d, d[model], cx, cy, zBase, yBase, span / 40); if (w) v3.group.add(w); });
+        S.forEach(d => { const w = sides(d, d[model], cx, cy, zBase, yBase); if (w) v3.group.add(w); });
         v3.group.scale.y = v3o.exag;
         if (!v3.span) {
           v3.span = span;

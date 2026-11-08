@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.80.0 — 2026-11-08
+
+- **3D view: the sides have a vertical only at each corner.** The wire
+  under an area no longer drops a line every few metres around the edge.
+  It still follows the area's edge on top and the same outline on the
+  base, and joins them with one vertical at each corner: a point where the
+  outline turns by 20° or more. A drawn rectangle gets four; the small
+  bends of a traced or buffered edge get none. Same in the Louped viewer
+  (`louped/index.html`, now v0.16.0). Sites already online get it when you
+  put them online again.
+
 ## v0.79.0 — 2026-11-08
 
 - **Louped viewer v0.15.0: layers in the 3D view.** A **Layers** button in
