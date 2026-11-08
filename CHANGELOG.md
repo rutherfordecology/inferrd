@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.78.0 — 2026-11-08
+
+- **Layers tab.** The reference layers (GDC, QEII, Te Puni Kōkiri, NIWA,
+  Manaaki Whenua, and your private layers) move out of the map's Layers
+  panel into a tab of their own, with the unlock and Add a private layer.
+  It also lists every layer the other tabs have made, by tab, so anything
+  can be switched on from one place. Each row keeps its eye, opacity and
+  Louped tick.
+- **The map's Layers panel is about the open tab:** its own layers (on the
+  Biodiversity tab, just its selections), then **Also on the map**:
+  whatever else is switched on, from other tabs or the reference layers.
+  Layers that are off and belong elsewhere are no longer listed there.
+
 ## v0.77.0 — 2026-11-08
 
 - **Biodiversity tab.** Add occurd. "Occurrences CSV" exports (drop them on

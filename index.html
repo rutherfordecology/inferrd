@@ -70,6 +70,9 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
 .sidebar.louped-mode > :not(#loupedPanel), .sidebar:not(.louped-mode) > #loupedPanel { display: none !important; }
 .sidebar.bio-mode > :not(#bioPanel), .sidebar:not(.bio-mode) > #bioPanel { display: none !important; }
+.sidebar.layers-mode > :not(#layersPanel), .sidebar:not(.layers-mode) > #layersPanel { display: none !important; }
+#layersPanel .lpanel-side { font-size: 12.5px; }
+#layersPanel .lpanel-tabh { font: 600 10px var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text3); padding: 8px 0 3px; }
 .results-pane.bio-mode > :not(#bioResults), .results-pane:not(.bio-mode) > #bioResults { display: none !important; }
 .bio-file { display: grid; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
 .bio-file small { color: var(--text3); font-size: 11px; }
@@ -415,6 +418,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
     <button class="app-tab" id="tabBio" data-tab="bio" type="button" role="tab" aria-selected="false" title="Species records from occurd.: choose what to map, and what goes to a client's Louped site">Biodiversity</button>
+    <button class="app-tab" id="tabLayers" data-tab="layers" type="button" role="tab" aria-selected="false" title="Every layer: the reference layers from occurd. (GDC, QEII, NIWA, Manaaki Whenua), and the layers the other tabs have made">Layers</button>
     <button class="app-tab" id="tabReport" data-tab="report" type="button" role="tab" aria-selected="false" title="Build a report: brief, emails, areas, and a fact sheet from the other tabs and occurd.">Report</button>
     <button class="app-tab" id="tabLouped" data-tab="louped" type="button" role="tab" aria-selected="false" title="Client maps: build a Louped site from this map, word it and preview it">Louped</button>
   </nav>
@@ -845,6 +849,14 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-footer">
         <p class="note">ESA WorldCover 2021 (CC BY 4.0); Dynamic World (Google / World Resources Institute, CC BY 4.0); Hansen et al. 2013 Global Forest Change (University of Maryland, CC BY 4.0); Lang et al. 2023 global canopy height (ETH Zürich, CC BY 4.0); Pekel et al. 2016 Global Surface Water (EC JRC); MODIS MCD64A1 burned area and FIRMS (NASA).</p>
+      </div>
+    </div>
+
+    <div id="layersPanel">
+      <div class="sidebar-section">
+        <div class="section-label">Layers</div>
+        <div class="field-hint" style="margin:0;">Switch on what you want on the map. The map's Layers panel then lists each tab's own layers, and everything that's on, wherever it came from; tick <b>Louped</b> there or here to put a layer in the client site.</div>
+        <div id="layersHost"></div>
       </div>
     </div>
 
@@ -1432,7 +1444,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
 
     <h3>Layers</h3>
-    <p>Every layer is in one <strong>Layers</strong> panel on the right of the map, like layers in Photoshop: the eye switches a layer on or off, the slider sets its opacity, and dragging a row by its grip moves it up or down among its own kind, so it draws over or under the others. The chevron folds the panel to the side. It has three parts. <strong>This tab</strong> lists the data layers the open tab makes: the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, and the six Land cover layers whenever there are areas. <strong>Other tabs</strong> (folded) lists what the other tabs have made; those layers stay on the map when you change tab, so LiDAR heights can sit over geology, or tree loss over an index preview. <strong>Reference layers</strong> are occurd.'s polygon layers, the same on every tab (below). Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
+    <p>The <strong>Layers</strong> panel on the right of the map shows what matters on the open tab: that tab's own layers (the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, the six Land cover layers whenever there are areas, the Biodiversity tab's selections), then <strong>Also on the map</strong>: everything else that is switched on, from the other tabs or the reference layers, so LiDAR heights can sit over geology, or tree loss over an index preview. The eye switches a layer on or off, the slider sets its opacity, dragging a row by its grip moves it up or down among its own kind, and the <strong>Louped</strong> tick puts it in a client site. The chevron folds the panel to the side. The <strong>Layers</strong> tab lists every layer: each tab's, and the <strong>reference layers</strong>, occurd.'s polygon layers (below), where you unlock and choose them. Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
     <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the land cover layers (land cover, change, tree loss, canopy height, surface water and fire) and against every reference layer. The results are on the Land cover tab, each with its CSV.</p>
     <p><strong>Cut an area by a layer:</strong> ✂ on an area keeps only the part of it inside a layer, or only the part outside, as a new area named after both; the original stays. It can be any tab's layer: a WorldCover or Dynamic World class, canopy over a height, tree cover loss, surface water, a slope class or elevation band, or a reference layer's shapes. Earth Engine layers are cut at their own pixels (10 or 30 m). "Cut areas to this" in a reference-layer popup cuts each area that touches that one shape.</p>
 
@@ -1505,7 +1517,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.77.0';
+const APP_VERSION = 'v0.78.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1681,7 +1693,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', report: 'Report', louped: 'Louped' };
+const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -1717,13 +1729,21 @@ const mapStack = (() => {
     '<div class="lpanel-head"><button class="lpanel-fold" type="button"></button><strong>Layers</strong><span class="lpanel-lpcol" title="Tick a layer to put it in the client site open in the Louped tab (or the next one you make). Unticked, it comes out next time the site is updated.">Louped</span></div>' +
     '<div class="lpanel-body">' +
       '<div class="lpanel-sec"><div class="lpanel-h" data-h="tab"></div><div class="lpanel-cond"></div><ul class="mstack-list" data-list="tab"></ul><div class="lpanel-none"></div></div>' +
-      '<div class="lpanel-sec" data-sec="other"><button class="lpanel-h lpanel-tog" type="button" data-fold="other"></button><ul class="mstack-list" data-list="other"></ul></div>' +
-      '<div class="lpanel-sec"><button class="lpanel-h lpanel-tog" type="button" data-fold="ref"></button><div class="lpanel-refwrap"><div class="lpanel-groups"></div><div class="lpanel-lock"></div></div></div>' +
+      '<div class="lpanel-sec" data-sec="other"><div class="lpanel-h" data-h="also"></div><ul class="mstack-list" data-list="other"></ul></div>' +
       '<div class="lpanel-foot"></div>' +
+    '</div>' +
+    // Moved into the Layers tab's sidebar below
+    '<div class="lpanel-side">' +
+      '<div class="lpanel-sec"><div class="lpanel-h" data-h="tabs">From the tabs<span class="lpanel-lpcol" title="Tick a layer to put it in the client site open in the Louped tab">Louped</span></div><div data-list="all"></div></div>' +
+      '<div class="lpanel-sec"><div class="lpanel-h" data-h="ref"></div><div class="lpanel-refwrap"><div class="lpanel-groups"></div><div class="lpanel-lock"></div></div></div>' +
     '</div>';
   L.DomEvent.disableClickPropagation(box);
   L.DomEvent.disableScrollPropagation(box);
-  const $ = (s) => box.querySelector(s);
+  const side = box.querySelector('.lpanel-side');
+  (document.getElementById('layersHost') || box).appendChild(side);
+  const $ = (s) => box.querySelector(s) || side.querySelector(s);
+  // Handlers listen on the map's panel and the Layers tab alike
+  const on = (type, fn) => [box, side].forEach(el => el.addEventListener(type, fn));
   const Ctl = L.Control.extend({ options: { position: 'topright' }, onAdd: () => box });
   new Ctl().addTo(map);
   // The panel never closes: the chevron folds it to a strip at the right
@@ -1763,20 +1783,24 @@ const mapStack = (() => {
   const onOf = (keys) => keys.filter(k => E[k].on).length + ' of ' + keys.length + ' on';
   function render() {
     const shown = order.filter(k => !E[k].ref && avail(E[k]));
-    const mine = shown.filter(k => E[k].tab === curTab), others = shown.filter(k => E[k].tab !== curTab);
+    const mine = shown.filter(k => E[k].tab === curTab);
     const cond = $('.lpanel-cond'), condOn = curTab === 'Infrared' && cond.childElementCount > 0 && cond.style.display !== 'none';
     cond.hidden = curTab !== 'Infrared';
     $('[data-h="tab"]').innerHTML = esc(curTab) + (mine.length ? ' <span class="n">' + onOf(mine) + '</span>' : '');
     $('[data-list="tab"]').innerHTML = mine.map(k => rowHtml(k)).join('');
-    $('.lpanel-none').textContent = mine.length || condOn ? '' : curTab === 'Report' || curTab === 'Louped' ? 'The ' + curTab + ' tab makes no layers of its own.' : 'Nothing yet: this tab\'s layers are listed once it has something to show for your areas.';
-    const chev = (f) => '<span class="chev">' + (fold[f] ? '▸' : '▾') + '</span>';
-    $('[data-sec="other"]').hidden = !others.length;
-    $('[data-fold="other"]').innerHTML = 'Other tabs <span class="n">' + (others.length ? onOf(others) : '') + '</span>' + chev('other');
-    $('[data-list="other"]').hidden = fold.other;
-    $('[data-list="other"]').innerHTML = fold.other ? '' : others.map(k => rowHtml(k, true)).join('');
+    $('.lpanel-none').textContent = mine.length || condOn ? '' : curTab === 'Layers' ? 'Choose layers in the list on the left.' : curTab === 'Report' || curTab === 'Louped' ? 'The ' + curTab + ' tab makes no layers of its own.' : 'Nothing yet: this tab\'s layers are listed once it has something to show for your areas.';
     const refs = order.filter(k => E[k].ref);
-    $('[data-fold="ref"]').innerHTML = 'Reference layers <span class="n">' + (refActive && refs.length ? onOf(refs) : '') + '</span>' + chev('ref');
-    $('.lpanel-refwrap').hidden = !!fold.ref;
+    // Also on the map: what's on from the other tabs and the reference layers
+    const also = order.filter(k => E[k].on && avail(E[k]) && (E[k].ref || E[k].tab !== curTab));
+    $('[data-sec="other"]').hidden = !also.length;
+    $('[data-h="also"]').innerHTML = 'Also on the map <span class="n">' + also.length + '</span>';
+    $('[data-list="other"]').innerHTML = also.map(k => rowHtml(k, true)).join('');
+    // The Layers tab: every tab's layers, by tab, and the reference layers
+    const tabs = [];
+    shown.forEach(k => { if (!tabs.includes(E[k].tab)) tabs.push(E[k].tab); });
+    $('[data-list="all"]').innerHTML = tabs.length ? tabs.map(t => '<div class="lpanel-tabh">' + esc(t) + '</div><ul class="mstack-list">' + shown.filter(k => E[k].tab === t).map(k => rowHtml(k)).join('') + '</ul>').join('')
+      : '<div class="lpanel-none">Nothing yet: each tab adds its layers here once it has something to show for your areas.</div>';
+    $('[data-h="ref"]').innerHTML = 'Reference layers <span class="n">' + (refActive && refs.length ? onOf(refs) : '') + '</span>';
     const groups = [];
     if (refActive) refs.forEach(k => { if (!groups.includes(E[k].group)) groups.push(E[k].group); });
     $('.lpanel-groups').innerHTML = groups.map(g => {
@@ -1786,7 +1810,7 @@ const mapStack = (() => {
     }).join('');
     if (window.lpFootHook) window.lpFootHook(); // the Louped button at the foot
   }
-  box.addEventListener('click', (ev) => {
+  on('click', (ev) => {
     const t = ev.target.closest('[data-fold]');
     if (t) { fold[t.dataset.fold] = !fold[t.dataset.fold]; save(); render(); return; }
     const g = ev.target.closest('.lpanel-grp');
@@ -1811,7 +1835,7 @@ const mapStack = (() => {
     save();
     render();
   }
-  box.addEventListener('change', (ev) => {
+  on('change', (ev) => {
     const t = ev.target.closest('[data-lp]');
     if (t) {
       const k = t.closest('.mstack-row').dataset.key;
@@ -1823,7 +1847,7 @@ const mapStack = (() => {
     if (!c) return;
     E[c.closest('.mstack-key').dataset.key].opts[+c.dataset.opt].set(c.checked);
   });
-  box.addEventListener('input', (ev) => {
+  on('input', (ev) => {
     if (ev.target.type !== 'range') return;
     const e = E[ev.target.closest('.mstack-row').dataset.key];
     e.op = Number(ev.target.value) / 100;
@@ -1833,13 +1857,13 @@ const mapStack = (() => {
   });
   // Drag a row above or below another of its own kind, by its grip (so the
   // opacity slider still slides).
-  box.addEventListener('pointerdown', (ev) => {
+  on('pointerdown', (ev) => {
     const g = ev.target.closest('.mstack-grip');
     if (g) g.closest('.mstack-row').draggable = true;
   });
-  const clearMarks = () => box.querySelectorAll('.drop-above, .drop-below, .dragging').forEach(r => r.classList.remove('drop-above', 'drop-below', 'dragging'));
+  const clearMarks = () => [box, side].forEach(el => el.querySelectorAll('.drop-above, .drop-below, .dragging').forEach(r => r.classList.remove('drop-above', 'drop-below', 'dragging')));
   const sameKind = (a, b) => !!E[a].ref === !!E[b].ref;
-  box.addEventListener('dragstart', (ev) => {
+  on('dragstart', (ev) => {
     const row = ev.target.closest && ev.target.closest('.mstack-row');
     if (!row) return;
     dragKey = row.dataset.key;
@@ -1847,15 +1871,15 @@ const mapStack = (() => {
     ev.dataTransfer.effectAllowed = 'move';
     try { ev.dataTransfer.setData('text/plain', dragKey); } catch (err) {}
   });
-  box.addEventListener('dragover', (ev) => {
+  on('dragover', (ev) => {
     const row = ev.target.closest('.mstack-row');
     if (!dragKey || !row || !sameKind(dragKey, row.dataset.key)) return;
     ev.preventDefault();
     const r = row.getBoundingClientRect(), below = ev.clientY > r.top + r.height / 2;
-    box.querySelectorAll('.drop-above, .drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below'));
+    [box, side].forEach(el => el.querySelectorAll('.drop-above, .drop-below').forEach(x => x.classList.remove('drop-above', 'drop-below')));
     if (row.dataset.key !== dragKey) row.classList.add(below ? 'drop-below' : 'drop-above');
   });
-  box.addEventListener('drop', (ev) => {
+  on('drop', (ev) => {
     const row = ev.target.closest('.mstack-row');
     if (!dragKey || !row) return;
     ev.preventDefault();
@@ -1869,7 +1893,7 @@ const mapStack = (() => {
     dragKey = null;
     render();
   });
-  box.addEventListener('dragend', () => { dragKey = null; clearMarks(); box.querySelectorAll('[draggable]').forEach(r => { r.draggable = false; }); });
+  on('dragend', () => { dragKey = null; clearMarks(); [box, side].forEach(el => el.querySelectorAll('[draggable]').forEach(r => { r.draggable = false; })); });
 
   // Reference outlines take clicks (popups), except while an area is
   // being drawn, when they would swallow the clicks placing its corners.
@@ -9079,7 +9103,7 @@ function checkAreasChanged() {
   if (checkDone) { checkMsg(checkDone); return; }
   const what = [], missing = [];
   (eeReady ? what : missing).push(eeReady ? 'land cover, tree loss, canopy height, surface water and fire' : 'Unlock Earth Engine on the <a href="#" data-go="infrared">Infrared</a> tab to check land cover.');
-  (refActive ? what : missing).push(refActive ? 'every reference layer' : 'Unlock the reference layers above to check them too.');
+  (refActive ? what : missing).push(refActive ? 'every reference layer' : 'Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to check them too.');
   checkMsg(!areas.length ? 'Draw or add an area first.' : (what.length ? 'Checks ' + what.join(', and ') + '. ' : '') + missing.join(' '));
 }
 document.getElementById('checkAreasMsg').addEventListener('click', (e) => {
@@ -9245,7 +9269,7 @@ function openCut(area) {
   if (pick) cutSel.value = pick.value;
   document.getElementById('cutGo').disabled = !pick;
   document.getElementById('cutHint').textContent = 'The new area is added beside ' + area.name + ', which stays as it is.' +
-    (refActive ? '' : ' Unlock the reference layers in the Layers panel to cut by them as well.') + (eeReady ? '' : ' Unlock Earth Engine on the Infrared tab to cut by land cover, slope or elevation.');
+    (refActive ? '' : ' Unlock the reference layers on the Layers tab to cut by them as well.') + (eeReady ? '' : ' Unlock Earth Engine on the Infrared tab to cut by land cover, slope or elevation.');
   setCutStatus('', '');
   renderCutWhat();
   cutDlg.hidden = false;
@@ -11183,6 +11207,7 @@ function setAppTab(tab) {
   document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
   document.querySelector('.sidebar').classList.toggle('louped-mode', tab === 'louped');
   document.querySelector('.sidebar').classList.toggle('bio-mode', tab === 'bio');
+  document.querySelector('.sidebar').classList.toggle('layers-mode', tab === 'layers');
   document.getElementById('resultsPane').classList.toggle('bio-mode', tab === 'bio');
   document.getElementById('resultsPane').classList.toggle('louped-mode', tab === 'louped');
   map.closePopup();
