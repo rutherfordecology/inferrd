@@ -73,6 +73,10 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 #inputsPanel .in-sum { font-size: 12px; color: var(--text2); margin: 6px 0 0; }
 #inputsPanel .in-row { display: flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 3px 0; border-bottom: 1px solid var(--rule); }
 #inputsPanel .in-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#inputsPanel .in-row a[data-zoomarea] { color: var(--text); text-decoration: none; }
+#inputsPanel .in-row a[data-zoomarea]:hover { text-decoration: underline; }
+#inputsPanel .in-head { display: flex; justify-content: space-between; align-items: baseline; font: 600 10px var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text3); margin: 10px 0 4px; }
+#inputsPanel .in-head a { font-weight: 400; text-transform: none; letter-spacing: normal; font-size: 11.5px; }
 .sidebar.louped-mode > :not(#loupedPanel), .sidebar:not(.louped-mode) > #loupedPanel { display: none !important; }
 .sidebar.bio-mode > :not(#bioPanel), .sidebar:not(.bio-mode) > #bioPanel { display: none !important; }
 .sidebar.layers-mode > :not(#layersPanel), .sidebar:not(.layers-mode) > #layersPanel { display: none !important; }
@@ -803,21 +807,24 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="sidebar-section">
         <div class="section-label">1 · Areas</div>
         <label class="rpt-drop" id="inAreaDrop" title="Each polygon placemark in the file becomes an area, named as in the file"><strong>Drop KML or KMZ here</strong><br>or click to choose them<input type="file" id="inAreaFile" accept=".kml,.kmz" multiple></label>
-        <div class="in-sum" id="inAreaSum"></div>
+        <div class="in-head" id="inAreaHead"></div>
+        <div id="inAreaList"></div>
         <div class="field-hint" style="margin:6px 0 0;">Each polygon placemark becomes an area, named as in the file. You can also draw areas on the map on any tab.</div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">2 · Species records from occurd.</div>
         <label class="rpt-drop" id="inOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="inOccurdFile" accept=".csv,.txt,.zip" multiple></label>
-        <div class="rpt-list" id="rptOccurdList" style="margin-top:8px;"></div>
+        <div class="in-head" id="inOccurdHead"></div>
+        <div class="rpt-list" id="rptOccurdList"></div>
         <div class="field-hint" style="margin:6px 0 0;">The records CSV (<b>Occurrences CSV</b>, which the Biodiversity tab maps) or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to the areas by occurd.'s polygon name. The files are kept with the open report.</div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">3 · Layers</div>
         <label class="rpt-drop" id="inLayerDrop" title="A GeoJSON, KML or KMZ file from this computer, such as client boundaries"><strong>Drop GeoJSON, KML or KMZ here</strong><br>or click to choose them<input type="file" id="inLayerFile" accept=".geojson,.json,.kml,.kmz" multiple></label>
-        <div id="inLayerList" style="margin-top:6px;"></div>
+        <div class="in-head" id="inLayerHead"></div>
+        <div id="inLayerList"></div>
         <div class="field-hint" style="margin:6px 0 0;">Each file becomes a private layer on the map, listed with the reference layers. Private layers stay in this browser: never uploaded, and never in Export for Louped or other packages.</div>
       </div>
     </div>
@@ -1547,7 +1554,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.82.0';
+const APP_VERSION = 'v0.83.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -9530,6 +9537,7 @@ function rptRenderLists() {
     '<div class="rpt-card warn" data-fail="' + x.id + '"><div class="head"><span class="no">✗</span><span class="t">' + escHtml(x.name) + '</span>' +
     '<button class="rpt-x" type="button" data-del="fail" title="Dismiss">✕</button></div><div><strong>Not added.</strong> ' + escHtml(x.msg) + '</div></div>').join('') +
     rpt.occurd.map(rptOccurdCard).join('');
+  inputsRender();
   const n = rpt.occurd.length;
   document.getElementById('rptOccurdSum').innerHTML = (n ? '<b>' + n + (n === 1 ? ' file' : ' files') + '</b> in this report: ' + escHtml(rpt.occurd.map(f => f.name).join(', ')) + '. ' : 'No occurd. files in this report yet. ') +
     'Add or remove them on the <a href="#" data-go="inputs">Inputs</a> tab.';
@@ -9992,17 +10000,25 @@ async function inputsTake(files, as) {
   inputsSay(worst, msgs.join(' '));
   inputsRender();
 }
+// What's in now, under each box, each with its own remove link
+const inHead = (label, n, all) => '<span>' + label + ' (' + n + ')</span>' + (n > 1 ? '<a href="#" data-removeall="' + all + '">remove all</a>' : '');
 function inputsRender() {
   const n = areas.length;
-  document.getElementById('inAreaSum').innerHTML = n
-    ? '<b>' + n + (n === 1 ? ' area' : ' areas') + '</b> on the map: ' + escHtml(areas.map(a => a.name).join(', '))
-    : 'No areas yet.';
+  document.getElementById('inAreaHead').innerHTML = inHead('On the map', n, 'areas');
+  document.getElementById('inAreaList').innerHTML = n
+    ? areas.map(a => '<div class="in-row"><span title="' + escHtml(a.name) + '"><a href="#" data-zoomarea="' + a.id + '" title="Zoom to this area">' + escHtml(a.name) + '</a></span><a href="#" data-unarea="' + a.id + '" title="Remove this area from the map">remove</a></div>').join('')
+    : '<div class="in-sum">No areas yet.</div>';
+  const nf = rpt ? rpt.occurd.length : 0;
+  document.getElementById('inOccurdHead').innerHTML = inHead('In this report', nf, 'occurd');
+  if (!nf && !rptFailed.length) document.getElementById('rptOccurdList').innerHTML = '<div class="in-sum">No occurd. files yet.</div>';
   const P = window.inferrdPriv, host = document.getElementById('inLayerList');
   if (!P || !P.ready()) {
-    host.innerHTML = '<div class="in-sum">Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to add private layers.</div>';
+    document.getElementById('inLayerHead').innerHTML = '';
+    host.innerHTML = '<div class="in-sum">Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to see and add private layers.</div>';
     return;
   }
   const list = P.list();
+  document.getElementById('inLayerHead').innerHTML = inHead('Private layers', list.length, 'layers');
   host.innerHTML = list.length
     ? list.map(l => '<div class="in-row"><span title="' + escHtml(l.name) + '">' + escHtml(l.name) + '</span><a href="#" data-unpriv="' + escHtml(l.id) + '" title="Remove this private layer from this browser">remove</a></div>').join('')
     : '<div class="in-sum">No private layers yet.</div>';
@@ -10032,6 +10048,31 @@ window.inputsRender = inputsRender;
     const box = boxes.find(b => b.contains(e.target));
     clear();
     if (appTab === 'inputs') inputsTake([...e.dataTransfer.files], box ? box.dataset.as : null);
+  });
+  document.getElementById('inputsPanel').addEventListener('click', async (e) => {
+    const t = e.target.closest('[data-unarea], [data-zoomarea], [data-removeall]');
+    if (!t) return;
+    e.preventDefault();
+    if (t.dataset.zoomarea) {
+      const a = areas.find(x => String(x.id) === t.dataset.zoomarea);
+      if (a) map.fitBounds(a.layer.getBounds(), { padding: [30, 30], maxZoom: 17 });
+      return;
+    }
+    if (t.dataset.unarea) { removeArea(areas.find(x => String(x.id) === t.dataset.unarea)?.id); inputsRender(); return; }
+    const all = t.dataset.removeall;
+    if (all === 'areas') {
+      if (!confirm('Remove all ' + areas.length + ' areas from the map?')) return;
+      areas.slice().forEach(a => removeArea(a.id));
+    } else if (all === 'occurd') {
+      if (!rpt || !confirm('Remove all ' + rpt.occurd.length + ' occurd. files from this report?')) return;
+      rpt.occurd = [];
+      rptSave(); renderReport(); rptRenderLists(); bioSync();
+    } else if (all === 'layers') {
+      const P = window.inferrdPriv, list = P ? P.list() : [];
+      if (!list.length || !confirm('Remove all ' + list.length + ' private layers from this browser?')) return;
+      for (const l of list) await P.remove(l.id);
+    }
+    inputsRender();
   });
   document.getElementById('inLayerList').addEventListener('click', async (e) => {
     const un = e.target.closest('[data-unpriv]');

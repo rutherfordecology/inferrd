@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.83.0 — 2026-11-09
+
+- **Inputs tab lists what's in, to remove as you go.** Under each box is
+  what the app holds now, with a count: the areas on the map (click a name
+  to zoom to it), the occurd. files in the open report, and the private
+  layers in this browser. Each has a **remove** link (✕ on the occurd.
+  cards), and **remove all** appears once there are two or more, after
+  asking. Private layers are listed once the reference layers are
+  unlocked.
+
 ## v0.82.0 — 2026-11-09
 
 - **Inputs tab: every file goes in one place.** A new first tab,
