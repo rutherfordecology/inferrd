@@ -425,7 +425,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
-    <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
+    <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Tree cover loss, canopy height and surface water">Land cover</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
     <button class="app-tab" id="tabBio" data-tab="bio" type="button" role="tab" aria-selected="false" title="Species records from occurd.: choose what to map, and what goes to a client's Louped site">Biodiversity</button>
     <button class="app-tab" id="tabLayers" data-tab="layers" type="button" role="tab" aria-selected="false" title="Every layer: the reference layers from occurd. (GDC, QEII, NIWA, Manaaki Whenua), and the layers the other tabs have made">Layers</button>
@@ -882,11 +882,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field-hint" style="margin:0;">The land cover layers are under <strong>Land cover</strong> in the Layers panel on the map, for your areas: switch each on or off, fade it, and drag it up or down. ✂ on an area cuts it to a land cover class, or by any other layer.</div>
+        <div class="field-hint" style="margin:0;">Tree cover loss, canopy height and surface water are under <strong>Land cover</strong> in the Layers panel on the map, for your areas: switch each on or off, fade it, and drag it up or down. ✂ on an area cuts it by any of them, or by any other layer. For what covers the land now, switch on LCDB v6 among the reference layers on the Layers tab.</div>
       </div>
 
       <div class="sidebar-footer">
-        <p class="note">ESA WorldCover 2021 (CC BY 4.0); Dynamic World (Google / World Resources Institute, CC BY 4.0); Hansen et al. 2013 Global Forest Change (University of Maryland, CC BY 4.0); Lang et al. 2023 global canopy height (ETH Zürich, CC BY 4.0); Pekel et al. 2016 Global Surface Water (EC JRC); MODIS MCD64A1 burned area and FIRMS (NASA).</p>
+        <p class="note">Hansen et al. 2013 Global Forest Change (University of Maryland, CC BY 4.0); Lang et al. 2023 global canopy height (ETH Zürich, CC BY 4.0); Pekel et al. 2016 Global Surface Water (EC JRC). For New Zealand land cover, use LCDB v6 among the reference layers on the Layers tab.</p>
       </div>
     </div>
 
@@ -1482,11 +1482,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Layers</h3>
     <p>The <strong>Layers</strong> panel on the right of the map shows what matters on the open tab: that tab's own layers (the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, the six Land cover layers whenever there are areas, the Biodiversity tab's selections), then <strong>Also on the map</strong>: everything else that is switched on, from the other tabs or the reference layers, so LiDAR heights can sit over geology, or tree loss over an index preview. The eye switches a layer on or off, the slider sets its opacity, dragging a row by its grip moves it up or down among its own kind, and the <strong>Louped</strong> tick puts it in a client site. The chevron folds the panel to the side. The <strong>Layers</strong> tab lists every layer: each tab's, and the <strong>reference layers</strong>, occurd.'s polygon layers (below), where you unlock and choose them. Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
-    <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the land cover layers (land cover, change, tree loss, canopy height, surface water and fire) and against every reference layer. The results are on the Land cover tab, each with its CSV.</p>
-    <p><strong>Cut an area by a layer:</strong> ✂ on an area keeps only the part of it inside a layer, or only the part outside, as a new area named after both; the original stays. It can be any tab's layer: a WorldCover or Dynamic World class, canopy over a height, tree cover loss, surface water, a slope class or elevation band, or a reference layer's shapes. Earth Engine layers are cut at their own pixels (10 or 30 m). "Cut areas to this" in a reference-layer popup cuts each area that touches that one shape.</p>
+    <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the Land cover tab's layers (tree loss, canopy height and surface water) and against every reference layer. The results are on the Land cover tab, each with its CSV.</p>
+    <p><strong>Cut an area by a layer:</strong> ✂ on an area keeps only the part of it inside a layer, or only the part outside, as a new area named after both; the original stays. It can be any tab's layer: canopy over a height, tree cover loss, surface water, a slope class or elevation band, or a reference layer's shapes. Earth Engine layers are cut at their own pixels (10 or 30 m). "Cut areas to this" in a reference-layer popup cuts each area that touches that one shape.</p>
 
     <h3>Land cover tab</h3>
-    <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: land cover in 2021 (ESA WorldCover, 10 m), change in land cover from 2016 to last year (Dynamic World, 10 m), tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m), surface water since 1984 (EC JRC Global Surface Water, 30 m), and fire since 2001 (MODIS burned area, 500 m, and FIRMS fire detections, 1 km). Land cover is always shown; the others only when they find something for that area, such as tree loss of more than about two pixels, a class moving by 3 percentage points or more, vegetation 3 m or taller over at least 5% of the area, any surface water, or any fire. What was checked and found nothing is listed in one line each, and everything goes in the CSV. These layers are good at forest against pasture, clearance, water and large fires, and poor at native against exotic or at anything a few pixels across.</p>
+    <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m) and surface water since 1984 (EC JRC Global Surface Water, 30 m). Each is shown only when it finds something for that area: tree loss of more than about two pixels, vegetation 3 m or taller over at least 5% of the area, or any surface water. What was checked and found nothing is listed in one line each, and everything goes in the CSV. For what covers the land now, LCDB v6 (Manaaki Whenua) is among the reference layers on the Layers tab; the global land cover layers (ESA WorldCover, Dynamic World) and the fire layers (MODIS burned area, FIRMS) were taken out in v0.85.0, as LCDB is better for New Zealand and fires big enough for them to see are rare here.</p>
 
     <h3>Physical tab</h3>
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
@@ -1554,7 +1554,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.84.0';
+const APP_VERSION = 'v0.85.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -8816,35 +8816,21 @@ document.getElementById('physicalCsvBtn').addEventListener('click', () => {
 syncPhysicalControls();
 
 /* ---------------------------------------------------------------------
-   Land cover tab — what covers each area and what has happened to it,
-   from global Earth Engine layers. Each check runs for every area, but a
-   section is only shown when it has something to say for that area (the
+   Land cover tab — tree cover loss, canopy height and surface water,
+   from global Earth Engine layers. (WorldCover, Dynamic World and the
+   fire layers were taken out in v0.85.0: LCDB, a reference layer, is
+   better for New Zealand, and fires big enough for them are rare here.)
+   Each check runs for every area, but a section is only shown when it has something to say for that area (the
    COVER_* thresholds below); the rest are listed in one line as checked
    and empty, and all of it goes in the CSV.
    --------------------------------------------------------------------- */
 const COVER_HANSEN = 'UMD/hansen/global_forest_change_2024_v1_12'; // loss to 2024
 const COVER_HANSEN_LAST = 2024;
 const COVER_CANOPY = 'users/nlang/ETH_GlobalCanopyHeight_2020_10m_v1';
-const COVER_DW_FIRST = 2016;            // first whole year of Dynamic World
-const COVER_DW_LAST = CURRENT_YEAR - 1; // last whole year
-const COVER_FIRE_FIRST = 2001;
 // Below these an item is noise or too small to matter, and is not shown.
-const COVER_MIN_CLASS_PCT = 1;     // a land cover class's share of the area
-const COVER_MIN_SHIFT_PTS = 3;     // Dynamic World change, percentage points
-const COVER_MIN_SHIFT_HA = 0.5;
 const COVER_MIN_LOSS_HA = 0.2;     // about two 30 m pixels
 const COVER_MIN_TALL_PCT = 5;      // share of the area with canopy 3 m or taller
 const COVER_MIN_WATER_HA = 0.1;
-const COVER_MIN_BURN_HA = 1;
-const COVER_WORLDCOVER = [
-  [10, 'Tree cover', '#006400'], [20, 'Shrubland', '#ffbb22'], [30, 'Grassland', '#ffff4c'], [40, 'Cropland', '#f096ff'],
-  [50, 'Built-up', '#fa0000'], [60, 'Bare or sparse vegetation', '#b4b4b4'], [70, 'Snow and ice', '#f0f0f0'], [80, 'Permanent water', '#0064c8'],
-  [90, 'Herbaceous wetland', '#0096a0'], [95, 'Mangroves', '#00cf75'], [100, 'Moss and lichen', '#fae6a0']
-];
-const COVER_DW = [
-  ['Water', '#419bdf'], ['Trees', '#397d49'], ['Grass', '#88b053'], ['Flooded vegetation', '#7a87c6'], ['Crops', '#e49635'],
-  ['Shrub and scrub', '#dfc35a'], ['Built', '#c4281b'], ['Bare', '#a59b8f'], ['Snow and ice', '#b39fe1']
-];
 const COVER_CANOPY_CLASSES = [[3, 5, '3–5 m', '#d9ef8b'], [5, 10, '5–10 m', '#91cf60'], [10, 20, '10–20 m', '#1a9850'], [20, 30, '20–30 m', '#006837'], [30, 99, '30 m and over', '#00301a']];
 let coverBusy = false;
 let coverRunId = 0;
@@ -8891,12 +8877,6 @@ function coverGroups(cls, geom, scale) {
     reducer: ee.Reducer.sum().group({ groupField: 1, groupName: 'cls' }), geometry: geom, scale, maxPixels: 1e10, tileScale: 4
   }).get('groups');
 }
-function coverDwYear(geom, year) {
-  return ee.ImageCollection('GOOGLE/DYNAMICWORLD/V1').filterBounds(geom).filterDate(year + '-01-01', (year + 1) + '-01-01').select('label').mode();
-}
-function coverBurnImage(year) {
-  return ee.ImageCollection('MODIS/061/MCD64A1').filterDate(year + '-01-01', (year + 1) + '-01-01').select('BurnDate').map(i => i.gt(0)).max().unmask(0);
-}
 
 function coverQuery(a) {
   const geom = ee.Geometry(a.geojson.geometry);
@@ -8904,17 +8884,8 @@ function coverQuery(a) {
   const hansen = ee.Image(COVER_HANSEN);
   const canopy = ee.Image(COVER_CANOPY);
   const gsw = ee.Image('JRC/GSW1_4/GlobalSurfaceWater');
-  const fireYears = [];
-  for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) fireYears.push(y);
-  // Hectares burned each year (MODIS, 500 m), and the most days any 1 km
-  // FIRMS cell in the area had a fire detected.
-  const burnImg = ee.Image.cat(fireYears.map(y => coverBurnImage(y).multiply(ee.Image.pixelArea()).divide(1e4).rename('b' + y)));
-  const firmsImg = ee.Image.cat(fireYears.map(y => ee.ImageCollection('FIRMS').filterDate(y + '-01-01', (y + 1) + '-01-01').select('T21').map(i => i.gt(0)).sum().unmask(0).rename('f' + y)));
   const pa = ee.Image.pixelArea().divide(1e4);
   return eeEvaluate(ee.Dictionary({
-    worldcover: coverGroups(ee.ImageCollection('ESA/WorldCover/v200').first().select('Map'), geom, 10),
-    dwFirst: coverGroups(coverDwYear(geom, COVER_DW_FIRST), geom, 10),
-    dwLast: coverGroups(coverDwYear(geom, COVER_DW_LAST), geom, 10),
     tree2000: pa.updateMask(hansen.select('treecover2000').gte(30)).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))).get('area'),
     lossByYear: coverGroups(hansen.select('lossyear').updateMask(hansen.select('loss')), geom, 30),
     gain: pa.updateMask(hansen.select('gain')).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))).get('area'),
@@ -8926,9 +8897,7 @@ function coverQuery(a) {
       pa.updateMask(gsw.select('seasonality').gt(0).and(gsw.select('seasonality').lt(12))).rename('seasonal'),
       pa.updateMask(gsw.select('transition').eq(2).or(gsw.select('transition').eq(5)).or(gsw.select('transition').eq(9))).rename('lost'),
       pa.updateMask(gsw.select('transition').eq(3).or(gsw.select('transition').eq(4)).or(gsw.select('transition').eq(8))).rename('gained')
-    ]).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30))),
-    burn: burnImg.reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(500))),
-    firms: firmsImg.reduceRegion(Object.assign({ reducer: ee.Reducer.max() }, opts(1000)))
+    ]).reduceRegion(Object.assign({ reducer: ee.Reducer.sum() }, opts(30)))
   }));
 }
 
@@ -8941,7 +8910,7 @@ async function coverRun() {
   try {
     for (let k = 0; k < list.length; k++) {
       const a = list[k];
-      setCoverStatus('info', (list.length > 1 ? a.name + ' (' + (k + 1) + ' of ' + list.length + '): ' : '') + 'checking land cover, tree loss, canopy height, surface water and fire…');
+      setCoverStatus('info', (list.length > 1 ? a.name + ' (' + (k + 1) + ' of ' + list.length + '): ' : '') + 'checking tree loss, canopy height and surface water…');
       const raw = await coverQuery(a);
       if (runId !== coverRunId) return;
       const areaHa = turf.area(a.geojson) / 1e4;
@@ -8950,8 +8919,8 @@ async function coverRun() {
     coverResults = { keys: list.map(areaKey).join('|'), areas: list, byArea, shownId: list[0].id };
     renderCover();
     // The layers that found something and were on before they were all
-    // listed (tree loss, fire, water) come on with the results.
-    [['cover_loss', 'loss'], ['cover_burn', 'fire'], ['cover_water', 'water']].forEach(([k, sec]) => { if (coverShown(sec)) mapStack.setOn(k, true); });
+    // listed (tree loss, water) come on with the results.
+    [['cover_loss', 'loss'], ['cover_water', 'water']].forEach(([k, sec]) => { if (coverShown(sec)) mapStack.setOn(k, true); });
     mapStack.refresh('cover_');
     setCoverStatus('', '');
     expandResultsPane();
@@ -8971,24 +8940,6 @@ const coverGroupMap = (groups) => new Map((groups || []).map(g => [g.cls, g.sum]
 function coverReport(raw, areaHa) {
   const show = [], quiet = [], csv = [];
   const add = (section, item, ha, detail) => csv.push({ section, item, ha, pct: coverPct(ha, areaHa), detail: detail || '' });
-
-  // Land cover now: always shown, as the base description, small classes lumped.
-  const wc = coverGroupMap(raw.worldcover);
-  const wcRows = COVER_WORLDCOVER.map(([v, label, color]) => ({ label, color, ha: wc.get(v) || 0 })).filter(r => r.ha > 0).sort((a, b) => b.ha - a.ha);
-  wcRows.forEach(r => add('worldcover_2021', r.label, r.ha));
-  const big = wcRows.filter(r => coverPct(r.ha, areaHa) >= COVER_MIN_CLASS_PCT), small = wcRows.filter(r => coverPct(r.ha, areaHa) < COVER_MIN_CLASS_PCT);
-  if (small.length) big.push({ label: 'Other (' + small.map(r => r.label.toLowerCase()).join(', ') + ')', color: '#dddddd', ha: small.reduce((t, r) => t + r.ha, 0) });
-  if (big.length) show.push({ key: 'worldcover', title: 'Land cover, 2021 (ESA WorldCover, 10 m)', rows: big });
-
-  // Land cover change: only the classes that moved.
-  const d0 = coverGroupMap(raw.dwFirst), d1 = coverGroupMap(raw.dwLast);
-  const shifts = COVER_DW.map(([label, color], k) => ({ label, color, a: d0.get(k) || 0, b: d1.get(k) || 0 }))
-    .map(r => Object.assign(r, { d: r.b - r.a, dPts: coverPct(r.b - r.a, areaHa) }));
-  shifts.forEach(r => add('dynamic_world_change', r.label, r.d, COVER_DW_FIRST + ': ' + r.a.toFixed(2) + ' ha; ' + COVER_DW_LAST + ': ' + r.b.toFixed(2) + ' ha'));
-  const moved = shifts.filter(r => Math.abs(r.dPts) >= COVER_MIN_SHIFT_PTS && Math.abs(r.d) >= COVER_MIN_SHIFT_HA).sort((x, y) => Math.abs(y.d) - Math.abs(x.d));
-  if (!d0.size || !d1.size) quiet.push('Dynamic World had no clear images for ' + (d0.size ? COVER_DW_LAST : COVER_DW_FIRST) + ', so land cover change wasn\'t checked.');
-  else if (moved.length) show.push({ key: 'dw', title: 'Land cover change, ' + COVER_DW_FIRST + ' to ' + COVER_DW_LAST + ' (Dynamic World, 10 m)', shifts: moved });
-  else quiet.push('No land cover class changed by ' + COVER_MIN_SHIFT_PTS + ' percentage points or more between ' + COVER_DW_FIRST + ' and ' + COVER_DW_LAST + ' (Dynamic World).');
 
   // Tree cover loss, only in the years it happened.
   const loss = coverGroupMap(raw.lossByYear), tree2000 = raw.tree2000 || 0, gain = raw.gain || 0;
@@ -9014,24 +8965,11 @@ function coverReport(raw, areaHa) {
   if ((w.ever || 0) >= COVER_MIN_WATER_HA) show.push({ key: 'water', title: 'Surface water, 1984–2021 (EC JRC Global Surface Water, 30 m)', water: w });
   else quiet.push('No surface water detected from 1984 to 2021 (JRC Global Surface Water).');
 
-  // Fire.
-  const burnRows = [], firmsRows = [];
-  for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) {
-    const b = raw.burn && raw.burn['b' + y] || 0, f = raw.firms && raw.firms['f' + y] || 0;
-    add('burned_area', String(y), b);
-    add('fire_detection_days', String(y), 0, String(Math.round(f)));
-    if (b >= COVER_MIN_BURN_HA || f >= 1) burnRows.push({ year: y, ha: b, days: Math.round(f) });
-  }
-  if (burnRows.length) show.push({ key: 'fire', title: 'Fire, ' + COVER_FIRE_FIRST + '–' + CURRENT_YEAR + ' (MODIS burned area, 500 m; FIRMS detections, 1 km)', burnRows });
-  else quiet.push('No burned area or satellite fire detections from ' + COVER_FIRE_FIRST + ' (MODIS, FIRMS).');
-
   // Headline numbers.
   const metrics = [['Area', coverHa(areaHa) + ' ha']];
-  if (wcRows.length) metrics.push(['Mostly', wcRows[0].label.toLowerCase() + ' (' + coverPct(wcRows[0].ha, areaHa).toFixed(0) + '%)']);
   if (lossTotal >= COVER_MIN_LOSS_HA) metrics.push(['Tree cover lost since 2001', coverHa(lossTotal) + ' ha']);
   if (coverPct(tall, areaHa) >= COVER_MIN_TALL_PCT && cs.b1_p95 != null) metrics.push(['Canopy top (95th pct)', cs.b1_p95.toFixed(0) + ' m']);
   if ((w.ever || 0) >= COVER_MIN_WATER_HA) metrics.push(['Ever under water', coverHa(w.ever) + ' ha']);
-  if (burnRows.length) metrics.push(['Years with fire', String(burnRows.length)]);
   return { show, quiet, csv, metrics };
 }
 
@@ -9054,10 +8992,6 @@ function renderCover() {
   document.getElementById('coverMetrics').innerHTML = rep0.metrics.map(([l, v]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
   document.getElementById('coverSections').innerHTML = rep0.show.map(sec => {
     let body = '';
-    if (sec.key === 'worldcover') body = coverShareBlock(sec.rows, total);
-    if (sec.key === 'dw') body = '<table class="stats-table"><tr><th>Class</th><th ' + R + '>' + COVER_DW_FIRST + '</th><th ' + R + '>' + COVER_DW_LAST + '</th><th ' + R + '>Change</th></tr>' +
-      sec.shifts.map(r => '<tr><td><span class="phys-sw" style="background:' + r.color + '"></span>' + r.label + '</td><td ' + R + '>' + coverHa(r.a) + ' ha</td><td ' + R + '>' + coverHa(r.b) + ' ha</td><td ' + R + '>' + (r.d > 0 ? '+' : '−') + coverHa(Math.abs(r.d)) + ' ha (' + (r.dPts > 0 ? '+' : '−') + Math.abs(r.dPts).toFixed(0) + ' pts)</td></tr>').join('') + '</table>' +
-      '<div class="field-hint" style="margin:6px 0 0;">Each year is the most common class in each 10 m pixel across that year\'s clear images. Only classes that moved by ' + COVER_MIN_SHIFT_PTS + ' percentage points or more are listed; the rest stayed about the same.</div>';
     if (sec.key === 'loss') {
       const max = Math.max(...sec.lossRows.map(r => r.ha), 0.01);
       body = '<p style="font-size:12.5px;margin:0 0 8px;">' + coverHa(sec.lossTotal) + ' ha of tree cover lost' + (sec.tree2000 >= 0.5 ? ', ' + coverPct(sec.lossTotal, sec.tree2000).toFixed(0) + '% of the ' + coverHa(sec.tree2000) + ' ha that had 30% or more tree cover in 2000' : '') + '.' +
@@ -9072,15 +9006,12 @@ function renderCover() {
       body = '<table class="stats-table"><tr><th></th><th ' + R + '>ha</th><th ' + R + '>%</th></tr>' + rows.map(([l, v]) => '<tr><td>' + l + '</td><td ' + R + '>' + coverHa(v) + '</td><td ' + R + '>' + coverPct(v, total).toFixed(1) + '</td></tr>').join('') + '</table>' +
         '<div class="field-hint" style="margin:6px 0 0;">From every Landsat image since 1984. Open water only: water under a canopy, or in channels narrower than about 30 m, is missed.</div>';
     }
-    if (sec.key === 'fire') body = '<table class="stats-table"><tr><th>Year</th><th ' + R + '>Burned area mapped</th><th ' + R + '>Days with a fire detected</th></tr>' +
-      sec.burnRows.map(r => '<tr><td>' + r.year + '</td><td ' + R + '>' + (r.ha >= COVER_MIN_BURN_HA ? coverHa(r.ha) + ' ha' : '–') + '</td><td ' + R + '>' + (r.days || '–') + '</td></tr>').join('') + '</table>' +
-      '<div class="field-hint" style="margin:6px 0 0;">Burned area is mapped on 500 m cells, so fires of a few hectares are usually missed. A fire detection is a 1 km cell with a hot spot seen from orbit; it can be a burn-off, a slash pile or a fire just outside the area.</div>';
     return '<div class="table-card"><div class="card-title">' + escHtml(sec.title) + '</div>' + body + '</div>';
   }).join('');
   document.getElementById('coverCheckedCard').style.display = rep0.quiet.length ? '' : 'none';
   document.getElementById('coverChecked').innerHTML = '<ul style="font-size:12.5px;margin:0 0 0 18px;padding:0;">' + rep0.quiet.map(q => '<li>' + escHtml(q) + '</li>').join('') + '</ul>';
   document.getElementById('coverNotes').innerHTML =
-    '<p>These are global layers made from satellite imagery, at 10 to 500 m. They are good at telling forest from pasture, finding clearance, water and large fires, and poor at native against exotic, scrub against young forest, or anything smaller than a few pixels. A section only appears when it has something to say for this area; everything checked is in the CSV either way.</p>';
+    '<p>These are global layers made from satellite imagery, at 10 to 30 m. They are good at finding clearance, tall vegetation and open water, and poor at native against exotic, scrub against young forest, or anything smaller than a few pixels. For what covers the land now, use LCDB v6 among the reference layers. A section only appears when it has something to say for this area; everything checked is in the CSV either way.</p>';
 }
 
 document.getElementById('coverAreaSel').addEventListener('change', (e) => {
@@ -9098,22 +9029,18 @@ document.getElementById('coverCsvBtn').addEventListener('click', () => {
   downloadText(name + '_land_cover.csv', out.join('\n') + '\n', 'text/csv');
 });
 
-// Map layers, clipped to the areas: all six are listed whenever there are
+// Map layers, clipped to the areas: all of them are listed whenever there are
 // areas, so any can be shown, or used to cut an area, before a check. After
 // a check, one that found nothing in the areas says so.
 const coverShown = (key) => !!coverResults && Object.values(coverResults.byArea).some(A => A.report.show.some(sec => sec.key === key));
 const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Land cover', available: () => eeReady && areas.length > 0 }, o, {
   draw: (pane) => eeTileLayer(o.img(), o.vis, pane).then(layer => ({ layer, legend: o.legend,
-    note: coverResults && o.section !== 'worldcover' && !coverShown(o.section) ? 'The last check found nothing to report for this in your areas.' : '' }))
+    note: coverResults && !coverShown(o.section) ? 'The last check found nothing to report for this in your areas.' : '' }))
 }));
 coverLayer({ key: 'cover_loss', section: 'loss', rank: 200, op: 1, name: 'Tree cover loss by year', swatch: 'linear-gradient(90deg, #ffff00, #ff0000, #8b0045)',
   img: () => { const h = ee.Image(COVER_HANSEN); return h.select('lossyear').updateMask(h.select('loss')).add(2000); },
   vis: { min: 2001, max: COVER_HANSEN_LAST, palette: ['ffff00', 'ff8800', 'ff0000', '8b0045'] },
   legend: [['#ffff00', 'Lost 2001'], ['#ff0000', 'Lost ' + Math.round((2001 + COVER_HANSEN_LAST) / 2)], ['#8b0045', 'Lost ' + COVER_HANSEN_LAST]] });
-coverLayer({ key: 'cover_burn', section: 'fire', rank: 210, op: 0.8, name: 'Burned area by year', swatch: 'linear-gradient(90deg, #ffe066, #ff8c00, #b30000)',
-  img: () => { const years = []; for (let y = COVER_FIRE_FIRST; y <= CURRENT_YEAR; y++) years.push(y); return ee.ImageCollection(years.map(y => coverBurnImage(y).multiply(y).selfMask().rename('y'))).max(); },
-  vis: { min: COVER_FIRE_FIRST, max: CURRENT_YEAR, palette: ['ffe066', 'ff8c00', 'b30000'] },
-  legend: [['#ffe066', 'Burned ' + COVER_FIRE_FIRST], ['#b30000', 'Burned ' + CURRENT_YEAR]] });
 coverLayer({ key: 'cover_water', section: 'water', rank: 220, op: 0.8, name: 'Surface water', swatch: 'linear-gradient(90deg, #ffcccc, #99d8ff, #0050c8)',
   img: () => { const o = ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence'); return o.updateMask(o.gt(0)); },
   vis: { min: 0, max: 100, palette: ['ffcccc', '99d8ff', '0050c8'] },
@@ -9122,14 +9049,6 @@ coverLayer({ key: 'cover_canopy', section: 'canopy', rank: 230, op: 0.8, name: '
   img: () => { const c = ee.Image(COVER_CANOPY); return c.updateMask(c.gte(3)); },
   vis: { min: 3, max: 35, palette: ['d9ef8b', '91cf60', '1a9850', '006837', '00301a'] },
   legend: [['#d9ef8b', '3 m'], ['#1a9850', '15 m'], ['#00301a', '35 m and over']] });
-coverLayer({ key: 'cover_dw', section: 'dw', rank: 240, op: 0.7, name: 'Land cover ' + COVER_DW_LAST + ' (Dynamic World)', swatch: 'linear-gradient(90deg, #397d49, #88b053, #e49635, #c4281b)',
-  img: () => coverDwYear(eeAreasFc().geometry(), COVER_DW_LAST),
-  vis: { min: 0, max: 8, palette: COVER_DW.map(c => c[1].slice(1)) },
-  legend: COVER_DW.map(c => [c[1], c[0]]) });
-coverLayer({ key: 'cover_worldcover', section: 'worldcover', rank: 250, op: 0.7, name: 'Land cover 2021 (WorldCover)', swatch: 'linear-gradient(90deg, #006400, #ffbb22, #ffff4c, #fa0000)',
-  img: () => ee.ImageCollection('ESA/WorldCover/v200').first().select('Map').remap(COVER_WORLDCOVER.map(c => c[0]), COVER_WORLDCOVER.map((c, k) => k)),
-  vis: { min: 0, max: COVER_WORLDCOVER.length - 1, palette: COVER_WORLDCOVER.map(c => c[2].slice(1)) },
-  legend: COVER_WORLDCOVER.map(c => [c[2], c[1]]) });
 
 /* ---------------------------------------------------------------------
    Check areas against layers — the one check, at the foot of the Layers
@@ -9152,7 +9071,7 @@ function checkAreasChanged() {
   if (checkBusy) return;
   if (checkDone) { checkMsg(checkDone); return; }
   const what = [], missing = [];
-  (eeReady ? what : missing).push(eeReady ? 'land cover, tree loss, canopy height, surface water and fire' : 'Unlock Earth Engine on the <a href="#" data-go="infrared">Infrared</a> tab to check land cover.');
+  (eeReady ? what : missing).push(eeReady ? 'tree loss, canopy height and surface water' : 'Unlock Earth Engine on the <a href="#" data-go="infrared">Infrared</a> tab to check tree loss, canopy height and water.');
   (refActive ? what : missing).push(refActive ? 'every reference layer' : 'Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to check them too.');
   checkMsg(!areas.length ? 'Draw or add an area first.' : (what.length ? 'Checks ' + what.join(', and ') + '. ' : '') + missing.join(' '));
 }
@@ -9211,15 +9130,11 @@ document.getElementById('refCheckCsvBtn').addEventListener('click', () => {
    layer (a land cover class, canopy over a height, a reference layer's
    shapes…), or only the part outside. The result is a new area named
    after both; the original stays. Any tab's layer can cut any area, so an
-   area drawn on Infrared can be cut to a covenant or to WorldCover's tree
-   cover and analysed there. Earth Engine layers are turned into shapes at
+   area drawn on Infrared can be cut to a covenant or to canopy over 5 m
+   and analysed there. Earth Engine layers are turned into shapes at
    their own resolution, so the new edge follows their pixels.
    --------------------------------------------------------------------- */
 const CUT_EE = [
-  { id: 'cover_worldcover', tab: 'Land cover', name: 'Land cover 2021 (WorldCover)', scale: 10,
-    classes: COVER_WORLDCOVER.map(([v, label, color]) => ({ v, label, color })), img: () => ee.ImageCollection('ESA/WorldCover/v200').first().select('Map') },
-  { id: 'cover_dw', tab: 'Land cover', name: 'Land cover ' + COVER_DW_LAST + ' (Dynamic World)', scale: 10,
-    classes: COVER_DW.map(([label, color], v) => ({ v, label, color })), img: (geom) => coverDwYear(geom, COVER_DW_LAST) },
   { id: 'cover_canopy', tab: 'Land cover', name: 'Canopy height 2020', scale: 10, threshold: { label: 'Canopy at least', unit: 'm', value: 5, step: 1 }, img: () => ee.Image(COVER_CANOPY) },
   { id: 'cover_loss', tab: 'Land cover', name: 'Tree cover loss 2001–' + COVER_HANSEN_LAST, scale: 30, what: 'tree cover loss', mask: () => ee.Image(COVER_HANSEN).select('loss').eq(1) },
   { id: 'cover_water', tab: 'Land cover', name: 'Surface water (at some point since 1984)', scale: 30, what: 'surface water', mask: () => ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence').gt(0) },
@@ -9397,7 +9312,7 @@ syncCoverControls();
    --------------------------------------------------------------------- */
 const RPT_CHECKS = [
   ['physical', 'Physical: geology, faults, erosion, LUC; terrain and soil with Earth Engine'],
-  ['cover', 'Land cover, tree loss, canopy height, water, fire (Earth Engine)'],
+  ['cover', 'Land cover tab: tree loss, canopy height, surface water (Earth Engine)'],
   ['climate', 'Climate, ERA5-Land (Earth Engine)'],
   ['lidar', 'LiDAR, where it is loaded on the LiDAR tab'],
   ['occurd', 'Species, from the occurd. files']
@@ -9409,12 +9324,9 @@ const RPT_SRC = {
   macrostrat: 'Macrostrat geological map, sampled at 49 points in the area',
   esc: 'MPI Erosion Susceptibility Classification and NZ Land Resource Inventory LUC',
   soil: 'SoilGrids 2.0 (ISRIC), modelled, 250 m',
-  worldcover: 'ESA WorldCover 2021, 10 m',
-  dw: 'Dynamic World (Google / WRI), 10 m, most common class each year',
   loss: 'Hansen et al. Global Forest Change (University of Maryland), 30 m',
   canopy: 'ETH Zürich global canopy height 2020 (Lang et al. 2023), 10 m',
   water: 'EC JRC Global Surface Water 1984–2021, 30 m',
-  fire: 'MODIS MCD64A1 burned area (500 m) and FIRMS fire detections (1 km), NASA',
   climate: 'ERA5-Land (ECMWF / Copernicus) on Earth Engine, ~9 km, the area and 6 km around it',
   lidar: 'LINZ LiDAR (Toitū Te Whenua), 1 m',
   checked: 'Checked on the Land cover tab; nothing over its reporting threshold'
@@ -9711,8 +9623,6 @@ function rptBuildFacts() {
     const C = rpt.checks.cover && coverResults && coverResults.keys === key ? coverResults.byArea[a.id] : null;
     if (C) {
       C.report.show.forEach(sec => {
-        if (sec.key === 'worldcover') sec.rows.forEach(r => add(A, 'Land cover', 'wc ' + r.label, rptHa(r.ha) + ' (' + rptP(r.ha, tot) + '%) ' + r.label.toLowerCase() + ', 2021.', RPT_SRC.worldcover));
-        if (sec.key === 'dw') sec.shifts.forEach(r => add(A, 'Land cover', 'dw ' + r.label, r.label + ': ' + rptHa(r.a) + ' in ' + COVER_DW_FIRST + ', ' + rptHa(r.b) + ' in ' + COVER_DW_LAST + ' (' + (r.dPts > 0 ? '+' : '−') + Math.abs(r.dPts).toFixed(0) + ' percentage points of the area).', RPT_SRC.dw));
         if (sec.key === 'loss') {
           add(A, 'Tree cover loss', 'total', rptHa(sec.lossTotal) + ' of tree cover loss mapped, 2001–' + COVER_HANSEN_LAST + (sec.tree2000 >= 0.5 ? '; the area had ' + rptHa(sec.tree2000) + ' with 30% or more tree cover in 2000' : '') + '.', RPT_SRC.loss);
           if (sec.lossRows.length) add(A, 'Tree cover loss', 'by year', 'Tree cover loss by year: ' + sec.lossRows.map(r => r.year + ' ' + rptHa(r.ha)).join('; ') + '.', RPT_SRC.loss);
@@ -9724,7 +9634,6 @@ function rptBuildFacts() {
         }
         if (sec.key === 'water') [['ever', 'under open water at some point, 1984–2021'], ['permanent', 'permanent water in 2021'], ['seasonal', 'seasonal water in 2021'], ['lost', 'water lost since 1984'], ['gained', 'new water since 1984']]
           .forEach(([k, label]) => { const v = sec.water[k] || 0; if (v >= 0.05) add(A, 'Surface water', k, rptHa(v) + ' (' + rptP(v, tot) + '%) ' + label + '.', RPT_SRC.water); });
-        if (sec.key === 'fire') add(A, 'Fire', 'years', 'Fire, ' + COVER_FIRE_FIRST + '–' + CURRENT_YEAR + ': ' + sec.burnRows.map(r => r.year + ' (' + [r.ha >= COVER_MIN_BURN_HA ? rptHa(r.ha) + ' burned area mapped' : '', r.days ? r.days + (r.days === 1 ? ' day' : ' days') + ' with a fire detected' : ''].filter(Boolean).join(', ') + ')').join('; ') + '.', RPT_SRC.fire);
       });
       C.report.quiet.forEach((q, i) => add(A, 'Checked, nothing found', 'cover ' + i + ' ' + q.slice(0, 30), q, RPT_SRC.checked));
     }
@@ -10237,11 +10146,8 @@ const LOUPED_EE_NOTE = 'Computed on Google Earth Engine under a non-commercial r
  ['ir_change', 'Contains modified Copernicus Sentinel data (Sentinel-2, ESA); NASA HLS Landsat'],
  ['ir_trend', 'Contains modified Copernicus Sentinel data (Sentinel-2, ESA); NASA HLS Landsat'],
  ['cover_loss', 'Hansen/UMD/Google/USGS/NASA Global Forest Change (CC BY 4.0)'],
- ['cover_burn', 'NASA MODIS MCD64A1 burned area'],
  ['cover_water', 'EC JRC/Google Global Surface Water'],
  ['cover_canopy', 'Lang et al. 2023, ETH Global Canopy Height 2020 (CC BY 4.0)'],
- ['cover_dw', 'Google and World Resources Institute, Dynamic World (CC BY 4.0)'],
- ['cover_worldcover', '© ESA WorldCover project 2021, contains modified Copernicus Sentinel data (CC BY 4.0)'],
  ['phys_slope', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA'],
  ['phys_aspect', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA'],
  ['phys_elev', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA']

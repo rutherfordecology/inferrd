@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.85.0 — 2026-11-09
+
+- **Land cover tab: the global land cover and fire layers are gone.** ESA
+  WorldCover 2021, Dynamic World land cover change, and fire (MODIS burned
+  area and FIRMS detections) are no longer checked, mapped, offered to ✂
+  cut an area, put in the report's fact sheet, or credited in Louped sites.
+  For New Zealand, LCDB v6 (Manaaki Whenua), already among the reference
+  layers, says what covers the land better than either global map, and
+  fires big enough for 500 m and 1 km cells are rare here. The tab keeps
+  tree cover loss (Hansen / UMD), canopy height (ETH Zürich) and surface
+  water (EC JRC), and its checks are quicker without the fire years.
+  Louped sites already online keep any of these layers they have until
+  they are made again from the map.
+
 ## v0.84.0 — 2026-11-09
 
 - **Every Explanation starts closed.** They used to remember being opened,
