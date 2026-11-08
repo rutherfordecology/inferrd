@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.84.0 — 2026-11-09
+
+- **Every Explanation starts closed.** They used to remember being opened,
+  by their place on the page, so adding the Inputs tab left some open (or
+  the wrong ones). Now each starts closed on every visit; open one when
+  you want it. The Report tab's list of occurd. files is no longer hidden
+  behind an Explanation toggle.
+
 ## v0.83.0 — 2026-11-09
 
 - **Inputs tab lists what's in, to remove as you go.** Under each box is

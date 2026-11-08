@@ -847,7 +847,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Species from occurd.</div>
-        <div class="field-hint" id="rptOccurdSum" style="margin:0;"></div>
+        <div class="field-hint live-hint" id="rptOccurdSum" style="margin:0;"></div>
       </div>
 
       <div class="sidebar-section">
@@ -1554,7 +1554,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.83.0';
+const APP_VERSION = 'v0.84.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1634,12 +1634,10 @@ document.getElementById('yAxisZeroChk').addEventListener('change', (e) => {
 
 /* ── Collapsible sidebar explanations ──────────────────────────────────
    Each static hint/note in the left column gets a chevron toggle, closed
-   until opened. The open/closed choice is remembered per hint
-   (localStorage is a convenience only — everything works without it). */
-document.querySelectorAll('.sidebar .field-hint:not(#layerStatus):not(.live-hint), .sidebar p.note').forEach((el, i) => {
-  const key = 'inferrd.hint.' + i;
+   until opened. Every one starts closed on each visit. */
+try { Object.keys(localStorage).filter(k => k.startsWith('inferrd.hint.')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+document.querySelectorAll('.sidebar .field-hint:not(#layerStatus):not(.live-hint), .sidebar p.note').forEach((el) => {
   let collapsed = true;
-  try { collapsed = localStorage.getItem(key) !== '0'; } catch (e) {}
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'hint-toggle';
@@ -1651,7 +1649,6 @@ document.querySelectorAll('.sidebar .field-hint:not(#layerStatus):not(.live-hint
   };
   btn.addEventListener('click', () => {
     collapsed = !collapsed;
-    try { localStorage.setItem(key, collapsed ? '1' : '0'); } catch (e) {}
     apply();
   });
   el.parentNode.insertBefore(btn, el);
