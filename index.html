@@ -69,10 +69,27 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
 .sidebar.louped-mode > :not(#loupedPanel), .sidebar:not(.louped-mode) > #loupedPanel { display: none !important; }
+.sidebar.bio-mode > :not(#bioPanel), .sidebar:not(.bio-mode) > #bioPanel { display: none !important; }
+.results-pane.bio-mode > :not(#bioResults), .results-pane:not(.bio-mode) > #bioResults { display: none !important; }
+.bio-file { display: grid; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid var(--rule); }
+.bio-file small { color: var(--text3); font-size: 11px; }
+.bio-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; border: 1px solid #fff; box-shadow: 0 0 0 1px var(--border2); }
+.bio-facet { margin-top: 10px; }
+.bio-fh { font: 600 10.5px var(--font-sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text); margin-bottom: 4px; }
+.bio-clear { background: none; border: none; color: var(--base); font-size: 11px; text-transform: none; letter-spacing: normal; cursor: pointer; padding: 0 0 0 4px; }
+.bio-chip { display: inline-flex; align-items: center; gap: 4px; margin: 0 4px 4px 0; padding: 2px 7px; border: 1px solid var(--border2); font-size: 12px; cursor: pointer; background: var(--white); }
+.bio-chip input { display: none; }
+.bio-chip span { color: var(--text3); font-size: 11px; }
+.bio-chip.on { border-color: var(--base); background: var(--hover); box-shadow: inset 0 0 0 1px var(--base); }
+.bio-chip.none { opacity: 0.45; }
+.bio-years { display: flex; gap: 6px; align-items: center; font-size: 12.5px; margin-top: 10px; }
+#bioPanel .bio-years input { width: 76px; }
+#bioTable tr.off td { opacity: 0.45; }
+#bioTable i { color: var(--text3); }
 .results-pane.louped-mode > :not(#loupedResults), .results-pane:not(.louped-mode) > #loupedResults { display: none !important; }
-#loupedPanel input[type=text], #loupedPanel textarea { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); box-sizing: border-box; }
+#loupedPanel input[type=text], #loupedPanel textarea, #bioPanel input[type=text], #bioPanel input[type=number] { width: 100%; font: 12.5px var(--font-sans); color: var(--text); border: 1px solid var(--border2); border-radius: 0; padding: 6px 7px; background: var(--white); box-sizing: border-box; }
 #loupedPanel textarea { min-height: 70px; resize: vertical; }
-#loupedPanel label.lp-f { display: grid; gap: 3px; font-size: 12px; margin-top: 8px; }
+#loupedPanel label.lp-f, #bioPanel label.lp-f { display: grid; gap: 3px; font-size: 12px; margin-top: 8px; }
 .lp-sites { display: grid; gap: 4px; margin-bottom: 8px; }
 .lp-site { text-align: left; background: var(--white); border: 1px solid var(--border2); padding: 6px 8px; cursor: pointer; display: grid; font: 12.5px var(--font-sans); color: var(--text); }
 .lp-site small { color: var(--muted, #777); font-size: 11px; }
@@ -397,6 +414,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
     <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Land cover, tree loss, canopy height, surface water and fire">Land cover</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
+    <button class="app-tab" id="tabBio" data-tab="bio" type="button" role="tab" aria-selected="false" title="Species records from occurd.: choose what to map, and what goes to a client's Louped site">Biodiversity</button>
     <button class="app-tab" id="tabReport" data-tab="report" type="button" role="tab" aria-selected="false" title="Build a report: brief, emails, areas, and a fact sheet from the other tabs and occurd.">Report</button>
     <button class="app-tab" id="tabLouped" data-tab="louped" type="button" role="tab" aria-selected="false" title="Client maps: build a Louped site from this map, word it and preview it">Louped</button>
   </nav>
@@ -830,6 +848,35 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <div id="bioPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Records</div>
+        <div id="bioFiles"></div>
+        <label class="rpt-drop" id="bioDrop" style="margin-top:8px;"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="bioFile" accept=".csv,.txt,.zip" multiple></label>
+        <div class="field-hint" style="margin:6px 0 0;">Export <b>Occurrences CSV</b> from occurd. for your areas. The files are kept with the open report, so the Report tab's fact sheet uses them too.</div>
+      </div>
+      <div class="sidebar-section" id="bioSelSec" hidden>
+        <div class="section-label">2 · Selections</div>
+        <div class="lp-sites" id="bioSels"></div>
+        <button class="dl-btn" id="bioNewBtn" type="button" style="margin-top:6px;">+ New selection</button>
+        <div class="field-hint" style="margin:6px 0 0;">Each selection is a layer on the map, under Biodiversity in the Layers panel. Tick it in the panel's <b>Louped</b> column to put its records in the client site.</div>
+      </div>
+      <div class="sidebar-section" id="bioEditSec" hidden>
+        <div class="section-label">3 · Choose</div>
+        <div style="display:flex;gap:6px;align-items:end;">
+          <label class="lp-f" style="flex:1;">Name<input type="text" id="bioName"></label>
+          <input type="color" id="bioColor" aria-label="Colour on the map" style="width:36px;height:30px;padding:0;border:1px solid var(--border2);">
+        </div>
+        <label class="lp-f">Search taxa<input type="text" id="bioQ" placeholder="Scientific or common name"></label>
+        <div class="bio-years">Years <input type="number" id="bioY0" placeholder="from"> to <input type="number" id="bioY1" placeholder="to"></div>
+        <div id="bioFacets"></div>
+        <div class="field-hint" id="bioCount" style="margin:10px 0 0;"></div>
+        <div class="field-hint" style="margin:4px 0 0;">Nothing ticked in a group means all of it. Untick single taxa in the list below the map.</div>
+        <button class="dl-btn" id="bioDelBtn" type="button" style="margin-top:10px;">Delete this selection</button>
+      </div>
+      <div class="status-bar" id="bioStatus"></div>
+    </div>
+
     <div id="loupedPanel">
       <div class="sidebar-section" id="lpSitesSec" hidden>
         <div class="section-label">1 · Client site</div>
@@ -968,6 +1015,19 @@ table.stats-table tr:last-child td { border-bottom: none; }
             <div class="card-title">Reading this</div>
             <div id="climateNotes"></div>
           </div>
+        </div>
+      </div>
+      <div id="bioResults">
+        <div class="results-empty" id="bioEmpty">
+          <span class="big">❦</span>
+          Add an occurd. records export, then choose the records to map.
+        </div>
+        <div class="table-card" id="bioTableCard" hidden>
+          <div class="table-card-head">
+            <div class="card-title" id="bioTableHead"></div>
+            <div><button class="dl-btn" id="bioAllBtn" type="button">Tick all</button> <button class="dl-btn" id="bioNoneBtn" type="button">Untick all</button></div>
+          </div>
+          <div style="overflow-x:auto;"><table class="stats-table" id="bioTable"></table></div>
         </div>
       </div>
       <div id="loupedResults">
@@ -1445,7 +1505,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.76.0';
+const APP_VERSION = 'v0.77.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1621,7 +1681,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', report: 'Report', louped: 'Louped' };
+const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -1873,6 +1933,16 @@ const mapStack = (() => {
       if (E['ref_' + l.id]) return;
       add({ key: 'ref_' + l.id, ref: true, tab: 'Reference', group: l.group, name: l.name, notes: l.notes, swatch: l.color + '66', op: 1, rank: 500 + i,
         toggle: (on) => { if (window._layersShow) window._layersShow(l.id, on); } });
+    },
+    // A layer gone for good (a Biodiversity selection deleted).
+    remove(key) {
+      const e = E[key];
+      if (!e) return;
+      if (e.layer) map.removeLayer(e.layer);
+      delete E[key];
+      order = order.filter(x => x !== key);
+      restack();
+      render();
     },
     // A reference layer gone from occurd.'s list (a private layer removed).
     removeRef(id) {
@@ -9694,6 +9764,7 @@ function rptRenderMetrics() {
   document.getElementById('reportMetrics').innerHTML = m.map(([l, v]) => '<div class="metric"><div class="metric-label">' + l + '</div><div class="metric-value" style="font-size:15px;">' + v + '</div></div>').join('');
 }
 function renderReport() {
+  if (typeof bioSync === 'function') try { bioSync(); } catch (e) {}
   if (!rpt) return;
   document.getElementById('reportEmpty').style.display = 'none';
   document.getElementById('reportContent').style.display = '';
@@ -9791,14 +9862,15 @@ document.getElementById('rptOccurdFile').addEventListener('change', (e) => { con
   const box = document.getElementById('rptOccurdDrop');
   const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
   let depth = 0;
-  window.addEventListener('dragenter', (e) => { if (hasFiles(e) && appTab === 'report') { depth++; box.classList.add('over'); } });
-  window.addEventListener('dragleave', () => { if (depth && --depth === 0) box.classList.remove('over'); });
-  window.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = appTab === 'report' ? 'copy' : 'none'; } });
+  window.addEventListener('dragenter', (e) => { if (hasFiles(e) && (appTab === 'report' || appTab === 'bio')) { depth++; box.classList.add('over'); document.getElementById('bioDrop').classList.add('over'); } });
+  window.addEventListener('dragleave', () => { if (depth && --depth === 0) { box.classList.remove('over'); document.getElementById('bioDrop').classList.remove('over'); } });
+  window.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = appTab === 'report' || appTab === 'bio' ? 'copy' : 'none'; } });
   window.addEventListener('drop', (e) => {
     if (!hasFiles(e)) return;
     e.preventDefault();
-    depth = 0; box.classList.remove('over');
+    depth = 0; box.classList.remove('over'); document.getElementById('bioDrop').classList.remove('over');
     if (appTab === 'report') rptTakeFiles([...e.dataTransfer.files]);
+    if (appTab === 'bio') rptTakeFiles([...e.dataTransfer.files]).then(() => { bioSync(); bioRender(); });
   });
 })();
 async function rptAddKml(f) {
@@ -10119,7 +10191,7 @@ async function loupedBuild(doc, say, keys) {
   addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
   const reg = window._layersRegister ? window._layersRegister() : null;
   // Top of the map first
-  const shown = mapStack.shown().slice().reverse().filter(s => !keys || keys.has(s.key));
+  const shown = mapStack.shown().slice().reverse().filter(s => (!keys || keys.has(s.key)) && s.key.indexOf('bio_') !== 0);
   for (const s of shown) {
     const d = mapStack.describe(s.key);
     if (!d) continue;
@@ -10181,7 +10253,10 @@ async function loupedBuild(doc, say, keys) {
   }
   // occurd. records, with their coordinates (files added before inferrd
   // v0.62.0 didn't keep them: add those again)
-  const records = [];
+  // Species records: the ticked Biodiversity selections (that are on)
+  let records = [];
+  if (keys) records = bioLoupedRecords(new Set(mapStack.shown().map(x => x.key).filter(k => keys.has(k))), put, addSource);
+  else {
   ((doc && doc.occurd) || []).forEach((f, i) => {
     if (f.kind !== 'records') { left.push({ name: f.name, reason: 'a species checklist, not records: export "Occurrences CSV" from occurd. for the map' }); return; }
     const rows = f.rows.filter(r => isFinite(r.lat) && isFinite(r.lng));
@@ -10193,6 +10268,7 @@ async function loupedBuild(doc, say, keys) {
     records.push({ file, name: f.name, rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: key });
     addSource({ key, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
   });
+  }
   // LiDAR heights, for the 3D view (CC BY 4.0, as the LiDAR layer)
   const terrain = [], tl = loupedLicence('lidar');
   if (tl.share !== 'no') for (const [k, d] of loupedTerrainSets().entries()) {
@@ -10227,6 +10303,235 @@ const loupedBase64 = async (d) => {
   return btoa(s);
 };
 
+
+
+/* ---------------------------------------------------------------------
+   Biodiversity tab: the occurd. records files of the open report (the
+   same files the Report tab's fact sheet reads), and selections made from
+   them. Each selection (rpt.bio.sels) is a layer on the map, under
+   Biodiversity in the Layers panel, with a Louped tick like any layer: a
+   ticked selection goes into the Louped site as species records.
+   A selection: { id, name, color, q, facets: { group: [], status: [],
+   origin: [], area: [] } (empty: all), y0, y1, off: [species left out] }.
+   --------------------------------------------------------------------- */
+const BIO = { rowsSig: '', rows: [], drawn: {}, timer: null, rptId: null };
+const BIO_COLORS = ['#c0392b', '#2471a3', '#1e8449', '#b9770e', '#7d3c98', '#117a65', '#a04000', '#2e4053'];
+const BIO_CLASS = { Aves: 'Birds', Mammalia: 'Mammals', Reptilia: 'Reptiles', Amphibia: 'Amphibians', Insecta: 'Insects', Arachnida: 'Spiders and mites', Actinopterygii: 'Fish', Elasmobranchii: 'Fish', Chondrichthyes: 'Fish', Gastropoda: 'Snails and slugs', Bivalvia: 'Bivalves', Malacostraca: 'Crustaceans', Clitellata: 'Worms', Chilopoda: 'Centipedes', Diplopoda: 'Millipedes' };
+const BIO_FACETS = [
+  ['group', 'Group', (r) => r.kingdom === 'Plantae' ? 'Plants' : r.kingdom === 'Fungi' ? 'Fungi' : r.kingdom === 'Animalia' ? (BIO_CLASS[r.cl] || r.cl || 'Other animals') : (r.kingdom || 'Kingdom not given')],
+  ['status', 'NZTCS status', (r) => r.cat || r.st || 'No status'],
+  ['origin', 'Establishment', (r) => r.em || 'Not given'],
+  ['area', 'occurd. polygon', (r) => r.poly || 'Not given']
+];
+const bio$ = (id) => document.getElementById(id);
+function bioSay(kind, msg) {
+  const el = bio$('bioStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+const bioFiles = () => ((rpt && rpt.occurd) || []).filter(f => f.kind === 'records');
+// Every record with coordinates, each with its file and facet values
+function bioRows() {
+  const files = bioFiles(), sig = files.map(f => f.id + ':' + f.rows.length).join('|');
+  if (sig !== BIO.rowsSig) {
+    BIO.rowsSig = sig;
+    BIO.rows = [];
+    files.forEach(f => f.rows.forEach(r => {
+      if (!isFinite(r.lat) || !isFinite(r.lng)) return;
+      BIO.rows.push({ r, f, v: BIO_FACETS.map(([, , fn]) => fn(r)) });
+    }));
+  }
+  return BIO.rows;
+}
+const bioState = () => { if (rpt && !rpt.bio) rpt.bio = { sels: [], cur: null }; return rpt ? rpt.bio : { sels: [], cur: null }; };
+const bioCur = () => { const b = bioState(); return b.sels.find(s => s.id === b.cur) || null; };
+// Does a record pass a selection's filters (all of them, or all but one facet)?
+function bioPass(sel, x, skip) {
+  for (let i = 0; i < BIO_FACETS.length; i++) {
+    if (i === skip) continue;
+    const want = sel.facets[BIO_FACETS[i][0]];
+    if (want && want.length && !want.includes(x.v[i])) return false;
+  }
+  if (sel.y0 && !(x.r.year >= sel.y0)) return false;
+  if (sel.y1 && !(x.r.year <= sel.y1)) return false;
+  if (sel.q) { const q = sel.q.toLowerCase(); if (!(x.r.sp.toLowerCase().includes(q) || (x.r.vn || '').toLowerCase().includes(q))) return false; }
+  return true;
+}
+const bioPicked = (sel) => { const off = new Set(sel.off || []); return bioRows().filter(x => bioPass(sel, x, -1) && !off.has(x.r.sp)); };
+function bioNewSel(name) {
+  const b = bioState(), id = 's' + Date.now().toString(36);
+  const sel = { id, name: name || 'Selection ' + (b.sels.length + 1), color: BIO_COLORS[b.sels.length % BIO_COLORS.length], q: '', facets: {}, y0: null, y1: null, off: [] };
+  b.sels.push(sel);
+  b.cur = id;
+  return sel;
+}
+let bioSaveTimer = null;
+const bioSave = () => { clearTimeout(bioSaveTimer); bioSaveTimer = setTimeout(() => rptSave(), 300); };
+
+// ── Map layers, one per selection
+const bioKey = (sel) => 'bio_' + sel.id;
+function bioPopup(x) {
+  const r = x.r;
+  return '<b>' + escHtml(r.vn || r.sp) + '</b>' + (r.vn ? '<br><i>' + escHtml(r.sp) + '</i>' : '') +
+    '<br>' + escHtml(r.date || r.year || 'date not given') + (r.st ? '<br>NZTCS: ' + escHtml(r.st) : '') + (r.basis ? '<br>' + escHtml(r.basis.replace(/_/g, ' ').toLowerCase()) : '') +
+    (r.ds ? '<br><small>' + escHtml(r.ds) + '</small>' : '') + (r.id ? '<br><small>GBIF ' + escHtml(r.id) + '</small>' : '');
+}
+function bioDraw(sel) {
+  const key = bioKey(sel), pane = 'stk_' + key;
+  if (!mapStack.describe(key)) {
+    mapStack.add({ key, tab: 'Biodiversity', rank: 600, op: 1, on: true, swatch: sel.color, name: () => (bioState().sels.find(s => s.id === sel.id) || sel).name, notes: 'Species records from occurd., as chosen on the Biodiversity tab' });
+    map.getPane(pane).style.pointerEvents = '';
+  }
+  if (BIO.drawn[key]) map.removeLayer(BIO.drawn[key]);
+  const renderer = L.canvas({ pane }), g = L.layerGroup();
+  bioPicked(sel).forEach(x => L.circleMarker([x.r.lat, x.r.lng], { renderer, pane, radius: 4, color: '#fff', weight: 1, fillColor: sel.color, fillOpacity: 0.9 })
+    .bindPopup(() => bioPopup(x)).addTo(g));
+  g.addTo(map);
+  BIO.drawn[key] = g;
+  mapStack.present(key, true);
+}
+function bioUndraw(key) {
+  if (BIO.drawn[key]) { map.removeLayer(BIO.drawn[key]); delete BIO.drawn[key]; }
+  mapStack.remove(key);
+}
+// The open report changed (opened, switched, files added or removed)
+function bioSync() {
+  const b = bioState(), sig = (rpt ? rpt.id : '') + '|' + bioFiles().map(f => f.id).join(',');
+  if (sig === BIO.sync) return;
+  BIO.sync = sig;
+  // A report with records and no selections yet starts with one of everything
+  if (rpt && bioFiles().length && !b.sels.length) { bioNewSel('All species records'); bioSave(); }
+  const keep = new Set(b.sels.map(bioKey));
+  Object.keys(BIO.drawn).forEach(k => { if (!keep.has(k)) bioUndraw(k); });
+  b.sels.forEach(bioDraw);
+  if (appTab === 'bio') bioRender();
+}
+const bioRedraw = (sel) => { clearTimeout(BIO.timer); BIO.timer = setTimeout(() => { bioDraw(sel); bioTable(); }, 150); };
+
+// ── The tab
+function bioRender() {
+  const b = bioState(), files = ((rpt && rpt.occurd) || []), sel = bioCur();
+  bio$('bioFiles').innerHTML = files.length ? files.map(f => '<div class="bio-file"><b>' + escHtml(f.name) + '</b><small>' + (f.kind === 'records'
+      ? f.rows.length.toLocaleString() + ' records' + (f.citation ? ' · GBIF DOI' : ' · no GBIF DOI') + (f.hasStatus ? ' · NZTCS' : '')
+      : 'a species checklist: no locations, so not mapped here. Export "Occurrences CSV" from occurd.') + '</small></div>').join('')
+    : '<div class="field-hint" style="margin:0 0 8px;">No occurd. files in the open report yet.</div>';
+  bio$('bioSelSec').hidden = !bioFiles().length;
+  bio$('bioSels').innerHTML = b.sels.map(s => '<button type="button" class="lp-site' + (sel && sel.id === s.id ? ' on' : '') + '" data-sel="' + escHtml(s.id) + '"><b><span class="bio-dot" style="background:' + escHtml(s.color) + '"></span>' + escHtml(s.name) + '</b><small>' + bioPicked(s).length.toLocaleString() + ' records</small></button>').join('');
+  bio$('bioEditSec').hidden = !sel;
+  bio$('bioEmpty').hidden = !!sel;
+  bio$('bioTableCard').hidden = !sel;
+  if (!sel) return;
+  if (document.activeElement !== bio$('bioName')) bio$('bioName').value = sel.name;
+  bio$('bioColor').value = sel.color;
+  if (document.activeElement !== bio$('bioQ')) bio$('bioQ').value = sel.q || '';
+  bio$('bioY0').value = sel.y0 || '';
+  bio$('bioY1').value = sel.y1 || '';
+  bioFacets();
+  bioTable();
+}
+// Tick chips for each facet, with how many records each would add
+function bioFacets() {
+  const sel = bioCur(), rows = bioRows();
+  bio$('bioFacets').innerHTML = BIO_FACETS.map(([k, label], i) => {
+    const all = new Map(), n = new Map();
+    rows.forEach(x => { all.set(x.v[i], 0); if (bioPass(sel, x, i)) n.set(x.v[i], (n.get(x.v[i]) || 0) + 1); });
+    if (all.size < 2) return '';
+    const want = sel.facets[k] || [];
+    const vals = [...all.keys()].sort((a, b2) => (n.get(b2) || 0) - (n.get(a) || 0) || a.localeCompare(b2));
+    return '<div class="bio-facet"><div class="bio-fh">' + escHtml(label) + (want.length ? ' <button type="button" class="bio-clear" data-clear="' + k + '">all</button>' : '') + '</div>' +
+      vals.map(v => '<label class="bio-chip' + (want.includes(v) ? ' on' : '') + (n.get(v) ? '' : ' none') + '"><input type="checkbox" data-facet="' + k + '" value="' + escHtml(v) + '"' + (want.includes(v) ? ' checked' : '') + '>' + escHtml(v) + ' <span>' + (n.get(v) || 0).toLocaleString() + '</span></label>').join('') + '</div>';
+  }).join('');
+}
+// The species in the selection's filters, ticked unless left out
+function bioTable() {
+  const sel = bioCur();
+  if (!sel) return;
+  const off = new Set(sel.off || []), by = new Map();
+  bioRows().filter(x => bioPass(sel, x, -1)).forEach(x => {
+    const r = x.r;
+    if (!by.has(r.sp)) by.set(r.sp, { sp: r.sp, vn: r.vn, g: x.v[0], st: r.st, n: 0, y0: null, y1: null });
+    const e = by.get(r.sp);
+    e.n++;
+    if (!e.vn && r.vn) e.vn = r.vn;
+    if (r.year) { e.y0 = Math.min(e.y0 || 9999, r.year); e.y1 = Math.max(e.y1 || 0, r.year); }
+  });
+  const list = [...by.values()].sort((a, b) => b.n - a.n || a.sp.localeCompare(b.sp)), on = list.filter(e => !off.has(e.sp));
+  bio$('bioCount').innerHTML = '<b>' + on.reduce((t, e) => t + e.n, 0).toLocaleString() + '</b> records of <b>' + on.length.toLocaleString() + '</b> taxa' + (on.length < list.length ? ' (' + (list.length - on.length) + ' unticked)' : '');
+  bio$('bioTableHead').textContent = sel.name + ': ' + on.length.toLocaleString() + ' of ' + list.length.toLocaleString() + ' taxa ticked';
+  bio$('bioTable').innerHTML = '<thead><tr><th></th><th>Taxon</th><th>Group</th><th>NZTCS</th><th style="text-align:right">Records</th><th>Years</th></tr></thead><tbody>' +
+    list.map(e => '<tr' + (off.has(e.sp) ? ' class="off"' : '') + '><td><input type="checkbox" data-sp="' + escHtml(e.sp) + '"' + (off.has(e.sp) ? '' : ' checked') + '></td><td><a href="#" data-zoom="' + escHtml(e.sp) + '">' + escHtml(e.vn || e.sp) + '</a>' + (e.vn ? ' <i>' + escHtml(e.sp) + '</i>' : '') + '</td><td>' + escHtml(e.g) + '</td><td>' + escHtml(e.st || '') + '</td><td style="text-align:right">' + e.n.toLocaleString() + '</td><td>' + (e.y0 ? (e.y0 === e.y1 ? e.y0 : e.y0 + '–' + e.y1) : '') + '</td></tr>').join('') + '</tbody>';
+}
+function bioChanged(sel, redrawFacets) {
+  bioSave();
+  bioRedraw(sel);
+  if (redrawFacets) bioFacets();
+  bio$('bioSels').querySelectorAll('[data-sel]').forEach(bt => { const s = bioState().sels.find(x => x.id === bt.dataset.sel); if (s) bt.querySelector('small').textContent = bioPicked(s).length.toLocaleString() + ' records'; });
+}
+bio$('bioFile').addEventListener('change', async (e) => { const fl = [...e.target.files]; e.target.value = ''; await rptTakeFiles(fl); bioSync(); bioRender(); bioSay('', ''); });
+bio$('bioSels').addEventListener('click', (e) => { const bt = e.target.closest('[data-sel]'); if (!bt) return; bioState().cur = bt.dataset.sel; bioSave(); bioRender(); });
+bio$('bioNewBtn').addEventListener('click', () => { const s = bioNewSel(); bioSave(); bioDraw(s); bioRender(); bio$('bioName').focus(); bio$('bioName').select(); });
+bio$('bioName').addEventListener('input', () => { const s = bioCur(); s.name = bio$('bioName').value.trim() || 'Selection'; bioSave(); mapStack.render(); const bt = bio$('bioSels').querySelector('.on b'); if (bt) bt.lastChild.textContent = s.name; });
+bio$('bioColor').addEventListener('input', () => { const s = bioCur(); s.color = bio$('bioColor').value; bioSave(); mapStack.remove(bioKey(s)); bioDraw(s); bioRender(); });
+bio$('bioQ').addEventListener('input', () => { const s = bioCur(); s.q = bio$('bioQ').value.trim(); bioChanged(s, true); bioTable(); });
+['bioY0', 'bioY1'].forEach(id => bio$(id).addEventListener('change', () => { const s = bioCur(), v = Number(bio$(id).value); s[id === 'bioY0' ? 'y0' : 'y1'] = v > 0 ? v : null; bioChanged(s, true); bioTable(); }));
+bio$('bioFacets').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-facet]'); if (!c) return;
+  const s = bioCur(), k = c.dataset.facet, want = new Set(s.facets[k] || []);
+  if (c.checked) want.add(c.value); else want.delete(c.value);
+  s.facets[k] = [...want];
+  bioChanged(s, true); bioTable();
+});
+bio$('bioFacets').addEventListener('click', (e) => { const c = e.target.closest('[data-clear]'); if (!c) return; const s = bioCur(); s.facets[c.dataset.clear] = []; bioChanged(s, true); bioTable(); });
+bio$('bioTable').addEventListener('change', (e) => {
+  const c = e.target.closest('[data-sp]'); if (!c) return;
+  const s = bioCur(), off = new Set(s.off || []);
+  if (c.checked) off.delete(c.dataset.sp); else off.add(c.dataset.sp);
+  s.off = [...off];
+  c.closest('tr').classList.toggle('off', !c.checked);
+  bioChanged(s, false); bioTable();
+});
+bio$('bioTable').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-zoom]'); if (!a) return;
+  e.preventDefault();
+  const pts = bioRows().filter(x => x.r.sp === a.dataset.zoom && bioPass(bioCur(), x, -1)).map(x => [x.r.lat, x.r.lng]);
+  if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.3), { maxZoom: 16 });
+});
+['bioAllBtn', 'bioNoneBtn'].forEach(id => bio$(id).addEventListener('click', () => {
+  const s = bioCur(), shown = new Set(bioRows().filter(x => bioPass(s, x, -1)).map(x => x.r.sp));
+  const off = new Set(s.off || []);
+  shown.forEach(sp => { if (id === 'bioAllBtn') off.delete(sp); else off.add(sp); });
+  s.off = [...off];
+  bioChanged(s, false); bioTable();
+}));
+bio$('bioDelBtn').addEventListener('click', () => {
+  const b = bioState(), s = bioCur();
+  if (!s || !confirm('Delete the selection "' + s.name + '"? Its layer leaves the map.')) return;
+  b.sels = b.sels.filter(x => x.id !== s.id);
+  b.cur = b.sels.length ? b.sels[0].id : null;
+  bioUndraw(bioKey(s));
+  bioSave();
+  bioRender();
+});
+// The records of the ticked selections, as Louped records files: one per
+// selection and file (each file has its own GBIF citation). id ties the
+// records back to the selection's layer, for updating and taking out.
+function bioLoupedRecords(keys, put, addSource) {
+  const out = [];
+  bioState().sels.filter(s => keys.has(bioKey(s))).forEach(s => {
+    const byFile = new Map();
+    bioPicked(s).forEach(x => { if (!byFile.has(x.f)) byFile.set(x.f, []); byFile.get(x.f).push(x.r); });
+    let k = 0;
+    byFile.forEach((rows, f) => {
+      const id = loupedId(bioKey(s)), key = id + (byFile.size > 1 ? '-' + (++k) : ''), file = 'records/' + key + '.json';
+      const cols = ['gbifID', 'lat', 'lng', 'species', 'scientificName', 'vernacularName', 'kingdom', 'phylum', 'class', 'order', 'family', 'year', 'eventDate', 'uncertainty_m', 'basisOfRecord', 'datasetName', 'establishmentMeans', 'polygon', 'nztcs_status', 'nztcs_category', 'nztcs_year'];
+      put(file, JSON.stringify({ cols, rows: rows.map(r => [r.id || null, r.lat, r.lng, r.sp, r.sn || r.sp, r.vn || null, r.kingdom || null, r.ph || null, r.cl || null, r.or || null, r.fa || null, r.year, r.date || null, isFinite(r.unc) ? r.unc : null, r.basis || null, r.ds || null, r.em || null, r.poly || null, r.st || null, r.cat || null, r.sy || null]) }));
+      out.push({ id, file, name: s.name + (byFile.size > 1 ? ' (' + f.name + ')' : ''), rows: rows.length, nztcs: !!f.hasStatus, citation: f.citation || null, source: 'occurd:' + f.id });
+      addSource({ key: 'occurd:' + f.id, name: 'Species records: ' + f.name, citation: f.citation || null, note: f.citation ? 'GBIF occurrence download, via occurd.' : 'Exported from occurd. without a GBIF download DOI, so not citable.' });
+    });
+  });
+  return out;
+}
 
 /* ---------------------------------------------------------------------
    Louped tab: client sites built straight from this map. Sites live in a
@@ -10355,9 +10660,12 @@ async function lpMergePackage(site, files) {
   }
   m.layers = (add.layers || []).concat(m.layers);
   m.records = m.records || [];
+  // Records already here with the same id (a Biodiversity selection), or
+  // the same name (older packages), are replaced
+  const ids = new Set((add.records || []).map(r => r.id).filter(Boolean)), names = new Set((add.records || []).filter(r => !r.id).map(r => r.name));
+  for (const r of m.records.filter(x => (x.id && ids.has(x.id)) || (!x.id && names.has(x.name)))) await lpRemove(pk, r.file);
+  m.records = m.records.filter(x => !((x.id && ids.has(x.id)) || (!x.id && names.has(x.name))));
   for (const r of add.records || []) {
-    const i = m.records.findIndex(x => x.name === r.name);
-    if (i >= 0) { await lpRemove(pk, m.records[i].file); m.records.splice(i, 1); }
     let n = 1, file;
     do file = 'records/occurd-' + n++ + '.json'; while (m.records.some(x => x.file === file));
     if (files[r.file]) await lpWrite(pk, file, files[r.file]);
@@ -10456,7 +10764,7 @@ async function lpOpenTab() {
 // (job.pick, the panel's keys), or the next site made (kept in this browser).
 // A site from before the ticks counts the map layers already in it as ticked.
 const lpIdOf = (k) => { const d = mapStack.describe(k); return loupedId(d && d.ref ? k.slice(4) : k); };
-const lpInSite = (s, k) => ((s.m && s.m.layers) || []).some(l => l.id === lpIdOf(k));
+const lpInSite = (s, k) => ((s.m && s.m.layers) || []).concat((s.m && s.m.records) || []).some(l => l.id && l.id === lpIdOf(k));
 function lpPickLoad() {
   const s = LP.cur;
   if (s) LP.pick = Array.isArray(s.job.pick) ? new Set(s.job.pick) : null;
@@ -10486,7 +10794,7 @@ function lpPlan() {
   const take = picked.filter(k => on.has(k)), off = picked.filter(k => !on.has(k));
   const add = s ? take.filter(k => !lpInSite(s, k)) : take, refresh = s ? take.filter(k => lpInSite(s, k)) : [];
   const unticked = new Set(listed.filter(k => !window.mapPick.has(k)).map(lpIdOf));
-  const drop = s ? ((s.m && s.m.layers) || []).filter(l => unticked.has(l.id)) : [];
+  const seen = new Set(), drop = s ? ((s.m && s.m.layers) || []).concat((s.m && s.m.records) || []).filter(l => l.id && unticked.has(l.id) && !seen.has(l.id) && seen.add(l.id)) : [];
   return { take, off, add, refresh, drop, name: (k) => mapStack.describe(k).name };
 }
 // The Layers panel's own button
@@ -10534,6 +10842,8 @@ async function lpDropLayers(site, ids) {
   const out = (m.layers || []).filter(l => gone.has(l.id)), names = new Set(out.map(l => l.name));
   for (const l of out) for (const f of l.kind === 'image' ? (l.images || []).map(i => i.file) : [l.file]) if (f) await lpRemove(pk, f);
   m.layers = (m.layers || []).filter(l => !gone.has(l.id));
+  for (const r of (m.records || []).filter(r => r.id && gone.has(r.id))) await lpRemove(pk, r.file);
+  m.records = (m.records || []).filter(r => !(r.id && gone.has(r.id)));
   const used = new Set(['inferrd'].concat(m.layers.map(l => l.source), (m.records || []).map(r => r.source), (m.terrain || []).map(t => t.source)));
   m.sources = (m.sources || []).filter(x => used.has(x.key));
   m.licenceUnclear = (m.licenceUnclear || []).filter(x => !names.has(x.name));
@@ -10571,7 +10881,7 @@ function lpRender() {
   const np = LP.cur ? null : lpPlan();
   if (np) lp$('lpNewNote').innerHTML = (np.take.length ? 'Takes the ' + np.take.length + ' layer' + (np.take.length === 1 ? '' : 's') + ' ticked in the <b>Louped</b> column of the map\'s Layers panel (' + np.take.map(k => escHtml(np.name(k))).join(', ') + '), the areas'
       : 'Tick the layers you want in the <b>Louped</b> column of the map\'s Layers panel. It takes those, the areas') +
-    ', the Report tab\'s occurd. records and any LiDAR heights loaded. Licences are applied as in Export for Louped.' + (np.off.length ? ' Ticked but switched off, so not taken: ' + np.off.map(k => escHtml(np.name(k))).join(', ') + '.' : '');
+    ' and any LiDAR heights loaded. Species records come from the Biodiversity tab: its selections are layers, ticked the same way. Licences are applied as in Export for Louped.' + (np.off.length ? ' Ticked but switched off, so not taken: ' + np.off.map(k => escHtml(np.name(k))).join(', ') + '.' : '');
   lpFoot();
   const s = LP.cur;
   lp$('lpEdit').hidden = !s;
@@ -10589,7 +10899,7 @@ function lpRender() {
   const fromMap = new Set(mapStack.listed().map(lpIdOf));
   const hid = new Set(s.job.hidden || []), rows = (m && m.layers || []).filter(l => !fromMap.has(l.id)).map(l => [l.id, l.name, l.group]);
   if (m && (m.terrain || []).length) rows.push(['_terrain', '3D view (LiDAR heights)', 'LiDAR']);
-  if (m && (m.records || []).length) rows.push(['_records', 'Species records', 'Species']);
+  if (m && (m.records || []).some(r => !r.id)) rows.push(['_records', 'Species records (from before the Biodiversity tab)', 'Species']);
   lp$('lpShow').innerHTML = rows.length ? '<div class="field-hint" style="margin:8px 0 2px;">Also in the site (not on the map now):</div>' + rows.map(([id, name, g]) => '<label class="lp-row"><input type="checkbox" data-layer="' + escHtml(id) + '"' + (hid.has(id) ? '' : ' checked') + '> ' + escHtml(name) + (g ? ' <span class="lp-g">' + escHtml(g) + '</span>' : '') + '</label>').join('') : '';
   LP_FIELDS.forEach(k => { lp$('lpF_' + k).value = s.job[k] || ''; });
   lp$('lpF_aerial').value = s.job.basemap && s.job.basemap.aerialLayer || '';
@@ -10872,6 +11182,8 @@ function setAppTab(tab) {
   document.querySelector('.sidebar').classList.toggle('report-mode', tab === 'report');
   document.getElementById('resultsPane').classList.toggle('report-mode', tab === 'report');
   document.querySelector('.sidebar').classList.toggle('louped-mode', tab === 'louped');
+  document.querySelector('.sidebar').classList.toggle('bio-mode', tab === 'bio');
+  document.getElementById('resultsPane').classList.toggle('bio-mode', tab === 'bio');
   document.getElementById('resultsPane').classList.toggle('louped-mode', tab === 'louped');
   map.closePopup();
   // Points of interest sit under the areas on Infrared and on Report.
@@ -10885,6 +11197,7 @@ function setAppTab(tab) {
   if (tab === 'cover') coverAreasChanged();
   if (tab === 'report') reportAreasChanged();
   if (tab === 'louped') lpOpenTab();
+  if (tab === 'bio') { bioSync(); bioRender(); }
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));

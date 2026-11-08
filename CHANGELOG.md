@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.77.0 — 2026-11-08
+
+- **Biodiversity tab.** Add occurd. "Occurrences CSV" exports (drop them on
+  the tab), then choose what to map from the whole dataset:
+  - **Selections:** each one is a layer on the map, under Biodiversity in
+    the Layers panel, in its own colour. A report with records starts with
+    "All species records"; **+ New selection** makes more.
+  - **Choose:** a name and colour; search by scientific or common name;
+    years from and to; tick groups (birds, plants, insects…), NZTCS
+    status, establishment (native or introduced) and occurd. polygon, each
+    with how many records it holds. Nothing ticked in a group means all of
+    it.
+  - **Below the map:** the taxa in the selection with their group, status,
+    record count and years. Untick a taxon to leave it out; click its name
+    to zoom to its records. Click a record on the map for its details.
+  - The files are the open report's, so the Report tab's fact sheet uses
+    the same ones; selections are saved with the report.
+- **Louped:** species records now come from ticked selections, like any
+  layer: tick a selection in the Layers panel's Louped column and it goes
+  into the site as species records (the client's viewer shows them as
+  before, threatened and at-risk taxa first). Untick it and the next update
+  takes its records out. Records already in sites from before stay, with
+  their own tick in the Louped tab.
+
 ## v0.76.0 — 2026-11-08
 
 - **A Louped column in the Layers panel.** Every layer has a tick box: tick
