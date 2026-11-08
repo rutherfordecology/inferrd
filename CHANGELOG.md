@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.78.1 — 2026-11-08
+
+- **Fix: the Louped 3D view.** It stopped with "src is not a function" in
+  the Louped tab's preview and on sites put online from the tab, since the
+  viewer's v0.14.0: the 3D view's settings were named `src`, hiding the
+  function that finds the LiDAR height files. Viewer (`louped/index.html`)
+  now v0.14.1. Sites already online get the fix when you put them online
+  again (Put the changes online).
+
 ## v0.78.0 — 2026-11-08
 
 - **Layers tab.** The reference layers (GDC, QEII, Te Puni Kōkiri, NIWA,

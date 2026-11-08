@@ -193,7 +193,7 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
-const VIEWER_VERSION = 'v0.14.0';
+const VIEWER_VERSION = 'v0.14.1';
 const LOOKLIKE = 'https://occurd.rutherfordecology.co.nz/looklike/';
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -550,9 +550,9 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
   function setup3d(TER) {
     const $3 = (id) => document.getElementById(id);
     const el = $3('v3d'), view = $3('v3dView'), msg = $3('v3dMsg');
-    const src = { model: 'dem', exag: 1, sides: true, dark: false };
-    try { src.sides = localStorage.getItem('louped.v3dSides') !== '0'; src.dark = localStorage.getItem('louped.v3dDark') === '1'; } catch (e) {}
-    const bg = () => src.dark ? 0x000000 : 0xdfe6ea, wire = () => src.dark ? 0xc8c8c8 : 0x000000;
+    const v3o = { model: 'dem', exag: 1, sides: true, dark: false };
+    try { v3o.sides = localStorage.getItem('louped.v3dSides') !== '0'; v3o.dark = localStorage.getItem('louped.v3dDark') === '1'; } catch (e) {}
+    const bg = () => v3o.dark ? 0x000000 : 0xdfe6ea, wire = () => v3o.dark ? 0xc8c8c8 : 0x000000;
     const say = (t) => { msg.hidden = !t; msg.textContent = t || ''; };
     const hasDsm = TER.every(t => t.dsm);
     let libs = null, v3 = null, sets = null, run = 0;
@@ -787,7 +787,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
       const w = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: wire() }));
-      w.userData.sides = true; w.visible = src.sides;
+      w.userData.sides = true; w.visible = v3o.sides;
       return w;
     }
     function clear() { v3.group.children.slice().forEach(m => { v3.group.remove(m); m.geometry.dispose(); if (m.material.map) m.material.map.dispose(); m.material.dispose(); }); }
@@ -797,7 +797,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       try {
         const S = await loadSets();
         if (!live()) return;
-        const model = src.model === 'dsm' && hasDsm ? 'dsm' : 'dem';
+        const model = v3o.model === 'dsm' && hasDsm ? 'dsm' : 'dem';
         let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, zBase = Infinity, zTop = -Infinity;
         S.forEach(d => {
           const Z = d[model];
@@ -816,7 +816,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
         // The base a quarter of the relief below the lowest point (at least 4% of the width)
         const span = Math.max(x1 - x0, y1 - y0), yBase = -Math.max(0.25 * (zTop - zBase), 0.04 * span);
         S.forEach(d => { const w = sides(d, d[model], cx, cy, zBase, yBase, span / 40); if (w) v3.group.add(w); });
-        v3.group.scale.y = src.exag;
+        v3.group.scale.y = v3o.exag;
         if (!v3.span) {
           v3.span = span;
           v3.camera.near = span / 1000; v3.camera.far = span * 20; v3.camera.updateProjectionMatrix();
@@ -835,9 +835,9 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       }
     }
     function sync() {
-      el.querySelectorAll('[data-model]').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.model === (hasDsm ? src.model : 'dem'))); b.disabled = b.dataset.model === 'dsm' && !hasDsm; });
-      $3('v3dSides').checked = src.sides; $3('v3dDark').checked = src.dark;
-      $3('v3dExag').value = src.exag; $3('v3dExagVal').textContent = src.exag + '×';
+      el.querySelectorAll('[data-model]').forEach(b => { b.setAttribute('aria-pressed', String(b.dataset.model === (hasDsm ? v3o.model : 'dem'))); b.disabled = b.dataset.model === 'dsm' && !hasDsm; });
+      $3('v3dSides').checked = v3o.sides; $3('v3dDark').checked = v3o.dark;
+      $3('v3dExag').value = v3o.exag; $3('v3dExagVal').textContent = v3o.exag + '×';
     }
     async function open() {
       el.hidden = false; sync();
@@ -871,10 +871,10 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
     btn.addEventListener('click', open);
     $3('v3dClose').addEventListener('click', close);
     document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && !el.hidden) close(); });
-    el.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click', () => { if (b.disabled || src.model === b.dataset.model) return; src.model = b.dataset.model; sync(); say('Building the model…'); build(); }));
-    $3('v3dExag').addEventListener('input', ev => { src.exag = Number(ev.target.value); $3('v3dExagVal').textContent = src.exag + '×'; if (v3) v3.group.scale.y = src.exag; });
-    $3('v3dSides').addEventListener('change', ev => { src.sides = ev.target.checked; try { localStorage.setItem('louped.v3dSides', src.sides ? '1' : '0'); } catch (e) {} if (v3) v3.group.children.forEach(m => { if (m.userData.sides) m.visible = src.sides; }); });
-    $3('v3dDark').addEventListener('change', ev => { src.dark = ev.target.checked; try { localStorage.setItem('louped.v3dDark', src.dark ? '1' : '0'); } catch (e) {} if (v3) { v3.renderer.setClearColor(bg()); v3.group.children.forEach(m => { if (m.userData.sides) m.material.color.setHex(wire()); }); } });
+    el.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click', () => { if (b.disabled || v3o.model === b.dataset.model) return; v3o.model = b.dataset.model; sync(); say('Building the model…'); build(); }));
+    $3('v3dExag').addEventListener('input', ev => { v3o.exag = Number(ev.target.value); $3('v3dExagVal').textContent = v3o.exag + '×'; if (v3) v3.group.scale.y = v3o.exag; });
+    $3('v3dSides').addEventListener('change', ev => { v3o.sides = ev.target.checked; try { localStorage.setItem('louped.v3dSides', v3o.sides ? '1' : '0'); } catch (e) {} if (v3) v3.group.children.forEach(m => { if (m.userData.sides) m.visible = v3o.sides; }); });
+    $3('v3dDark').addEventListener('change', ev => { v3o.dark = ev.target.checked; try { localStorage.setItem('louped.v3dDark', v3o.dark ? '1' : '0'); } catch (e) {} if (v3) { v3.renderer.setClearColor(bg()); v3.group.children.forEach(m => { if (m.userData.sides) m.material.color.setHex(wire()); }); } });
   }
 
   // ── About: your text, then every source and licence ──
