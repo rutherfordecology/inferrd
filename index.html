@@ -1517,7 +1517,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.80.0';
+const APP_VERSION = 'v0.81.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -10206,6 +10206,60 @@ async function loupedHeightPng(d, Z, f) {
   cv.getContext('2d').putImageData(new ImageData(px, W, H), 0, 0);
   return { blob: await new Promise(r => cv.toBlob(r, 'image/png')), W, H };
 }
+// Client sites show the layers only around the areas: every layer is cut to
+// the areas plus LOUPED_CLIP_KM, so a district-wide feature (a plan zone, a
+// large PMA, a catchment) doesn't fill the client's map.
+const LOUPED_CLIP_KM = 2;
+function loupedClipArea(list) {
+  let clip = null;
+  list.forEach(a => {
+    const b = turf.buffer({ type: 'Feature', geometry: a.geojson.geometry, properties: {} }, LOUPED_CLIP_KM, { units: 'kilometers' });
+    clip = clip ? (turf.union(clip, b) || clip) : b;
+  });
+  return clip;
+}
+// A feature cut to the clip area, or null if nothing of it is inside.
+// Polygons are intersected; lines are split at the edge and the pieces
+// inside kept; points are kept if inside.
+function loupedClipFeature(f, clip) {
+  const g = f.geometry;
+  if (!g) return null;
+  const keep = (geometry) => geometry ? { type: 'Feature', geometry, properties: f.properties } : null;
+  try {
+    if (/Polygon$/.test(g.type)) {
+      const x = turf.intersect(f, clip);
+      return x ? keep(x.geometry) : null;
+    }
+    if (/Point$/.test(g.type)) {
+      const pts = (g.type === 'Point' ? [g.coordinates] : g.coordinates).filter(c => turf.booleanPointInPolygon(c, clip));
+      return !pts.length ? null : keep(g.type === 'Point' ? g : { type: 'MultiPoint', coordinates: pts });
+    }
+    if (/LineString$/.test(g.type)) {
+      const lines = g.type === 'LineString' ? [g.coordinates] : g.coordinates, out = [];
+      const parts = clip.geometry.type === 'Polygon' ? [clip.geometry.coordinates] : clip.geometry.coordinates;
+      lines.forEach(cs => {
+        if (cs.length < 2) return;
+        const line = turf.lineString(cs);
+        let pieces = [line];
+        parts.forEach(rings => rings.forEach(r => {
+          pieces = pieces.flatMap(pc => { try { const s = turf.lineSplit(pc, turf.lineString(r)).features; return s.length ? s : [pc]; } catch (e) { return [pc]; } });
+        }));
+        pieces.forEach(pc => {
+          const len = turf.length(pc);
+          const mid = len > 0 ? turf.along(pc, len / 2) : turf.point(pc.geometry.coordinates[0]);
+          if (turf.booleanPointInPolygon(mid, clip)) out.push(pc.geometry.coordinates);
+        });
+      });
+      if (!out.length) return null;
+      return keep(out.length === 1 ? { type: 'LineString', coordinates: out[0] } : { type: 'MultiLineString', coordinates: out });
+    }
+  } catch (e) {
+    // A geometry turf can't cut: keep it whole if it reaches the clip area at all
+    try { return turf.booleanIntersects(f, clip) ? f : null; } catch (e2) { return f; }
+  }
+  return f;
+}
+
 // One height set per area: the survey shown on the LiDAR tab, else the last loaded.
 function loupedTerrainSets() {
   const by = new Map();
@@ -10225,6 +10279,8 @@ async function loupedBuild(doc, say, keys) {
   const list = areas.filter(a => a.geojson && a.geojson.geometry && /Polygon$/.test(a.geojson.geometry.type));
   const areaFc = { type: 'FeatureCollection', features: list.map(a => ({ type: 'Feature', geometry: a.geojson.geometry, properties: { name: a.name, area_ha: +(turf.area(a.geojson) / 1e4).toFixed(2) } })) };
   put('layers/areas.geojson', JSON.stringify(areaFc));
+  const clip = list.length ? loupedClipArea(list) : null;
+  const clipFeatures = (fs) => !clip ? fs : fs.map(f => loupedClipFeature(f, clip)).filter(Boolean);
   const layers = [], left = [], sources = [], used = new Set(), unclear = [];
   const addSource = (s) => { if (!used.has(s.key)) { used.add(s.key); sources.push(s); } };
   addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
@@ -10245,8 +10301,11 @@ async function loupedBuild(doc, say, keys) {
       if (l.private) { left.push({ name: d.name, reason: 'a private layer: kept in this browser, never packaged' }); continue; }
       const seen = new Set();
       try {
-        for (const a of list) {
-          (await window._layersFeaturesIn(l.id, a.geojson.geometry)).forEach(f => {
+        // Asked for over the clip area (areas + LOUPED_CLIP_KM), so features near
+        // an area are included too, then cut to it below.
+        const asks = clip ? [clip.geometry] : list.map(a => a.geojson.geometry);
+        for (const geom of asks) {
+          (await window._layersFeaturesIn(l.id, geom)).forEach(f => {
             const k = JSON.stringify(f.geometry);
             if (seen.has(k)) return;
             seen.add(k);
@@ -10256,18 +10315,20 @@ async function loupedBuild(doc, say, keys) {
           });
         }
       } catch (e) { left.push({ name: d.name, reason: e.message || String(e) }); continue; }
+      features = clipFeatures(features);
+      if (!features.length) { left.push({ name: d.name, reason: 'nothing within ' + LOUPED_CLIP_KM + ' km of the areas' }); continue; }
       style = { c: l.color, w: 2, o: 1, f: l.color, fo: 0.15 };
       source = 'occurd:' + l.id;
       addSource({ key: source, name: l.name, attribution: lic.attribution || l.attribution || '', note: [l.notes, lic.note].filter(Boolean).join(' '), licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share });
     } else {
       const v = loupedVectorsInPane(s.pane);
-      features = v.features;
+      features = clipFeatures(v.features);
       source = LOUPED_LICENCES[s.key] ? s.key : 'inferrd';
       const addSrc = () => { if (source !== 'inferrd') addSource({ key: source, name: d.name, attribution: lic.attribution || '', note: lic.note || '', licence: lic.licence, licenceUrl: lic.licenceUrl || null, share: lic.share }); };
       if (!features.length && v.images) {
         // An image layer: its pictures, as drawn on the map
         say('Copying ' + d.name + '…');
-        const r = await loupedImagesInPane(s.pane, turf.bbox(areaFc));
+        const r = await loupedImagesInPane(s.pane, turf.bbox(clip || areaFc));
         if (!r.images.length) { left.push({ name: d.name, reason: 'its pictures couldn\'t be copied (the server doesn\'t allow it, or it isn\'t drawn yet)' }); continue; }
         const id = loupedId(s.key) + (layers.some(x => x.id === loupedId(s.key)) ? '-' + layers.length : '');
         const imgs = r.images.map((im, k) => {
@@ -10329,6 +10390,7 @@ async function loupedBuild(doc, say, keys) {
     title: (doc && doc.title) || '',
     bbox: bb.map(v => +v.toFixed(6)),
     areas: { file: 'layers/areas.geojson', count: list.length },
+    clipKm: clip ? LOUPED_CLIP_KM : null, // layers cut to the areas plus this distance
     layers, records, sources, leftOut: left, licenceUnclear: unclear
   };
   if (terrain.length) manifest.terrain = terrain;

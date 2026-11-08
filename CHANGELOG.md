@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.81.0 — 2026-11-08
+
+- **Louped: layers stop 2 km past the areas.** A client site used to get
+  every feature of a layer that touched an area, whole, so plan zones,
+  PMAs and catchments ran across the district. Every layer is now cut to
+  the areas plus 2 km: polygons and lines are trimmed at that edge, points
+  outside it are left out, and picture layers are taken over that box.
+  Reference layers are also looked up over the 2 km, so features just
+  outside an area are included. A layer with nothing within 2 km is listed
+  as left out. Species records are not cut. Sites already online get this
+  when you update them from the Louped tab and put them online again.
+
 ## v0.80.0 — 2026-11-08
 
 - **3D view: the sides have a vertical only at each corner.** The wire
