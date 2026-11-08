@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.86.0 — 2026-11-09
+
+- **The Land cover tab is now Trees & water.** With the land cover
+  layers gone (v0.85.0) it holds tree cover loss, canopy height and
+  surface water, so it is named for them: the tab, its group in the
+  Layers panel, the ✂ cut list, the report's checks and fact sheet, and
+  the About page. Its CSV is now `<area>_trees_water.csv`.
+
 ## v0.85.0 — 2026-11-09
 
 - **Land cover tab: the global land cover and fire layers are gone.** ESA

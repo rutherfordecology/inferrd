@@ -425,7 +425,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
-    <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Tree cover loss, canopy height and surface water">Land cover</button>
+    <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Tree cover loss, canopy height and surface water">Trees &amp;&nbsp;water</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
     <button class="app-tab" id="tabBio" data-tab="bio" type="button" role="tab" aria-selected="false" title="Species records from occurd.: choose what to map, and what goes to a client's Louped site">Biodiversity</button>
     <button class="app-tab" id="tabLayers" data-tab="layers" type="button" role="tab" aria-selected="false" title="Every layer: the reference layers from occurd. (GDC, QEII, NIWA, Manaaki Whenua), and the layers the other tabs have made">Layers</button>
@@ -882,7 +882,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">3 · Map</div>
-        <div class="field-hint" style="margin:0;">Tree cover loss, canopy height and surface water are under <strong>Land cover</strong> in the Layers panel on the map, for your areas: switch each on or off, fade it, and drag it up or down. ✂ on an area cuts it by any of them, or by any other layer. For what covers the land now, switch on LCDB v6 among the reference layers on the Layers tab.</div>
+        <div class="field-hint" style="margin:0;">Tree cover loss, canopy height and surface water are under <strong>Trees &amp; water</strong> in the Layers panel on the map, for your areas: switch each on or off, fade it, and drag it up or down. ✂ on an area cuts it by any of them, or by any other layer. For what covers the land now, switch on LCDB v6 among the reference layers on the Layers tab.</div>
       </div>
 
       <div class="sidebar-footer">
@@ -1478,15 +1478,15 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Report tab</h3>
     <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
-    <p><strong>Gather the facts</strong> runs the Physical, Land cover and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Trees &amp; water and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
 
     <h3>Layers</h3>
-    <p>The <strong>Layers</strong> panel on the right of the map shows what matters on the open tab: that tab's own layers (the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, the six Land cover layers whenever there are areas, the Biodiversity tab's selections), then <strong>Also on the map</strong>: everything else that is switched on, from the other tabs or the reference layers, so LiDAR heights can sit over geology, or tree loss over an index preview. The eye switches a layer on or off, the slider sets its opacity, dragging a row by its grip moves it up or down among its own kind, and the <strong>Louped</strong> tick puts it in a client site. The chevron folds the panel to the side. The <strong>Layers</strong> tab lists every layer: each tab's, and the <strong>reference layers</strong>, occurd.'s polygon layers (below), where you unlock and choose them. Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
-    <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the Land cover tab's layers (tree loss, canopy height and surface water) and against every reference layer. The results are on the Land cover tab, each with its CSV.</p>
+    <p>The <strong>Layers</strong> panel on the right of the map shows what matters on the open tab: that tab's own layers (the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, the three Trees &amp; water layers whenever there are areas, the Biodiversity tab's selections), then <strong>Also on the map</strong>: everything else that is switched on, from the other tabs or the reference layers, so LiDAR heights can sit over geology, or tree loss over an index preview. The eye switches a layer on or off, the slider sets its opacity, dragging a row by its grip moves it up or down among its own kind, and the <strong>Louped</strong> tick puts it in a client site. The chevron folds the panel to the side. The <strong>Layers</strong> tab lists every layer: each tab's, and the <strong>reference layers</strong>, occurd.'s polygon layers (below), where you unlock and choose them. Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
+    <p><strong>Check areas against layers</strong>, at the foot of the panel, checks every area against the Trees &amp; water tab's layers (tree loss, canopy height and surface water) and against every reference layer. The results are on the Trees &amp; water tab, each with its CSV.</p>
     <p><strong>Cut an area by a layer:</strong> ✂ on an area keeps only the part of it inside a layer, or only the part outside, as a new area named after both; the original stays. It can be any tab's layer: canopy over a height, tree cover loss, surface water, a slope class or elevation band, or a reference layer's shapes. Earth Engine layers are cut at their own pixels (10 or 30 m). "Cut areas to this" in a reference-layer popup cuts each area that touches that one shape.</p>
 
-    <h3>Land cover tab</h3>
-    <p>The <strong>Land cover</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m) and surface water since 1984 (EC JRC Global Surface Water, 30 m). Each is shown only when it finds something for that area: tree loss of more than about two pixels, vegetation 3 m or taller over at least 5% of the area, or any surface water. What was checked and found nothing is listed in one line each, and everything goes in the CSV. For what covers the land now, LCDB v6 (Manaaki Whenua) is among the reference layers on the Layers tab; the global land cover layers (ESA WorldCover, Dynamic World) and the fire layers (MODIS burned area, FIRMS) were taken out in v0.85.0, as LCDB is better for New Zealand and fires big enough for them to see are rare here.</p>
+    <h3>Trees &amp; water tab</h3>
+    <p>The <strong>Trees &amp; water</strong> tab checks each drawn area against global Earth Engine layers, so it needs the access key from the Infrared tab: tree cover loss by year since 2001 (Hansen / University of Maryland, 30 m), canopy height in 2020 (ETH Zürich, 10 m) and surface water since 1984 (EC JRC Global Surface Water, 30 m). Each is shown only when it finds something for that area: tree loss of more than about two pixels, vegetation 3 m or taller over at least 5% of the area, or any surface water. What was checked and found nothing is listed in one line each, and everything goes in the CSV. For what covers the land now, LCDB v6 (Manaaki Whenua) is among the reference layers on the Layers tab; the global land cover layers (ESA WorldCover, Dynamic World) and the fire layers (MODIS burned area, FIRMS) were taken out in v0.85.0, as LCDB is better for New Zealand and fires big enough for them to see are rare here.</p>
 
     <h3>Physical tab</h3>
     <p>The <strong>Physical</strong> tab describes what each drawn area is made of and how it lies. <strong>Geology</strong>: in New Zealand, GNS Science's 1:250 000 geological map (QMAP, 2023 edition) gives the map units in the area with their rock types, ages and descriptions, the mapped landslides, and the faults within 1 km and whether they are active; elsewhere, Macrostrat's compilation of geological maps is sampled at points across the area. <strong>Erosion and land capability</strong> (New Zealand): MPI's Erosion Susceptibility Classification, with the Land Use Capability class, subclass and unit it is built on. <strong>Terrain</strong>: elevation, slope (in the LUC slope classes) and aspect from the Copernicus 30 m elevation model. <strong>Soil</strong>: SoilGrids 2.0 (250 m) texture, stones, pH, organic carbon, nitrogen, cation exchange capacity and bulk density down to a metre. Geology and erosion are read straight from the publishers' map services and need no key; terrain and soil run on Earth Engine and need the access key from the Infrared tab. All of these are regional-scale maps: use them for the setting of a site, and check anything that matters on the ground.</p>
@@ -1554,7 +1554,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.85.0';
+const APP_VERSION = 'v0.86.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1727,7 +1727,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { inputs: 'Inputs', infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
+const TAB_LABEL = { inputs: 'Inputs', infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Trees & water', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -5887,7 +5887,7 @@ function syncLidarControls() {
 }
 
 function renderLidarAreaList() { renderTabAreaList('lidarAreaList', 'lidarAreaEmpty'); }
-// The LiDAR, Climate, Physical, Land cover and Report tabs list the shared areas the same way.
+// The LiDAR, Climate, Physical, Trees & water and Report tabs list the shared areas the same way.
 function renderTabAreaList(listId, emptyId) {
   const list = document.getElementById(listId);
   document.getElementById(emptyId).style.display = areas.length ? 'none' : 'block';
@@ -8816,7 +8816,7 @@ document.getElementById('physicalCsvBtn').addEventListener('click', () => {
 syncPhysicalControls();
 
 /* ---------------------------------------------------------------------
-   Land cover tab — tree cover loss, canopy height and surface water,
+   Trees & water tab — tree cover loss, canopy height and surface water,
    from global Earth Engine layers. (WorldCover, Dynamic World and the
    fire layers were taken out in v0.85.0: LCDB, a reference layer, is
    better for New Zealand, and fires big enough for them are rare here.)
@@ -8925,7 +8925,7 @@ async function coverRun() {
     setCoverStatus('', '');
     expandResultsPane();
   } catch (err) {
-    if (runId === coverRunId) setCoverStatus('error', 'Couldn\'t check the land cover: ' + (err && err.message ? err.message : err));
+    if (runId === coverRunId) setCoverStatus('error', 'Couldn\'t check tree loss, canopy height and water: ' + (err && err.message ? err.message : err));
   } finally {
     if (runId === coverRunId) { coverBusy = false; syncCoverControls(); }
   }
@@ -9026,14 +9026,14 @@ document.getElementById('coverCsvBtn').addEventListener('click', () => {
   const out = [['area', 'section', 'item', 'hectares', 'percent_of_area', 'detail'].join(',')];
   C.areas.forEach(a => C.byArea[a.id].report.csv.forEach(r => out.push([a.name, r.section, r.item, r.ha.toFixed(3), r.pct.toFixed(2), r.detail].map(csvCell).join(','))));
   const name = C.areas.length === 1 ? C.areas[0].name.replace(/[^\w-]+/g, '_') : C.areas.length + '_areas';
-  downloadText(name + '_land_cover.csv', out.join('\n') + '\n', 'text/csv');
+  downloadText(name + '_trees_water.csv', out.join('\n') + '\n', 'text/csv');
 });
 
 // Map layers, clipped to the areas: all of them are listed whenever there are
 // areas, so any can be shown, or used to cut an area, before a check. After
 // a check, one that found nothing in the areas says so.
 const coverShown = (key) => !!coverResults && Object.values(coverResults.byArea).some(A => A.report.show.some(sec => sec.key === key));
-const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Land cover', available: () => eeReady && areas.length > 0 }, o, {
+const coverLayer = (o) => mapStack.add(Object.assign({ tab: 'Trees & water', available: () => eeReady && areas.length > 0 }, o, {
   draw: (pane) => eeTileLayer(o.img(), o.vis, pane).then(layer => ({ layer, legend: o.legend,
     note: coverResults && !coverShown(o.section) ? 'The last check found nothing to report for this in your areas.' : '' }))
 }));
@@ -9054,7 +9054,7 @@ coverLayer({ key: 'cover_canopy', section: 'canopy', rank: 230, op: 0.8, name: '
    Check areas against layers — the one check, at the foot of the Layers
    panel: every area against the land cover layers (Earth Engine, coverRun
    above) and against every reference layer (occurd.'s layer check). Both
-   land on the Land cover tab's results, and each keeps its own CSV as
+   land on the Trees & water tab's results, and each keeps its own CSV as
    before (<area>_land_cover.csv and layer_check_<date>.csv).
    --------------------------------------------------------------------- */
 let refActive = false; // reference layers unlocked and listed (see the end of the page)
@@ -9101,7 +9101,7 @@ async function checkAreas() {
     if (eeReady) {
       checkMsg('Checking land cover…');
       await coverRun();
-      if (!coverResults || coverResults.keys !== keys) failed.push('the land cover (the Land cover tab says why)');
+      if (!coverResults || coverResults.keys !== keys) failed.push('tree loss, canopy height and water (the Trees & water tab says why)');
     }
     if (refActive) {
       checkMsg('Checking the reference layers…');
@@ -9114,7 +9114,7 @@ async function checkAreas() {
   } finally {
     checkBusy = false;
   }
-  checkDone = failed.length ? 'Couldn\'t check ' + failed.join(' or ') + '.' : 'Done: the results are on the <a href="#" data-go="cover">Land cover</a> tab.';
+  checkDone = failed.length ? 'Couldn\'t check ' + failed.join(' or ') + '.' : 'Done: the results are on the <a href="#" data-go="cover">Trees &amp; water</a> tab.';
   if (appTab !== 'cover') setAppTab('cover');
   expandResultsPane();
   checkAreasChanged();
@@ -9135,9 +9135,9 @@ document.getElementById('refCheckCsvBtn').addEventListener('click', () => {
    their own resolution, so the new edge follows their pixels.
    --------------------------------------------------------------------- */
 const CUT_EE = [
-  { id: 'cover_canopy', tab: 'Land cover', name: 'Canopy height 2020', scale: 10, threshold: { label: 'Canopy at least', unit: 'm', value: 5, step: 1 }, img: () => ee.Image(COVER_CANOPY) },
-  { id: 'cover_loss', tab: 'Land cover', name: 'Tree cover loss 2001–' + COVER_HANSEN_LAST, scale: 30, what: 'tree cover loss', mask: () => ee.Image(COVER_HANSEN).select('loss').eq(1) },
-  { id: 'cover_water', tab: 'Land cover', name: 'Surface water (at some point since 1984)', scale: 30, what: 'surface water', mask: () => ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence').gt(0) },
+  { id: 'cover_canopy', tab: 'Trees & water', name: 'Canopy height 2020', scale: 10, threshold: { label: 'Canopy at least', unit: 'm', value: 5, step: 1 }, img: () => ee.Image(COVER_CANOPY) },
+  { id: 'cover_loss', tab: 'Trees & water', name: 'Tree cover loss 2001–' + COVER_HANSEN_LAST, scale: 30, what: 'tree cover loss', mask: () => ee.Image(COVER_HANSEN).select('loss').eq(1) },
+  { id: 'cover_water', tab: 'Trees & water', name: 'Surface water (at some point since 1984)', scale: 30, what: 'surface water', mask: () => ee.Image('JRC/GSW1_4/GlobalSurfaceWater').select('occurrence').gt(0) },
   { id: 'phys_slope', tab: 'Physical', name: 'Slope class', scale: 30,
     classes: PHYS_SLOPE_CLASSES.map((c, k) => ({ v: k + 1, label: c.label + ', ' + c.desc, short: c.label, color: c.color })), img: () => physSlopeClass(ee.Terrain.slope(physDem())) },
   { id: 'phys_elev', tab: 'Physical', name: 'Elevation', scale: 30, threshold: { label: 'At or above', unit: 'm', value: 200, step: 10 }, img: () => physDem() }
@@ -9312,7 +9312,7 @@ syncCoverControls();
    --------------------------------------------------------------------- */
 const RPT_CHECKS = [
   ['physical', 'Physical: geology, faults, erosion, LUC; terrain and soil with Earth Engine'],
-  ['cover', 'Land cover tab: tree loss, canopy height, surface water (Earth Engine)'],
+  ['cover', 'Trees & water tab: tree loss, canopy height, surface water (Earth Engine)'],
   ['climate', 'Climate, ERA5-Land (Earth Engine)'],
   ['lidar', 'LiDAR, where it is loaded on the LiDAR tab'],
   ['occurd', 'Species, from the occurd. files']
@@ -9329,7 +9329,7 @@ const RPT_SRC = {
   water: 'EC JRC Global Surface Water 1984–2021, 30 m',
   climate: 'ERA5-Land (ECMWF / Copernicus) on Earth Engine, ~9 km, the area and 6 km around it',
   lidar: 'LINZ LiDAR (Toitū Te Whenua), 1 m',
-  checked: 'Checked on the Land cover tab; nothing over its reporting threshold'
+  checked: 'Checked on the Trees & water tab; nothing over its reporting threshold'
 };
 let rpt = null;            // the open report
 let rptList = [];          // { id, title, updated } of every report
@@ -9619,7 +9619,7 @@ function rptBuildFacts() {
       }
       (P.errors || []).forEach(e => add(A, 'Not checked', 'physical ' + e, 'Physical: ' + e + '.', 'inferrd. Physical tab'));
     }
-    // Land cover
+    // Trees & water
     const C = rpt.checks.cover && coverResults && coverResults.keys === key ? coverResults.byArea[a.id] : null;
     if (C) {
       C.report.show.forEach(sec => {
@@ -9717,7 +9717,7 @@ async function rptRun() {
   try {
     await step('physical', 'Physical', false, () => !!(physicalResults && physicalResults.keys === key), physicalRun);
     if (doc.checks.physical !== false && !eeReady) notes.push('Physical: terrain and soil left out without the Earth Engine key.');
-    await step('cover', 'Land cover', true, () => !!(coverResults && coverResults.keys === key), coverRun);
+    await step('cover', 'Trees & water', true, () => !!(coverResults && coverResults.keys === key), coverRun);
     await step('climate', 'Climate', true, () => !!(lastClimate && lastClimate.keys === key), climateRun);
     if (doc.checks.lidar !== false) {
       const n = areas.filter(a => lidarSets.some(dd => dd.key === areaKey(a) && dd.height)).length;
