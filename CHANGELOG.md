@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.82.0 — 2026-11-09
+
+- **Inputs tab: every file goes in one place.** A new first tab,
+  **Inputs**, has three drop boxes: **Areas** (KML or KMZ, each polygon
+  placemark an area), **Species records from occurd.** (the occurd. CSV
+  exports, kept with the open report) and **Layers** (GeoJSON, KML or KMZ
+  as a private layer, once the reference layers are unlocked). Drop on a
+  box, click it to choose files, or drop anywhere on the tab and each file
+  goes by its type (a KML as areas). It lists the areas on the map, the
+  occurd. files (with any that couldn't be read, and why) and the private
+  layers, each removable. The same inputs are gone from the other tabs:
+  the KML box under Areas of interest on Infrared, Load KML and the occurd.
+  drop box on Report, the occurd. drop box on Biodiversity, and Add a
+  private layer in the reference layers. Each of those places now links to
+  the Inputs tab; Report still shows which occurd. files the report holds.
+  Dropping a file on any other tab does nothing.
+
 ## v0.81.0 — 2026-11-08
 
 - **Louped: layers stop 2 km past the areas.** A client site used to get

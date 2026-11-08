@@ -68,6 +68,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .sidebar.cover-mode > :not(#coverPanel), .sidebar:not(.cover-mode) > #coverPanel { display: none !important; }
 .results-pane.cover-mode > :not(#coverResults), .results-pane:not(.cover-mode) > #coverResults { display: none !important; }
 .sidebar.report-mode > :not(#reportPanel), .sidebar:not(.report-mode) > #reportPanel { display: none !important; }
+.sidebar.inputs-mode > :not(#inputsPanel), .sidebar:not(.inputs-mode) > #inputsPanel { display: none !important; }
+#inputsPanel .rpt-drop { padding: 18px 10px; }
+#inputsPanel .in-sum { font-size: 12px; color: var(--text2); margin: 6px 0 0; }
+#inputsPanel .in-row { display: flex; gap: 6px; align-items: center; font-size: 12.5px; padding: 3px 0; border-bottom: 1px solid var(--rule); }
+#inputsPanel .in-row span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sidebar.louped-mode > :not(#loupedPanel), .sidebar:not(.louped-mode) > #loupedPanel { display: none !important; }
 .sidebar.bio-mode > :not(#bioPanel), .sidebar:not(.bio-mode) > #bioPanel { display: none !important; }
 .sidebar.layers-mode > :not(#layersPanel), .sidebar:not(.layers-mode) > #layersPanel { display: none !important; }
@@ -412,6 +417,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <span style="font-size:12px;font-weight:300;color:rgba(255,255,255,0.75);position:relative;top:3px;">by <strong style="font-weight:700;color:rgba(255,255,255,0.85);">Rutherford</strong> <em style="font-style:normal;font-weight:300;">ecology</em></span>
   </div>
   <nav class="app-tabs" role="tablist" aria-label="Data source">
+    <button class="app-tab" id="tabInputs" data-tab="inputs" type="button" role="tab" aria-selected="false" title="Every file in one place: areas (KML/KMZ), species records from occurd., and your own layers">Inputs</button>
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
@@ -454,8 +460,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <div class="sidebar-section">
       <div class="section-label">2 · Areas of interest</div>
-      <div class="instruction-box">Draw one or more areas on the map. Draw more than one to compare them.</div>
-      <label class="rpt-drop" id="areaKmlDrop" style="margin-bottom:8px;" title="Each polygon placemark in the file becomes an area, named as in the file">Drop <strong>KML/KMZ</strong> here, or <span style="color:var(--brand);text-decoration:underline;">browse</span>, or draw on the map<input type="file" id="areaKmlFile" accept=".kml,.kmz" multiple></label>
+      <div class="instruction-box">Draw one or more areas on the map, or load a KML or KMZ on the <a href="#" data-go="inputs">Inputs</a> tab. Draw more than one to compare them.</div>
       <div id="areaList"></div>
       <div class="poly-empty" id="areaEmpty">No areas drawn yet</div>
       <div id="poiBlock">
@@ -788,6 +793,35 @@ table.stats-table tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <div id="inputsPanel">
+      <div class="sidebar-section">
+        <div class="section-label">Inputs</div>
+        <div class="field-hint" style="margin:0;">Every file goes in here. Drop files on a box, or anywhere on this tab: KML and KMZ become areas, CSV files are read as occurd. exports, and GeoJSON becomes a private layer. To add a KML as a layer rather than as areas, drop it on the Layers box.</div>
+        <div class="status-bar" id="inputsStatus"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">1 · Areas</div>
+        <label class="rpt-drop" id="inAreaDrop" title="Each polygon placemark in the file becomes an area, named as in the file"><strong>Drop KML or KMZ here</strong><br>or click to choose them<input type="file" id="inAreaFile" accept=".kml,.kmz" multiple></label>
+        <div class="in-sum" id="inAreaSum"></div>
+        <div class="field-hint" style="margin:6px 0 0;">Each polygon placemark becomes an area, named as in the file. You can also draw areas on the map on any tab.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Species records from occurd.</div>
+        <label class="rpt-drop" id="inOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="inOccurdFile" accept=".csv,.txt,.zip" multiple></label>
+        <div class="rpt-list" id="rptOccurdList" style="margin-top:8px;"></div>
+        <div class="field-hint" style="margin:6px 0 0;">The records CSV (<b>Occurrences CSV</b>, which the Biodiversity tab maps) or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to the areas by occurd.'s polygon name. The files are kept with the open report.</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Layers</div>
+        <label class="rpt-drop" id="inLayerDrop" title="A GeoJSON, KML or KMZ file from this computer, such as client boundaries"><strong>Drop GeoJSON, KML or KMZ here</strong><br>or click to choose them<input type="file" id="inLayerFile" accept=".geojson,.json,.kml,.kmz" multiple></label>
+        <div id="inLayerList" style="margin-top:6px;"></div>
+        <div class="field-hint" style="margin:6px 0 0;">Each file becomes a private layer on the map, listed with the reference layers. Private layers stay in this browser: never uploaded, and never in Export for Louped or other packages.</div>
+      </div>
+    </div>
+
     <div id="reportPanel">
       <div class="sidebar-section">
         <div class="section-label">1 · Report</div>
@@ -798,18 +832,15 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-section">
         <div class="section-label">2 · Areas</div>
-        <div class="rpt-row" style="margin:0 0 6px;"><label class="tool-btn rpt-file">Load KML or KMZ<input type="file" id="rptKmlFile" accept=".kml,.kmz" multiple></label></div>
         <div id="reportAreaList"></div>
-        <div class="poly-empty" id="reportAreaEmpty">No areas yet: load a KML, or draw on the map</div>
-        <div class="field-hint" style="margin:6px 0 0;">KML and KMZ files can also be dropped anywhere on this tab. Each polygon placemark becomes an area, named as in the file. While this report is open its areas are the ones on the map, on every tab.</div>
+        <div class="poly-empty" id="reportAreaEmpty">No areas yet: draw on the map, or load a KML on the Inputs tab</div>
+        <div class="field-hint" style="margin:6px 0 0;">Load KML and KMZ files on the <a href="#" data-go="inputs">Inputs</a> tab. While this report is open its areas are the ones on the map, on every tab.</div>
         <div id="rptPoiSlot"></div>
       </div>
 
       <div class="sidebar-section">
         <div class="section-label">3 · Species from occurd.</div>
-        <label class="rpt-drop" id="rptOccurdDrop"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="rptOccurdFile" accept=".csv,.txt,.zip" multiple></label>
-        <div class="rpt-list" id="rptOccurdList" style="margin-top:8px;"></div>
-        <div class="field-hint" style="margin:6px 0 0;">The records CSV or the checklist CSV, exported from occurd. with NZTCS status unlocked. For a citable report, fetch in occurd.'s Big Data Mode: its exports carry the GBIF download DOI, which becomes the source of the species facts. It's used exactly as exported: statuses are occurd.'s, including any conflicts you settled there, and records are matched to these areas by occurd.'s polygon name.</div>
+        <div class="field-hint" id="rptOccurdSum" style="margin:0;"></div>
       </div>
 
       <div class="sidebar-section">
@@ -864,8 +895,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
       <div class="sidebar-section">
         <div class="section-label">1 · Records</div>
         <div id="bioFiles"></div>
-        <label class="rpt-drop" id="bioDrop" style="margin-top:8px;"><strong>Drop occurd. CSV files here</strong><br>or click to choose them<input type="file" id="bioFile" accept=".csv,.txt,.zip" multiple></label>
-        <div class="field-hint" style="margin:6px 0 0;">Export <b>Occurrences CSV</b> from occurd. for your areas. The files are kept with the open report, so the Report tab's fact sheet uses them too.</div>
+        <div class="field-hint" style="margin:6px 0 0;">Export <b>Occurrences CSV</b> from occurd. for your areas and add it on the <a href="#" data-go="inputs">Inputs</a> tab. The files are kept with the open report, so the Report tab's fact sheet uses them too.</div>
       </div>
       <div class="sidebar-section" id="bioSelSec" hidden>
         <div class="section-label">2 · Selections</div>
@@ -1517,7 +1547,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.81.0';
+const APP_VERSION = 'v0.82.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1693,7 +1723,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
+const TAB_LABEL = { inputs: 'Inputs', infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Land cover', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -2091,6 +2121,7 @@ let areas = [];
 let nextAreaNum = 1;
 
 function renderAreaList() {
+  try { if (appTab === 'inputs') inputsRender(); } catch (e) {} // appTab isn't set yet during start-up
   const list = document.getElementById('areaList');
   const empty = document.getElementById('areaEmpty');
   empty.style.display = areas.length ? 'none' : 'block';
@@ -9499,6 +9530,9 @@ function rptRenderLists() {
     '<div class="rpt-card warn" data-fail="' + x.id + '"><div class="head"><span class="no">✗</span><span class="t">' + escHtml(x.name) + '</span>' +
     '<button class="rpt-x" type="button" data-del="fail" title="Dismiss">✕</button></div><div><strong>Not added.</strong> ' + escHtml(x.msg) + '</div></div>').join('') +
     rpt.occurd.map(rptOccurdCard).join('');
+  const n = rpt.occurd.length;
+  document.getElementById('rptOccurdSum').innerHTML = (n ? '<b>' + n + (n === 1 ? ' file' : ' files') + '</b> in this report: ' + escHtml(rpt.occurd.map(f => f.name).join(', ')) + '. ' : 'No occurd. files in this report yet. ') +
+    'Add or remove them on the <a href="#" data-go="inputs">Inputs</a> tab.';
 }
 
 function rptOccurdCard(f) {
@@ -9858,12 +9892,12 @@ document.getElementById('rptTitle').addEventListener('input', (e) => {
 });
 document.getElementById('rptChecks').addEventListener('change', (e) => { const k = e.target.dataset.k; if (rpt && k) { rpt.checks[k] = e.target.checked; rptSave(); } });
 // Files, one at a time, with any failure named in the status.
-async function rptEachFile(input, fn) {
+async function rptEachFile(input, fn, say = setReportStatus) {
   const files = [...input.files];
   try { input.value = ''; } catch (e) {}
   const errs = [];
   for (const f of files) {
-    setReportStatus('info', 'Reading ' + f.name + '…');
+    say('info', 'Reading ' + f.name + '…');
     try { await fn(f); } catch (err) {
       const msg = err && err.message ? err.message : String(err);
       errs.push(msg);
@@ -9873,8 +9907,9 @@ async function rptEachFile(input, fn) {
       }
     }
   }
-  setReportStatus(errs.length ? 'error' : '', errs.join('; '));
+  say(errs.length ? 'error' : '', errs.join('; '));
   if (rpt) { rptSave(); rptRenderLists(); renderReport(); }
+  return errs.length;
 }
 async function rptAddOccurd(f) {
   if (/\.zip$/i.test(f.name)) throw new Error(f.name + (/\b\d{7}-\d{15}\b/.test(f.name) ? ' is a GBIF download zip.' + RPT_RAW_GBIF.replace(/^ is straight from GBIF, not an occurd\. export\./, '') : ' is a zip. Add the occurd. CSV export itself.'));
@@ -9885,45 +9920,18 @@ async function rptAddOccurd(f) {
   rptAdded.push(f.name + (old >= 0 ? ' (replaced)' : ''));
 }
 let rptAdded = [];
-async function rptTakeFiles(files) {
-  if (!rpt || !files.length) return;
+// occurd. CSV files into the open report (from the Inputs tab)
+async function rptTakeFiles(files, say) {
+  if (!files.length) return;
+  if (!rpt) { say('error', 'No report is open yet, so the occurd. files have nowhere to go. Try again in a moment.'); return; }
   rptAdded = [];
-  const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), csv = files.filter(f => /\.(csv|txt|zip)$/i.test(f.name)), other = files.filter(f => !/\.(km[lz]|csv|txt|zip)$/i.test(f.name));
-  if (csv.length) await rptEachFile({ files: csv, value: '', failCards: true }, rptAddOccurd);
-  if (kml.length) await rptEachFile({ files: kml, value: '' }, rptAddKml);
-  const msg = (rptAdded.length ? 'Added ' + rptAdded.join(', ') + '.' : '') + (other.length ? ' Not read: ' + other.map(f => f.name).join(', ') + ' (occurd. CSV, KML or KMZ only).' : '');
-  if (msg && !document.getElementById('reportStatus').classList.contains('error')) setReportStatus(other.length ? 'warning' : 'success', msg.trim());
+  const csv = files.filter(f => /\.(csv|txt|zip)$/i.test(f.name)), other = files.filter(f => !/\.(csv|txt|zip)$/i.test(f.name));
+  if (csv.length) await rptEachFile({ files: csv, value: '', failCards: true }, rptAddOccurd, say);
+  if (rptAdded.length) say('success', 'Added ' + rptAdded.join(', ') + '.');
+  if (other.length) say('warning', 'Not read as occurd. files: ' + other.map(f => f.name).join(', ') + ' (CSV only).');
 }
-document.getElementById('rptOccurdFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
-// Drag and drop: onto the box, or anywhere on the Report tab. Elsewhere a
-// dropped file is ignored rather than opened in place of the app.
-(() => {
-  const box = document.getElementById('rptOccurdDrop');
-  const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
-  let depth = 0;
-  window.addEventListener('dragenter', (e) => { if (hasFiles(e) && (appTab === 'report' || appTab === 'bio')) { depth++; box.classList.add('over'); document.getElementById('bioDrop').classList.add('over'); } });
-  window.addEventListener('dragleave', () => { if (depth && --depth === 0) { box.classList.remove('over'); document.getElementById('bioDrop').classList.remove('over'); } });
-  window.addEventListener('dragover', (e) => { if (hasFiles(e)) { e.preventDefault(); e.dataTransfer.dropEffect = appTab === 'report' || appTab === 'bio' ? 'copy' : 'none'; } });
-  window.addEventListener('drop', (e) => {
-    if (!hasFiles(e)) return;
-    e.preventDefault();
-    depth = 0; box.classList.remove('over'); document.getElementById('bioDrop').classList.remove('over');
-    if (appTab === 'report') rptTakeFiles([...e.dataTransfer.files]);
-    if (appTab === 'bio') rptTakeFiles([...e.dataTransfer.files]).then(() => { bioSync(); bioRender(); });
-  });
-})();
-async function rptAddKml(f) {
-  const { out, skipped } = await rptReadKml(f);
-  if (!out.length) throw new Error(f.name + ' has no polygons' + (skipped ? ' (' + skipped + ' points or lines left out)' : ''));
-  out.forEach(x => addAreaFromGeometry(x.geometry, x.name));
-  map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
-  rptAdded.push(f.name + ' (' + out.length + (out.length === 1 ? ' area)' : ' areas)'));
-  if (skipped) throw new Error(f.name + ': ' + skipped + (skipped === 1 ? ' placemark' : ' placemarks') + ' without a polygon left out');
-}
-document.getElementById('rptKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; rptTakeFiles(fl); });
-// The KML / KMZ box under Areas of interest, as in occurd.: dropped or
-// chosen files add their polygon placemarks as areas, on any tab.
-async function areaTakeKml(files) {
+// KML / KMZ files: their polygon placemarks become areas, on every tab.
+async function areaTakeKml(files, say = setStatus) {
   const kml = files.filter(f => /\.km[lz]$/i.test(f.name)), other = files.filter(f => !/\.km[lz]$/i.test(f.name));
   const added = [], problems = [];
   for (const f of kml) {
@@ -9936,16 +9944,111 @@ async function areaTakeKml(files) {
     } catch (err) { problems.push(err.message || String(err)); }
   }
   if (added.length) map.fitBounds(L.featureGroup(areas.map(a => a.layer)).getBounds(), { padding: [30, 30], maxZoom: 17 });
-  if (other.length) problems.push('Not read: ' + other.map(f => f.name).join(', ') + ' (KML or KMZ only)');
-  const msg = (added.length ? 'Added ' + added.join(', ') + '. ' : '') + problems.join('. ');
-  if (msg) setStatus(problems.length ? (added.length ? 'warning' : 'error') : 'success', msg.trim());
+  if (other.length) problems.push('Not read as areas: ' + other.map(f => f.name).join(', ') + ' (KML or KMZ only)');
+  if (added.length) say('success', 'Added ' + added.join(', ') + '.');
+  if (problems.length) say(added.length ? 'warning' : 'error', problems.join('. ') + '.');
 }
+// Private layers (a file from this computer), through occurd.'s layers.js.
+// They sit with the reference layers, so those have to be unlocked first.
+async function inputsAddLayers(files, say) {
+  const P = window.inferrdPriv;
+  if (!P || !P.ready()) { say('error', 'Unlock the reference layers on the Layers tab first: private layers are listed with them.'); return; }
+  const ok = files.filter(f => /\.(km[lz]|geojson|json)$/i.test(f.name)), other = files.filter(f => !/\.(km[lz]|geojson|json)$/i.test(f.name));
+  const added = [], problems = [];
+  for (const f of ok) {
+    say('info', 'Reading ' + f.name + '…');
+    try { await P.add(f); added.push(f.name); } catch (err) { problems.push('Couldn\'t add ' + f.name + ': ' + (err && err.message ? err.message : err)); }
+  }
+  if (other.length) problems.push('Not read as layers: ' + other.map(f => f.name).join(', ') + ' (GeoJSON, KML or KMZ only)');
+  if (added.length) say('success', 'Added ' + added.join(', ') + (added.length === 1 ? ' as a private layer.' : ' as private layers.'));
+  if (problems.length) say(added.length ? 'warning' : 'error', problems.join('. ') + '.');
+}
+
+// ── The Inputs tab: every file comes in here. Each box takes its own kind;
+// a file dropped anywhere else on the tab goes by its type (a KML as areas).
+// On the other tabs a dropped file is ignored rather than opened in place of
+// the app.
+function inputsSay(kind, msg) {
+  const el = document.getElementById('inputsStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+const inKind = (f) => /\.km[lz]$/i.test(f.name) ? 'area' : /\.(csv|txt|zip)$/i.test(f.name) ? 'occurd' : /\.(geojson|json)$/i.test(f.name) ? 'layer' : null;
+async function inputsTake(files, as) {
+  if (!files.length) return;
+  const msgs = [], rank = { '': 0, success: 1, warning: 2, error: 3 };
+  let worst = '';
+  // Each step's messages are gathered, so a mixed drop reports on every file
+  const say = (k, m) => { if (k === 'info') { inputsSay('info', m); return; } if (m) { msgs.push(m); if (rank[k] > rank[worst]) worst = k; } };
+  const of = (k) => as ? (as === k ? files : []) : files.filter(f => inKind(f) === k);
+  const other = as ? [] : files.filter(f => !inKind(f));
+  try {
+    if (of('area').length) await areaTakeKml(of('area'), say);
+    if (of('occurd').length) { await rptTakeFiles(of('occurd'), say); bioSync(); }
+    if (of('layer').length) await inputsAddLayers(of('layer'), say);
+  } catch (err) { say('error', err && err.message ? err.message : String(err)); }
+  if (other.length) say('warning', 'Not read: ' + other.map(f => f.name).join(', ') + ' (KML, KMZ, CSV or GeoJSON only).');
+  inputsSay(worst, msgs.join(' '));
+  inputsRender();
+}
+function inputsRender() {
+  const n = areas.length;
+  document.getElementById('inAreaSum').innerHTML = n
+    ? '<b>' + n + (n === 1 ? ' area' : ' areas') + '</b> on the map: ' + escHtml(areas.map(a => a.name).join(', '))
+    : 'No areas yet.';
+  const P = window.inferrdPriv, host = document.getElementById('inLayerList');
+  if (!P || !P.ready()) {
+    host.innerHTML = '<div class="in-sum">Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to add private layers.</div>';
+    return;
+  }
+  const list = P.list();
+  host.innerHTML = list.length
+    ? list.map(l => '<div class="in-row"><span title="' + escHtml(l.name) + '">' + escHtml(l.name) + '</span><a href="#" data-unpriv="' + escHtml(l.id) + '" title="Remove this private layer from this browser">remove</a></div>').join('')
+    : '<div class="in-sum">No private layers yet.</div>';
+}
+window.inputsRender = inputsRender;
 (() => {
-  const box = document.getElementById('areaKmlDrop');
-  document.getElementById('areaKmlFile').addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; areaTakeKml(fl); });
-  box.addEventListener('dragover', (e) => { e.preventDefault(); e.stopPropagation(); e.dataTransfer.dropEffect = 'copy'; box.classList.add('over'); });
-  box.addEventListener('dragleave', () => box.classList.remove('over'));
-  box.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); box.classList.remove('over'); areaTakeKml([...e.dataTransfer.files]); });
+  const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  const boxes = [['inAreaDrop', 'inAreaFile', 'area'], ['inOccurdDrop', 'inOccurdFile', 'occurd'], ['inLayerDrop', 'inLayerFile', 'layer']].map(([b, f, as]) => {
+    const box = document.getElementById(b);
+    box.dataset.as = as;
+    document.getElementById(f).addEventListener('change', (e) => { const fl = [...e.target.files]; e.target.value = ''; inputsTake(fl, as); });
+    return box;
+  });
+  let depth = 0;
+  const clear = () => { depth = 0; boxes.forEach(b => b.classList.remove('over')); };
+  window.addEventListener('dragenter', (e) => { if (hasFiles(e) && appTab === 'inputs') depth++; });
+  window.addEventListener('dragleave', () => { if (depth && --depth === 0) clear(); });
+  window.addEventListener('dragover', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = appTab === 'inputs' ? 'copy' : 'none';
+    if (appTab === 'inputs') boxes.forEach(b => b.classList.toggle('over', b.contains(e.target)));
+  });
+  window.addEventListener('drop', (e) => {
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    const box = boxes.find(b => b.contains(e.target));
+    clear();
+    if (appTab === 'inputs') inputsTake([...e.dataTransfer.files], box ? box.dataset.as : null);
+  });
+  document.getElementById('inLayerList').addEventListener('click', async (e) => {
+    const un = e.target.closest('[data-unpriv]');
+    if (!un) return;
+    e.preventDefault();
+    const P = window.inferrdPriv, l = P && P.list().find(x => x.id === un.dataset.unpriv);
+    if (!l || !confirm('Remove the private layer "' + l.name + '" from this browser?')) return;
+    await P.remove(l.id);
+    inputsRender();
+  });
+  // Tab links in hints anywhere on the page ("on the Inputs tab")
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-go]');
+    if (!a || e.defaultPrevented) return;
+    e.preventDefault();
+    setAppTab(a.dataset.go);
+  });
 })();
 document.getElementById('rptOccurdList').addEventListener('click', (e) => {
   const fail = e.target.closest('[data-fail]');
@@ -9953,7 +10056,7 @@ document.getElementById('rptOccurdList').addEventListener('click', (e) => {
   const item = e.target.closest('.rpt-card');
   if (!item || !rpt || e.target.dataset.del !== 'occurd') return;
   rpt.occurd = rpt.occurd.filter(x => x.id !== item.dataset.id);
-  rptSave(); renderReport(); rptRenderLists();
+  rptSave(); renderReport(); rptRenderLists(); bioSync();
 });
 document.getElementById('reportFacts').addEventListener('change', (e) => {
   const x = rpt && rpt.facts.find(f => f.id === e.target.dataset.id);
@@ -10569,7 +10672,6 @@ function bioChanged(sel, redrawFacets) {
   if (redrawFacets) bioFacets();
   bio$('bioSels').querySelectorAll('[data-sel]').forEach(bt => { const s = bioState().sels.find(x => x.id === bt.dataset.sel); if (s) bt.querySelector('small').textContent = bioPicked(s).length.toLocaleString() + ' records'; });
 }
-bio$('bioFile').addEventListener('change', async (e) => { const fl = [...e.target.files]; e.target.value = ''; await rptTakeFiles(fl); bioSync(); bioRender(); bioSay('', ''); });
 bio$('bioSels').addEventListener('click', (e) => { const bt = e.target.closest('[data-sel]'); if (!bt) return; bioState().cur = bt.dataset.sel; bioSave(); bioRender(); });
 bio$('bioNewBtn').addEventListener('click', () => { const s = bioNewSel(); bioSave(); bioDraw(s); bioRender(); bio$('bioName').focus(); bio$('bioName').select(); });
 bio$('bioName').addEventListener('input', () => { const s = bioCur(); s.name = bio$('bioName').value.trim() || 'Selection'; bioSave(); mapStack.render(); const bt = bio$('bioSels').querySelector('.on b'); if (bt) bt.lastChild.textContent = s.name; });
@@ -11285,6 +11387,7 @@ function setAppTab(tab) {
   document.querySelector('.sidebar').classList.toggle('louped-mode', tab === 'louped');
   document.querySelector('.sidebar').classList.toggle('bio-mode', tab === 'bio');
   document.querySelector('.sidebar').classList.toggle('layers-mode', tab === 'layers');
+  document.querySelector('.sidebar').classList.toggle('inputs-mode', tab === 'inputs');
   document.getElementById('resultsPane').classList.toggle('bio-mode', tab === 'bio');
   document.getElementById('resultsPane').classList.toggle('louped-mode', tab === 'louped');
   map.closePopup();
@@ -11300,12 +11403,13 @@ function setAppTab(tab) {
   if (tab === 'report') reportAreasChanged();
   if (tab === 'louped') lpOpenTab();
   if (tab === 'bio') { bioSync(); bioRender(); }
+  if (tab === 'inputs') inputsRender();
   try { localStorage.setItem('inferrd.tab', tab); } catch (e) {}
 }
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { const t = localStorage.getItem('inferrd.tab'); if (t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report' || t === 'louped') setAppTab(t); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'inputs' || t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report' || t === 'louped') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
@@ -12737,6 +12841,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   let failed = false, tooOld = false;
   const lock = mapStack.el('lock');
   function renderLock(err) {
+    if (window.inputsRender) window.inputsRender();
     if (refActive) {
       const reg = window._layersRegister && window._layersRegister();
       const priv = reg ? reg.layers.filter(l => l.private) : [];
@@ -12744,9 +12849,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
         (window._layersAddPrivate ?
           '<div style="margin-top:6px;">' +
             priv.map(l => '<div style="display:flex;gap:6px;align-items:center;"><span style="flex:1;min-width:0;">' + escHtml(l.name) + ' <span style="color:var(--text3);">(private)</span></span><a href="#" data-unpriv="' + escHtml(l.id) + '" title="Remove this private layer from this browser">remove</a></div>').join('') +
-            '<button type="button" class="dl-btn" data-addpriv style="width:100%;margin-top:4px;" title="A GeoJSON, KML or KMZ file from this computer, such as client boundaries">+ Add a private layer (file)</button>' +
-            '<input type="file" accept=".geojson,.json,.kml,.kmz" hidden data-privfile>' +
-            '<div style="color:var(--text3);margin-top:3px;">Private layers stay in this browser: never uploaded, and never in Export for Louped or other packages.</div>' +
+            '<div style="color:var(--text3);margin-top:3px;">Add private layers (a GeoJSON, KML or KMZ from this computer) on the <a href="#" data-go="inputs">Inputs</a> tab. They stay in this browser: never uploaded, and never in Export for Louped or other packages.</div>' +
             (err ? '<div style="color:var(--red);margin-top:4px;">' + escHtml(err) + '</div>' : '') +
           '</div>' : '');
       return;
@@ -12768,16 +12871,13 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
   }
   lock.addEventListener('click', async (e) => {
-    if (e.target.closest('[data-addpriv]')) { lock.querySelector('[data-privfile]').click(); return; }
     const un = e.target.closest('[data-unpriv]');
     if (un) {
       e.preventDefault();
       const reg = window._layersRegister && window._layersRegister();
       const l = reg && reg.layers.find(x => x.id === un.dataset.unpriv);
       if (!l || !confirm('Remove the private layer "' + l.name + '" from this browser?')) return;
-      mapStack.removeRef(l.id);
-      await window._layersRemovePrivate(l.id);
-      renderLock();
+      await window.inferrdPriv.remove(l.id);
       return;
     }
     if (!e.target.closest('[data-forget]')) return;
@@ -12789,18 +12889,24 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
     renderLock();
     checkAreasChanged();
   });
-  lock.addEventListener('change', async (e) => {
-    if (!e.target.matches('[data-privfile]')) return;
-    const f = e.target.files[0];
-    if (!f) return;
-    try {
+  // Private layers, added and removed from the Inputs tab
+  window.inferrdPriv = {
+    ready: () => refActive && !!window._layersAddPrivate,
+    list: () => { const reg = window._layersRegister && window._layersRegister(); return reg ? reg.layers.filter(l => l.private) : []; },
+    add: async (f) => {
       const l = await window._layersAddPrivate(f);
       const reg = window._layersRegister();
       mapStack.addRef(l, reg.layers.indexOf(l));
       mapStack.setOn('ref_' + l.id, true);
       renderLock();
-    } catch (err) { renderLock('Couldn\'t add ' + f.name + ': ' + (err.message || err)); }
-  });
+      return l;
+    },
+    remove: async (id) => {
+      mapStack.removeRef(id);
+      await window._layersRemovePrivate(id);
+      renderLock();
+    }
+  };
   async function activate() {
     await window._layersActivate();
     const reg = window._layersRegister && window._layersRegister();
