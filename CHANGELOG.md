@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.89.0 — 2026-11-13
+
+- **Making a new Louped site is clearer.** The name you type is turned
+  into a web address as you type (kaiti_hill becomes kaiti-hill), and
+  the address is shown under the box, with a note that it's a new site
+  and the others aren't changed. Before, a name with an underscore,
+  space or capital was refused, and the message sat lower down the panel
+  where it was easy to miss. Any error now scrolls into view.
+- **A new site is titled from the name you typed** (Kaiti hill), not
+  from the open report's title, so it no longer looks like the last site.
+  The title can still be changed under Wording.
+
 ## v0.88.0 — 2026-11-13
 
 - **All or none for the reference layers.** The Reference layers heading

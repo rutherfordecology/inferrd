@@ -949,6 +949,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div id="lpNewBox">
           <label class="lp-f">New site from the layers on the map: its name in the web address<input type="text" id="lpNewSlug" placeholder="waimata-2026"></label>
           <button class="run-btn" id="lpNewBtn" type="button" style="margin-top:8px;">Make the site</button>
+          <div class="field-hint" id="lpNewAddr" style="margin:4px 0 0;"></div>
           <div class="field-hint" id="lpNewNote" style="margin:6px 0 0;"></div>
         </div>
       </div>
@@ -1562,7 +1563,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.88.0';
+const APP_VERSION = 'v0.89.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -11134,6 +11135,7 @@ function lpRender() {
     (LP.cur ? '<button type="button" class="lp-site lp-site-new" data-slug="">+ New site</button>' : '');
   lp$('lpNewBox').hidden = !!LP.cur;
   if (!LP.slugTyped) lp$('lpNewSlug').value = loupedId(lpNameFromMap()); // until you type your own
+  lpNewAddr();
   const np = LP.cur ? null : lpPlan();
   if (np) lp$('lpNewNote').innerHTML = (np.take.length ? 'Takes the ' + np.take.length + ' layer' + (np.take.length === 1 ? '' : 's') + ' ticked in the <b>Louped</b> column of the map\'s Layers panel (' + np.take.map(k => escHtml(np.name(k))).join(', ') + '), the areas'
       : 'Tick the layers you want in the <b>Louped</b> column of the map\'s Layers panel. It takes those, the areas') +
@@ -11178,7 +11180,7 @@ async function lpRun(what, fn) {
   document.querySelectorAll('#loupedPanel button').forEach(b => { b.disabled = true; });
   lpSay('info', what + '…');
   try { await fn(); }
-  catch (e) { lpSay('error', what + ' failed: ' + (e && e.message ? e.message : e)); }
+  catch (e) { lpSay('error', what + ' failed: ' + (e && e.message ? e.message : e)); lp$('lpStatus').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   finally {
     LP.busy = false;
     document.querySelectorAll('#loupedPanel button').forEach(b => { b.disabled = false; });
@@ -11235,18 +11237,29 @@ lp$('lpAllowBtn').addEventListener('click', async () => {
   if (LP.cur) lpPreview();
 });
 lp$('rptLpHint').addEventListener('click', (e) => { if (e.target.closest('[data-go]')) { e.preventDefault(); setAppTab('louped'); } });
-lp$('lpNewSlug').addEventListener('input', () => { LP.slugTyped = !!lp$('lpNewSlug').value.trim(); });
+// What's typed becomes the web address: lower case, anything but letters
+// and numbers turned into dashes (kaiti_hill → kaiti-hill).
+const lpSlugOf = (raw) => String(raw || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 63);
+// The new site's title: the name as typed, made readable (Kaiti hill), else the map's name
+const lpTitleOf = (raw) => { const t = String(raw || '').trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' '); return t ? t.charAt(0).toUpperCase() + t.slice(1) : lpNameFromMap(); };
+function lpNewAddr() {
+  const slug = lpSlugOf(lp$('lpNewSlug').value), on = LP.online && LP.online.host;
+  lp$('lpNewAddr').innerHTML = !slug ? '' : LP.sites.some(s => s.slug === slug)
+    ? '<span style="color:var(--red);">There\'s already a site called <b>' + escHtml(slug) + '</b>: pick it above to update it, or choose another name.</span>'
+    : 'Its web address: <b>' + escHtml((on || 'louped.pages.dev/').replace(/^https?:\/\//, '') + slug + '/') + '</b>. A new, separate site; the others aren\'t changed.';
+}
+lp$('lpNewSlug').addEventListener('input', () => { LP.slugTyped = !!lp$('lpNewSlug').value.trim(); lpNewAddr(); });
 lp$('lpSites').addEventListener('click', (ev) => { const b = ev.target.closest('[data-slug]'); if (b) lpSelect(b.dataset.slug); });
 lp$('lpMapDiff').addEventListener('click', (ev) => { if (ev.target.closest('#lpUpdBtn')) lpUpdateFromPicks(); });
 lp$('lpReplaceBtn').addEventListener('click', () => lpUpdate(null, 'the map', null, false));
 lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async () => {
-  const slug = lp$('lpNewSlug').value.trim().toLowerCase();
-  if (!lpSlugOk(slug)) throw new Error('a site name is lower-case letters, numbers and dashes, for example waimata-2026');
+  const raw = lp$('lpNewSlug').value, slug = lpSlugOf(raw);
+  if (!lpSlugOk(slug)) throw new Error('type a name for the site, for example waimata-2026');
   if (LP.sites.some(s => s.slug === slug)) throw new Error('there\'s already a site called ' + slug + ': pick it and update its data instead');
   const b = await lpBuildFromMap();
   const h = await LP.dir.getDirectoryHandle(slug, { create: true });
   const job = Object.fromEntries(LP_FIELDS.map(k => [k, '']));
-  job.title = lpNameFromMap();
+  job.title = LP.slugTyped ? lpTitleOf(raw) : lpNameFromMap();
   job.packages = ['package'];
   job.pick = [...(LP.pick || [])];
   await lpPutPackage({ slug, h }, b.files);
