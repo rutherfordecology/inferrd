@@ -1563,7 +1563,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.90.0';
+const APP_VERSION = 'v0.91.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -10263,6 +10263,11 @@ const LOUPED_EE_NOTE = 'Computed on Google Earth Engine under a non-commercial r
  ['phys_elev', 'Copernicus GLO-30 DEM, © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA']
 ].forEach(([k, attribution]) => { LOUPED_LICENCES[k] = { share: 'unclear', licence: 'open data, via Earth Engine (non-commercial)', attribution, note: LOUPED_EE_NOTE }; });
 const loupedLicence = (key) => LOUPED_LICENCES[key] || (/^occurd:gdc_/.test(key) && LOUPED_LICENCES['occurd:gdc_*']) || { share: 'unclear', licence: 'not checked' };
+// The LiDAR map layer shows one view at a time (vegetation height, bare
+// ground, surface…); each goes into a Louped site as its own layer, so a
+// site can have vegetation height and bare ground both. Vegetation height
+// keeps the plain id older sites have.
+const loupedKeyOf = (k) => k === 'lidar' && typeof lidarLayer !== 'undefined' && lidarLayer !== 'height' ? 'lidar-' + lidarLayer : k;
 const loupedId = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'layer';
 // Plain values only: a feature's properties can hold objects layers.js or a
 // tab hung on it.
@@ -10487,7 +10492,7 @@ async function loupedBuild(doc, say, keys) {
         say('Copying ' + d.name + '…');
         const r = await loupedImagesInPane(s.pane, turf.bbox(clip || areaFc));
         if (!r.images.length) { left.push({ name: d.name, reason: 'its pictures couldn\'t be copied (the server doesn\'t allow it, or it isn\'t drawn yet)' }); continue; }
-        const id = loupedId(s.key) + (layers.some(x => x.id === loupedId(s.key)) ? '-' + layers.length : '');
+        const id = loupedId(loupedKeyOf(s.key)) + (layers.some(x => x.id === loupedId(loupedKeyOf(s.key))) ? '-' + layers.length : '');
         const imgs = r.images.map((im, k) => {
           const file = 'images/' + id + (r.images.length > 1 ? '-' + (k + 1) : '') + '.png';
           put(file, im.blob);
@@ -11020,7 +11025,7 @@ async function lpOpenTab() {
 // ── Louped ticks in the Layers panel: the layers that make up the open site
 // (job.pick, the panel's keys), or the next site made (kept in this browser).
 // A site from before the ticks counts the map layers already in it as ticked.
-const lpIdOf = (k) => { const d = mapStack.describe(k); return loupedId(d && d.ref ? k.slice(4) : k); };
+const lpIdOf = (k) => { const d = mapStack.describe(k); return loupedId(d && d.ref ? k.slice(4) : loupedKeyOf(k)); };
 const lpInSite = (s, k) => ((s.m && s.m.layers) || []).concat((s.m && s.m.records) || []).some(l => l.id && l.id === lpIdOf(k));
 function lpPickLoad() {
   const s = LP.cur;

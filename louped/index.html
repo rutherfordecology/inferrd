@@ -129,6 +129,11 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
 .seg button:disabled { opacity: .4; cursor: default; }
 .v3d-view { flex: 1; min-height: 0; position: relative; }
+.v3d-info { position: absolute; z-index: 3; width: 280px; max-width: calc(100% - 16px); max-height: 60%; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.25); padding: 10px 12px; font: 12.5px/1.45 var(--f-body); color: var(--ink); }
+.v3d-info h3 { font: 600 11px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: #6b776f; margin: 8px 0 2px; }
+.v3d-info h3:first-of-type { margin-top: 0; }
+.v3d-info .rec { padding: 3px 0; border-top: 1px solid #e3e8e4; white-space: pre-line; }
+.v3d-info-x { float: right; background: none; border: 0; cursor: pointer; color: var(--ink3); font-size: 13px; padding: 0 0 4px 8px; }
 .v3d-view canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
 .v3d-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; font-size: 13px; max-width: min(420px, 90%); text-align: center; }
 .v3d-layers { position: absolute; top: 10px; right: 10px; z-index: 2; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(0,0,0,.15); padding: 8px 10px; font-size: 12.5px; max-height: calc(100% - 20px); overflow-y: auto; min-width: 200px; max-width: min(320px, calc(100% - 20px)); }
@@ -199,13 +204,13 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
     <button class="btn" type="button" id="v3dLayersBtn" aria-pressed="false" aria-controls="v3dLayers" title="Choose the layers draped over the model">Layers</button>
     <button class="btn" type="button" id="v3dClose">Close</button>
   </div>
-  <div class="v3d-view" id="v3dView"><div class="v3d-msg" id="v3dMsg" hidden></div><div class="v3d-layers" id="v3dLayers" hidden></div></div>
+  <div class="v3d-view" id="v3dView"><div class="v3d-msg" id="v3dMsg" hidden></div><div class="v3d-info" id="v3dInfo" hidden></div><div class="v3d-layers" id="v3dLayers" hidden></div></div>
   <div class="v3d-foot" id="v3dFoot"></div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
-const VIEWER_VERSION = 'v0.17.0';
+const VIEWER_VERSION = 'v0.19.0';
 const LOOKLIKE = 'https://occurd.rutherfordecology.co.nz/looklike/';
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -460,13 +465,15 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
     const rest = Object.entries(p).filter(([k, v]) => k[0] !== '_' && k !== nameKey && v !== '' && v != null && !/^(objectid|fid|shape_.*|globalid|id)$/i.test(k)).slice(0, 4);
     return [nameKey ? p[nameKey] : null, ...rest.map(([k, v]) => k + ': ' + v)].filter(Boolean).join('\n');
   };
-  map.on('click', (ev) => {
-    const pt = turf.point([ev.latlng.lng, ev.latlng.lat]), p0 = map.latLngToContainerPoint(ev.latlng), out = [];
-    const tolM = 8 * 40075016 * Math.cos(ev.latlng.lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8);
+  // The popup's content for a spot: species records and points within a
+  // few pixels (near(lat, lng, px)), lines within tolM metres, the shapes
+  // it is in. Used by the map and by the 3D view (which has no records).
+  function whatsHere(lat, lng, tolM, nearPx, withRecs) {
+    const pt = turf.point([lng, lat]), out = [];
     // Species records within a few pixels
-    const recOn = L_.filter(e => e.kind === 'records' && e.on);
+    const recOn = withRecs ? L_.filter(e => e.kind === 'records' && e.on) : [];
     if (recOn.length) {
-      const near = RECS_OK.filter(r => recOn.some(e => e.filter(r)) && (!hiddenG.has(r.t.g) || r.t === picked) && map.latLngToContainerPoint([r.lat, r.lng]).distanceTo(p0) < 8);
+      const near = RECS_OK.filter(r => recOn.some(e => e.filter(r)) && (!hiddenG.has(r.t.g) || r.t === picked) && nearPx(r.lat, r.lng, 8));
       if (near.length) out.push('<h3>Species records (' + near.length + ')</h3>' + near.slice(0, 6).map(r => '<div class="rec"><b>' + esc(r.t.label) + '</b>' + r.t.badge + (r.t.label !== r.t.name ? ' <i>' + esc(r.t.name) + '</i>' : '') +
         '\n' + esc(r.date || r.year || 'no date') + (r.unc ? ' · within ' + (r.unc >= 1000 ? (r.unc / 1000).toFixed(1) + ' km' : Math.round(r.unc) + ' m') : '') + (r.ds ? '\n' + esc(r.ds) : '') +
         (r.id && /^\d+$/.test(String(r.id)) ? ' · <a href="https://www.gbif.org/occurrence/' + esc(r.id) + '" target="_blank" rel="noopener">GBIF record</a>' : '') + '</div>').join('') + (near.length > 6 ? '<div class="rec">and ' + (near.length - 6) + ' more here</div>' : ''));
@@ -477,13 +484,19 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
           const t = f.geometry.type;
           if (/Polygon/.test(t)) return turf.booleanPointInPolygon(pt, f);
           if (/LineString/.test(t)) return turf.pointToLineDistance(pt, f, { units: 'meters' }) < tolM;
-          if (/Point/.test(t)) return map.latLngToContainerPoint([f.geometry.coordinates[1], f.geometry.coordinates[0]]).distanceTo(p0) < 10;
+          if (/Point/.test(t)) return nearPx(f.geometry.coordinates[1], f.geometry.coordinates[0], 10);
         } catch (err) {}
         return false;
       });
       if (hits.length) out.push('<h3>' + esc(e.name) + '</h3>' + hits.slice(0, 3).map(f => '<div class="rec">' + esc(labelOf(f) || '(no details)') + '</div>').join('') + (hits.length > 3 ? '<div class="rec">and ' + (hits.length - 3) + ' more here</div>' : ''));
     });
-    out.push('<h3>Location</h3>' + ev.latlng.lat.toFixed(5) + ', ' + ev.latlng.lng.toFixed(5));
+    out.push('<h3>Location</h3>' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+    return out;
+  }
+  map.on('click', (ev) => {
+    const p0 = map.latLngToContainerPoint(ev.latlng);
+    const tolM = 8 * 40075016 * Math.cos(ev.latlng.lat * Math.PI / 180) / Math.pow(2, map.getZoom() + 8);
+    const out = whatsHere(ev.latlng.lat, ev.latlng.lng, tolM, (la, ln, px) => map.latLngToContainerPoint([la, ln]).distanceTo(p0) < px, true);
     L.popup({ maxWidth: 300, maxHeight: 320 }).setLatLng(ev.latlng).setContent(out.join('')).openOn(map);
   });
 
@@ -668,8 +681,11 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       const b = ov.getBounds();
       return warp(px, c.width, c.height, (b.getWest() + 180) / 360, merc(b.getNorth()), (b.getEast() + 180) / 360, merc(b.getSouth()), wg);
     }
-    function drawPath(ctx, l, P, k) {
+    // Dots keep a ground size (at most 2 m per pixel of radius, 9 m for a
+    // species record), not their screen size at the map's zoom.
+    function drawPath(ctx, l, P, k, kDot) {
       const o = l.options;
+      if (l instanceof L.CircleMarker && kDot) k = Math.min(k, kDot);
       ctx.beginPath();
       if (l instanceof L.CircleMarker) { const [x, y] = P(l.getLatLng()); ctx.arc(x, y, Math.max(1, l.getRadius() * k), 0, 2 * Math.PI); }
       else {
@@ -698,7 +714,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       const box = L.latLngBounds([g.x0, g.x1].flatMap(X => [g.y0, g.y1].map(Y => { const [lo, la] = toLl(X, Y); return [la, lo]; })));
       const P = (ll) => { const [X, Y] = toNz(ll.lng, ll.lat); return [(X - g.x0) / g.res * sc, (g.y1 - Y) / g.res * sc]; };
       // Lines as thick as on the map now (as if the area filled 300 px when zoomed far out)
-      const mpp = Math.min(156543.03 * Math.cos(clat * Math.PI / 180) / 2 ** map.getZoom(), Math.max(g.W, g.H) * g.res / 300), k = mpp / (g.res / sc);
+      const mpp = Math.min(156543.03 * Math.cos(clat * Math.PI / 180) / 2 ** map.getZoom(), Math.max(g.W, g.H) * g.res / 300), k = mpp / (g.res / sc), kDot = Math.min(mpp, 2) / (g.res / sc);
       const used = [], failed = [], credits = [];
       let wg = null;
       const put = (im, op) => { const s = document.createElement('canvas'); s.width = oW; s.height = oH; s.getContext('2d').putImageData(im, 0, 0); tctx.globalAlpha = op; tctx.imageSmoothingEnabled = true; tctx.drawImage(s, 0, 0, tcv.width, tcv.height); tctx.globalAlpha = 1; };
@@ -720,7 +736,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
           for (const l of paths(e.layer)) {
             const b = l instanceof L.CircleMarker ? L.latLngBounds([l.getLatLng(), l.getLatLng()]) : l.getBounds();
             if (!b.isValid() || !box.intersects(b)) continue;
-            drawPath(tctx, l, P, k); drew = true;
+            drawPath(tctx, l, P, k, kDot); drew = true;
           }
         }
         if (!drew) continue;
@@ -837,6 +853,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
         });
         if (!(zTop >= zBase)) { say('No LiDAR heights in this area.'); return; }
         const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, used = [], failed = [], credits = [], drapes = [];
+        v3.cx = cx; v3.cy = cy; v3.zBase = zBase; v3.model = model;
         for (const d of S) {
           const r = await drape(d, d[model], Math.min(3, 4096 / Math.max(d.g.W, d.g.H)), live);
           if (!r) return;
@@ -888,6 +905,14 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
         renderer.domElement.addEventListener('webglcontextlost', ev => { ev.preventDefault(); cancelAnimationFrame(v3.raf); run++; say('The 3D view ran out of graphics memory. Close it and open it again.'); });
         new ResizeObserver(() => { const w = view.clientWidth, h = view.clientHeight; if (!w || !h) return; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }).observe(view);
         view.insertBefore(renderer.domElement, msg);
+        // Click (not drag) on the model: what's there, as on the map
+        let down = null;
+        renderer.domElement.addEventListener('pointerdown', ev => { down = [ev.clientX, ev.clientY]; });
+        renderer.domElement.addEventListener('pointerup', ev => {
+          if (!down || ev.button !== 0 || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 5) return;
+          down = null;
+          info3d(ev);
+        });
       }
       cancelAnimationFrame(v3.raf);
       const tick = () => { v3.raf = requestAnimationFrame(tick); v3.controls.update(); v3.renderer.render(v3.scene, v3.camera); };
@@ -897,9 +922,33 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
       say('Building the model…');
       await build();
     }
-    function close() { el.hidden = true; run++; if (v3) cancelAnimationFrame(v3.raf); $3('v3dBtn').focus(); }
+    // What's at a clicked spot on the model, in a box beside the click
+    const ray = () => ray.r || (ray.r = new THREE.Raycaster());
+    function info3d(ev) {
+      const box = $3('v3dInfo'), rect = v3.renderer.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2((ev.clientX - rect.left) / rect.width * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+      ray().setFromCamera(ndc, v3.camera);
+      const hit = ray().intersectObjects(v3.group.children.filter(m => m.isMesh), false)[0];
+      if (!hit) { box.hidden = true; return; }
+      const p = v3.group.worldToLocal(hit.point.clone());
+      const X = p.x + v3.cx, Y = v3.cy - p.z, [lng, lat] = toLl(X, Y);
+      // Metres per screen pixel where the click landed, for the tolerances
+      const mpp = hit.distance * 2 * Math.tan(v3.camera.fov * Math.PI / 360) / rect.height;
+      const out = whatsHere(lat, lng, 8 * mpp, (la, ln, px) => { const [x, y] = toNz(ln, la); return Math.hypot(x - X, y - Y) < Math.max(px * mpp, 12); }, true);
+      out.push('<h3>Height</h3>' + (p.y + v3.zBase).toFixed(1) + ' m above sea level (' + (v3.model === 'dsm' ? 'surface' : 'ground') + ', LiDAR)');
+      box.innerHTML = '<button type="button" class="v3d-info-x" aria-label="Close">✕</button>' + out.join('');
+      box.hidden = false;
+      const vr = view.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight;
+      let x = ev.clientX - vr.left + 12, y = ev.clientY - vr.top + 12;
+      if (x + bw > vr.width - 8) x = Math.max(8, ev.clientX - vr.left - bw - 12);
+      if (y + bh > vr.height - 8) y = Math.max(8, vr.height - bh - 8);
+      box.style.left = x + 'px'; box.style.top = y + 'px';
+    }
+    $3('v3dInfo').addEventListener('click', ev => { if (ev.target.closest('.v3d-info-x')) $3('v3dInfo').hidden = true; });
+    function close() { $3('v3dInfo').hidden = true; el.hidden = true; run++; if (v3) cancelAnimationFrame(v3.raf); $3('v3dBtn').focus(); }
     // The layers draped over the model: the map's own, switched here and
-    // there alike (one base map at a time). Species records aren't draped.
+    // there alike (one base map at a time). Species records are drawn on the
+    // model as they are on the map but switched on the map, not listed here.
     const drapeable = () => L_.filter(e => e.kind !== 'records');
     function renderDrape() {
       const groups = [];

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.91.0 — 2026-11-13
+
+- **Louped viewer v0.19.0: click the 3D model for what's there.** As on
+  the map, a click (not a drag) on a client site's 3D view shows the
+  species records, the layer features and the location at that spot,
+  plus its height above sea level from the LiDAR.
+- **Louped viewer: species dots in 3D are small**, as in inferrd.'s own
+  3D view (v0.87.0): at most 9 m in radius, not their screen size.
+- **Bare ground (and the other LiDAR views) as their own Louped layers.**
+  The LiDAR layer shows one view at a time: vegetation height, bare
+  ground, surface, elevation or change. Each now goes into a client site
+  as a layer of its own, so a site can have vegetation height and bare
+  ground both: choose Bare ground on the LiDAR tab, then Update the site.
+  Before, every view went in as the same layer and replaced the last one.
+
 ## v0.90.0 — 2026-11-13
 
 - **Updating a Louped site says what happens to the LiDAR.** The Update
