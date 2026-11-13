@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.90.0 — 2026-11-13
+
+- **Updating a Louped site says what happens to the LiDAR.** The Update
+  the site box on the Louped tab now says whether it will add the LiDAR
+  heights for the 3D view (and from which survey), replace the ones the
+  site has, or that none are loaded, with a link to the LiDAR tab. The
+  button now also shows when only LiDAR is new, and the message after
+  updating says the heights went in.
+
 ## v0.89.0 — 2026-11-13
 
 - **Making a new Louped site is clearer.** The name you type is turned

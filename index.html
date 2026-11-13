@@ -1563,7 +1563,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.89.0';
+const APP_VERSION = 'v0.90.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -11085,12 +11085,21 @@ function lpDiffRender() {
   if (p.add.length) parts.push('<b>adds</b> ' + nm(p.add));
   if (p.drop.length) parts.push('<b>takes out</b> ' + p.drop.map(l => escHtml(l.name)).join(', '));
   if (p.refresh.length) parts.push('refreshes ' + nm(p.refresh));
+  // LiDAR heights (the 3D view) go in from whatever is loaded on the LiDAR tab
+  let sets = [];
+  try { sets = loupedLicence('lidar').share === 'no' ? [] : loupedTerrainSets(); } catch (e) {}
+  const had = !!(s.m && s.m.terrain && s.m.terrain.length);
+  const lidarNames = sets.map(d => escHtml(d.areaName + (d.survey && d.survey.title ? ' (' + d.survey.title + ')' : ''))).join(', ');
+  const lidar = sets.length ? (had ? 'It also <b>replaces the LiDAR heights</b> for the 3D view with those loaded now: ' : 'It also <b>adds LiDAR heights</b> for the 3D view: ') + lidarNames + '.'
+    : had ? 'No LiDAR is loaded, so the site keeps the LiDAR heights it has.'
+    : 'No LiDAR is loaded, so the site has no 3D terrain. Load it on the <a href="#" data-go="lidar">LiDAR</a> tab first to add it.';
   el.innerHTML = '<div class="lp-diff">' + (!p.take.length && !p.drop.length
-      ? 'Tick layers in the <b>Louped</b> column of the map\'s Layers panel to put them in this site.'
+      ? (sets.length ? 'Updating from the map takes the areas and the LiDAR. ' : '') + 'Tick layers in the <b>Louped</b> column of the map\'s Layers panel to put them in this site.'
       : p.add.length || p.drop.length ? 'Updating from the map ' + parts.join('; ') + '.'
       : 'Everything ticked is in the site. Updating refreshes it from the map (' + nm(p.refresh) + ').') +
     (p.off.length ? ' Ticked but switched off, so left as they are: ' + nm(p.off) + '.' : '') +
-    (p.take.length || p.drop.length ? '<button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">Update the site</button>' : '') + '</div>';
+    ' ' + lidar +
+    (p.take.length || p.drop.length || sets.length ? '<button class="run-btn" id="lpUpdBtn" type="button" style="margin-top:6px;">Update the site</button>' : '') + '</div>';
 }
 // A site's layers taken out, with their files and any sources only they used
 async function lpDropLayers(site, ids) {
@@ -11116,7 +11125,7 @@ const lpUpdateFromPicks = () => lpRun('Updating the site', async () => {
   await lpLoadSites();
   lpRender();
   await lpPreview();
-  const did = [p.add.length ? 'added ' + p.add.map(p.name).join(', ') : '', p.drop.length ? 'took out ' + p.drop.map(l => l.name).join(', ') : ''].filter(Boolean).join('; ');
+  const did = [p.add.length ? 'added ' + p.add.map(p.name).join(', ') : '', p.drop.length ? 'took out ' + p.drop.map(l => l.name).join(', ') : '', b.terrain && b.terrain.length ? 'put in the LiDAR heights for 3D' : ''].filter(Boolean).join('; ');
   lpSay(b.left.length || b.unclear.length ? 'warning' : 'success', 'Updated the site' + (did ? ': ' + did : '') + '.' + lpBuildNote(b));
 });
 function lpRender() {
@@ -11250,7 +11259,7 @@ function lpNewAddr() {
 }
 lp$('lpNewSlug').addEventListener('input', () => { LP.slugTyped = !!lp$('lpNewSlug').value.trim(); lpNewAddr(); });
 lp$('lpSites').addEventListener('click', (ev) => { const b = ev.target.closest('[data-slug]'); if (b) lpSelect(b.dataset.slug); });
-lp$('lpMapDiff').addEventListener('click', (ev) => { if (ev.target.closest('#lpUpdBtn')) lpUpdateFromPicks(); });
+lp$('lpMapDiff').addEventListener('click', (ev) => { const go = ev.target.closest('[data-go]'); if (go) { ev.preventDefault(); setAppTab(go.dataset.go); return; } if (ev.target.closest('#lpUpdBtn')) lpUpdateFromPicks(); });
 lp$('lpReplaceBtn').addEventListener('click', () => lpUpdate(null, 'the map', null, false));
 lp$('lpNewBtn').addEventListener('click', () => lpRun('Making the site', async () => {
   const raw = lp$('lpNewSlug').value, slug = lpSlugOf(raw);
