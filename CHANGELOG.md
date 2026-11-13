@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.87.0 — 2026-11-13
+
+- **The layer check is part of the report.** Gather the facts on the
+  Report tab now runs occurd.'s layer check on the report's areas, with
+  a fact for each reference layer an area falls in and one listing the
+  layers with nothing. Export for report includes
+  `layer_check_<date>.csv`, the same file occurd.'s Projects > Layers
+  check makes, and `summary.json` names it with the register version.
+  Before this, a report export had no layer check at all.
+- **Locked reference layers are no longer skipped silently.** If the
+  Layers password hasn't been entered, the fact sheet says the layer
+  check was not run, the Report tab shows a warning, and the export
+  lists the CSV as missing. The map's Check areas button says so too.
+- **The layer check sits on the Layers tab**, as it does in occurd.:
+  its own button (no Earth Engine needed), the results by area, and the
+  CSV. Its results used to show on the Trees & water tab.
+- **Louped viewer v0.17.0: taxa groups on and off.** Each group in a
+  client site's species list (birds, plants, insects…) has a tickbox that
+  shows or hides its records on the map, as occurd.'s taxa filter does,
+  with "all" and "none" above the list. A species clicked in the list
+  still shows even if its group is off. Sites pick this up when they're
+  put online again.
+- **Species dots in the 3D view are small again.** Dots were drawn at
+  their screen size at the map's zoom, so with the map zoomed out each
+  record covered tens to hundreds of metres of terrain. A dot is now at
+  most 2 m per pixel of its radius (8 m for a species record).
+
 ## v0.86.0 — 2026-11-09
 
 - **The Land cover tab is now Trees & water.** With the land cover

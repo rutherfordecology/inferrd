@@ -896,6 +896,17 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="field-hint" style="margin:0;">Switch on what you want on the map. The map's Layers panel then lists each tab's own layers, and everything that's on, wherever it came from; tick <b>Louped</b> there or here to put a layer in the client site.</div>
         <div id="layersHost"></div>
       </div>
+      <div class="sidebar-section">
+        <div class="section-label">Layer check</div>
+        <div class="field-hint" style="margin:0 0 6px;">Tests every area against every reference layer, on or off, the same check as occurd.'s Projects &gt; Layers. The Report tab's Gather the facts runs it too, and Export for report includes its CSV.</div>
+        <button class="run-btn" id="refCheckBtn" type="button" disabled>Check areas against the reference layers</button>
+        <div class="lpanel-msg" id="refCheckMsg" style="margin-top:6px;"></div>
+        <div id="refCheckCard" style="display:none;margin-top:8px;">
+          <button class="dl-btn" id="refCheckCsvBtn" type="button" style="width:100%;">&#8595; Layer check CSV</button>
+          <div id="refCheckBody"></div>
+          <div class="field-hint" style="margin:6px 0 0;">Published GIS layers, not the legal plan maps: confirm anything decisive against the operative plan. The CSV has a row for every area and layer, including those with nothing.</div>
+        </div>
+      </div>
     </div>
 
     <div id="bioPanel">
@@ -1114,14 +1125,6 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="results-empty" id="coverEmpty">
           <span class="big">◌</span>
           Draw an area and check it against the layers.
-        </div>
-        <div class="table-card" id="refCheckCard" style="display:none">
-          <div class="table-card-head">
-            <div class="card-title" style="margin:0;">Reference layers</div>
-            <button class="dl-btn" id="refCheckCsvBtn" type="button">&#8595; Layer check CSV</button>
-          </div>
-          <div id="refCheckBody"></div>
-          <div class="field-hint" style="margin:6px 0 0;">Every area against every reference layer. Published GIS layers, not the legal plan maps: confirm anything decisive against the operative plan. The CSV has a row for every area and layer, including those with nothing.</div>
         </div>
         <div id="coverContent" style="display:none">
           <div class="table-card-head" id="coverAreaHead" style="display:none;margin-bottom:8px;">
@@ -1478,7 +1481,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Report tab</h3>
     <p>The <strong>Report</strong> tab gathers the data a report is built from; the writing, and the judgement calls, happen outside inferrd. Each report holds its areas (loaded from KML or KMZ files, one area per polygon placemark, or drawn) and species records exported from occurd. Reports are kept in this browser only.</p>
-    <p><strong>Gather the facts</strong> runs the Physical, Trees &amp; water and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
+    <p><strong>Gather the facts</strong> runs the Physical, Trees &amp; water and Climate checks on the report's areas (or uses their results if they're already there), takes LiDAR from the LiDAR tab where it's loaded, runs the layer check against every reference layer (occurd.'s check, so the Layers password must be entered; if it isn't, the facts say the layer check was not run), and reads the occurd. files. The fact sheet is a numbered list of measured values, each with its source and nothing interpreted: no "significant", no "mostly", no reasons. Species statuses are occurd.'s, as exported, and the species facts cite the GBIF download DOI when occurd.'s export carries one (fetched in its Big Data Mode). Untick any fact that doesn't belong. <strong>Export for report</strong> saves a zip: <code>facts.csv</code> (the ticked facts, keeping their IDs so a report can cite them), <code>summary.json</code> (version, areas, what was run and when, sources), the areas as GeoJSON and KML, <code>layer_check_&lt;date&gt;.csv</code> (the same file as occurd.'s Projects &gt; Layers check), and <code>map.png</code>, the areas on aerial imagery. <strong>Export for Louped</strong> saves a package for a client map in Louped: the report's areas, the occurd. records (with their coordinates and GBIF DOI), and every vector layer that's on in the Layers panel, in its order, colours and opacity. Set the panel up as the client should see it before exporting. Image layers (index preview, LiDAR, Earth Engine land cover) aren't in packages yet and are listed as left out. occurd. files added before v0.62.0 kept no coordinates: remove them and add them again.</p>
 
     <h3>Layers</h3>
     <p>The <strong>Layers</strong> panel on the right of the map shows what matters on the open tab: that tab's own layers (the index preview, change map, condition trend and condition spots on Infrared once you show them, LiDAR once loaded, the Physical layers once that tab has described the areas, the three Trees &amp; water layers whenever there are areas, the Biodiversity tab's selections), then <strong>Also on the map</strong>: everything else that is switched on, from the other tabs or the reference layers, so LiDAR heights can sit over geology, or tree loss over an index preview. The eye switches a layer on or off, the slider sets its opacity, dragging a row by its grip moves it up or down among its own kind, and the <strong>Louped</strong> tick puts it in a client site. The chevron folds the panel to the side. The <strong>Layers</strong> tab lists every layer: each tab's, and the <strong>reference layers</strong>, occurd.'s polygon layers (below), where you unlock and choose them. Reference outlines always draw above the data layers. The panel remembers its order, opacities and what is on in this browser; reference layers start off each time.</p>
@@ -1554,7 +1557,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.86.0';
+const APP_VERSION = 'v0.87.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -6759,10 +6762,16 @@ async function v3dWarpTiles(layer, wg, lat, live) {
   }
   return new ImageData(out, wg.oW, wg.oH);
 }
+// Ground size of a map dot in 3D: metres per screen pixel of its radius,
+// so a 4 px species dot is at most 8 m in radius whatever the zoom.
+const V3D_DOT_MPP = 2;
 // A Leaflet line, shape or dot redrawn on the canvas: P(latlng) → [x, y],
 // k canvas pixels per screen pixel.
-function v3dDrawPath(ctx, l, P, k) {
+function v3dDrawPath(ctx, l, P, k, kDot) {
   const o = l.options;
+  // Dots (species records) keep a size on the ground, not the map's screen
+  // size: zoomed out, a 5 px dot would be hundreds of metres across.
+  if (l instanceof L.CircleMarker && kDot) k = Math.min(k, kDot);
   ctx.beginPath();
   if (l instanceof L.CircleMarker) {
     const [x, y] = P(l.getLatLng());
@@ -6826,6 +6835,7 @@ async function v3dMapCanvas(d, sc, live, say) {
   // screen pixels when the map is zoomed far out.
   const mpp = Math.min(156543.03 * Math.cos(clat * Math.PI / 180) / 2 ** map.getZoom(), Math.max(g.W, g.H) * g.res / 300);
   const k = mpp / (g.res / sc);
+  const kDot = Math.min(mpp, V3D_DOT_MPP) / (g.res / sc);
   const skip = Object.values(LIDAR_CONTOUR_SRC).map(c => c.key);
   const stack = [{ key: 'base', name: 'basemap', pane: 'tilePane', op: 1 }].concat(mapStack.shown().filter(s => !skip.includes(s.key)));
   const used = [], failed = [], credits = [];
@@ -6857,7 +6867,7 @@ async function v3dMapCanvas(d, sc, live, say) {
         } else {
           const b = l instanceof L.CircleMarker ? L.latLngBounds([l.getLatLng(), l.getLatLng()]) : l.getBounds();
           if (!b.isValid() || !box.intersects(b)) continue;
-          v3dDrawPath(tctx, l, P, k);
+          v3dDrawPath(tctx, l, P, k, kDot);
           drew = true;
         }
       }
@@ -9058,28 +9068,53 @@ coverLayer({ key: 'cover_canopy', section: 'canopy', rank: 230, op: 0.8, name: '
    before (<area>_land_cover.csv and layer_check_<date>.csv).
    --------------------------------------------------------------------- */
 let refActive = false; // reference layers unlocked and listed (see the end of the page)
-let refCheck = null;   // { keys, result } of the last reference-layer check
+// The last reference-layer check: { keys, result, csv, filename, register, time }.
+// Kept with its CSV so the Report tab's fact sheet and export can use it.
+let refCheck = null;
+let refBusy = false, refDone = '';
 let checkBusy = false, checkDone = '';
 mapStack.el('foot').innerHTML = '<button class="run-btn" id="checkAreasBtn" type="button" disabled>Check areas against layers</button><div class="lpanel-msg" id="checkAreasMsg"></div>';
 const checkMsg = (html) => { document.getElementById('checkAreasMsg').innerHTML = html || ''; };
+const refMsg = (html) => { document.getElementById('refCheckMsg').innerHTML = html || ''; };
+const REF_LOCKED = 'The reference layers are locked: enter the Layers password in the map\'s Layers panel (Reference layers) to check them.';
+// Every area against every reference layer (occurd.'s layers.js), kept with its CSV.
+async function runRefCheck(onProgress) {
+  if (!refActive || !window._layersCheck) throw new Error('the reference layers are locked');
+  const keys = areas.map(areaKey).join('|');
+  const result = await window._layersCheck(null, onProgress);
+  const c = window._layersCheckCsv && window._layersCheckCsv();
+  const reg = window._layersRegister && window._layersRegister();
+  refCheck = { keys, result, csv: c ? c.csv + '\n' : '', filename: c ? c.filename : 'layer_check_' + result.time.slice(0, 10) + '.csv',
+    register: (reg && reg.register_version) || null, time: result.time };
+  renderRefCheck();
+  return refCheck;
+}
+function refCheckChanged() {
+  const btn = document.getElementById('refCheckBtn');
+  btn.disabled = refBusy || checkBusy || !areas.length || !refActive;
+  btn.textContent = refBusy ? 'Checking…' : 'Check ' + (areas.length > 1 ? areas.length + ' areas' : 'areas') + ' against the reference layers';
+  if (refBusy) return;
+  refMsg(!refActive ? REF_LOCKED : !areas.length ? 'Draw or add an area first.' : refDone);
+}
 function checkAreasChanged() {
   const keys = areas.map(areaKey).join('|');
-  if (refCheck && refCheck.keys !== keys) { refCheck = null; checkDone = ''; renderRefCheck(); }
+  if (refCheck && refCheck.keys !== keys) { refCheck = null; checkDone = ''; refDone = ''; renderRefCheck(); }
+  refCheckChanged();
   const btn = document.getElementById('checkAreasBtn');
-  btn.disabled = checkBusy || coverBusy || !areas.length || (!eeReady && !refActive);
+  btn.disabled = checkBusy || refBusy || coverBusy || !areas.length || (!eeReady && !refActive);
   btn.textContent = checkBusy ? 'Checking…' : 'Check ' + (areas.length > 1 ? areas.length + ' areas' : 'areas') + ' against layers';
   if (checkBusy) return;
   if (checkDone) { checkMsg(checkDone); return; }
   const what = [], missing = [];
   (eeReady ? what : missing).push(eeReady ? 'tree loss, canopy height and surface water' : 'Unlock Earth Engine on the <a href="#" data-go="infrared">Infrared</a> tab to check tree loss, canopy height and water.');
-  (refActive ? what : missing).push(refActive ? 'every reference layer' : 'Unlock the reference layers on the <a href="#" data-go="layers">Layers</a> tab to check them too.');
+  (refActive ? what : missing).push(refActive ? 'every reference layer' : '<b>The reference layers are locked</b>, so they aren\'t checked: enter the Layers password under Reference layers above.');
   checkMsg(!areas.length ? 'Draw or add an area first.' : (what.length ? 'Checks ' + what.join(', and ') + '. ' : '') + missing.join(' '));
 }
 document.getElementById('checkAreasMsg').addEventListener('click', (e) => {
   const a = e.target.closest('[data-go]');
   if (a) { e.preventDefault(); setAppTab(a.dataset.go); }
 });
-function syncCheckEmpty() { document.getElementById('coverEmpty').style.display = coverResults || refCheck ? 'none' : ''; }
+function syncCheckEmpty() { document.getElementById('coverEmpty').style.display = coverResults ? 'none' : ''; }
 function renderRefCheck() {
   document.getElementById('refCheckCard').style.display = refCheck ? '' : 'none';
   if (refCheck) document.getElementById('refCheckBody').innerHTML = refCheck.result.polys.map(p => {
@@ -9091,38 +9126,56 @@ function renderRefCheck() {
   }).join('');
   syncCheckEmpty();
 }
+const refCheckSummary = (rc) => {
+  const errs = rc.result.polys.reduce((n, p) => n + p.errors.length, 0);
+  return 'Checked ' + rc.result.polys.length + (rc.result.polys.length === 1 ? ' area' : ' areas') + ' against ' + ((window._layersRegister && window._layersRegister().layers.length) || 'the') + ' reference layers' +
+    (errs ? ', but ' + errs + (errs === 1 ? ' layer couldn\'t be checked (in red below)' : ' layer checks failed (in red below)') : '') + '.';
+};
+async function refCheckRun() {
+  if (refBusy || checkBusy || !areas.length || !refActive) return;
+  refBusy = true; refDone = '';
+  checkAreasChanged();
+  try {
+    const rc = await runRefCheck((d, t) => refMsg('Checking: ' + d + ' of ' + t + '…'));
+    refDone = refCheckSummary(rc);
+  } catch (err) { refDone = '<span style="color:var(--red);">Couldn\'t check the reference layers: ' + escHtml(err && err.message ? err.message : String(err)) + '</span>'; }
+  finally { refBusy = false; checkAreasChanged(); }
+}
 async function checkAreas() {
-  if (checkBusy || !areas.length) return;
+  if (checkBusy || refBusy || !areas.length) return;
   checkBusy = true;
   checkDone = '';
   checkAreasChanged();
-  const keys = areas.map(areaKey).join('|'), failed = [];
+  const keys = areas.map(areaKey).join('|'), failed = [], done = [];
   try {
     if (eeReady) {
       checkMsg('Checking land cover…');
       await coverRun();
       if (!coverResults || coverResults.keys !== keys) failed.push('tree loss, canopy height and water (the Trees & water tab says why)');
+      else done.push('land cover on the <a href="#" data-go="cover">Trees &amp; water</a> tab');
     }
     if (refActive) {
       checkMsg('Checking the reference layers…');
       try {
-        const result = await window._layersCheck(null, (d, t) => checkMsg('Checking the reference layers: ' + d + ' of ' + t + '…'));
-        refCheck = { keys, result };
+        const rc = await runRefCheck((d, t) => checkMsg('Checking the reference layers: ' + d + ' of ' + t + '…'));
+        refDone = refCheckSummary(rc);
+        done.push('the reference layers on the <a href="#" data-go="layers">Layers</a> tab');
       } catch (err) { failed.push('the reference layers (' + (err && err.message ? err.message : err) + ')'); }
-      renderRefCheck();
     }
   } finally {
     checkBusy = false;
   }
-  checkDone = failed.length ? 'Couldn\'t check ' + failed.join(' or ') + '.' : 'Done: the results are on the <a href="#" data-go="cover">Trees &amp; water</a> tab.';
-  if (appTab !== 'cover') setAppTab('cover');
-  expandResultsPane();
+  checkDone = (done.length ? 'Done: ' + done.join(', and ') + '.' : '') + (failed.length ? ' Couldn\'t check ' + failed.join(' or ') + '.' : '') +
+    (refActive ? '' : ' <b>The reference layers are locked</b>, so they weren\'t checked.');
+  const go = eeReady && coverResults && coverResults.keys === keys ? 'cover' : refCheck ? 'layers' : null;
+  if (go && appTab !== go) setAppTab(go);
+  if (go === 'cover') expandResultsPane();
   checkAreasChanged();
 }
 document.getElementById('checkAreasBtn').addEventListener('click', checkAreas);
+document.getElementById('refCheckBtn').addEventListener('click', refCheckRun);
 document.getElementById('refCheckCsvBtn').addEventListener('click', () => {
-  const r = window._layersCheckCsv && window._layersCheckCsv();
-  if (r) downloadText(r.filename, r.csv + '\n', 'text/csv');
+  if (refCheck && refCheck.csv) downloadText(refCheck.filename, refCheck.csv, 'text/csv');
 });
 
 /* ---------------------------------------------------------------------
@@ -9315,6 +9368,7 @@ const RPT_CHECKS = [
   ['cover', 'Trees & water tab: tree loss, canopy height, surface water (Earth Engine)'],
   ['climate', 'Climate, ERA5-Land (Earth Engine)'],
   ['lidar', 'LiDAR, where it is loaded on the LiDAR tab'],
+  ['layers', 'Layer check: every reference layer (GDC, QEII, NIWA, Manaaki Whenua), as occurd. checks them'],
   ['occurd', 'Species, from the occurd. files']
 ];
 const RPT_SRC = {
@@ -9378,7 +9432,7 @@ function rptSave() {
 function rptNew() {
   const now = new Date().toISOString();
   return { id: 'r' + Date.now().toString(36), title: 'New report', created: now, updated: now, areas: [], occurd: [],
-    checks: { physical: true, cover: true, climate: true, lidar: true, occurd: true }, facts: [], factsAt: null, factsFor: null, factsNotes: [] };
+    checks: { physical: true, cover: true, climate: true, lidar: true, layers: true, occurd: true }, facts: [], factsAt: null, factsFor: null, factsNotes: [] };
 }
 const rptAreaList = () => areas.map(a => ({ name: a.name, geometry: a.geojson.geometry }));
 const rptAreasMatch = (list) => list.length === areas.length && list.every((x, i) => x.name === areas[i].name && JSON.stringify(x.geometry) === JSON.stringify(areas[i].geojson.geometry));
@@ -9663,6 +9717,22 @@ function rptBuildFacts() {
       add(A, 'LiDAR', 'classes ' + sv.id, 'Vegetation height classes, LiDAR ' + surveyDates(sv) + ': ' + LIDAR_CLASSES.map((c, k) => [c, st.classN[k]]).filter(([, n]) => rptPct(n, st.withH) >= 1).map(([c, n]) => c.label + ' ' + rptP(n, st.withH) + '%').join(', ') + ' of the cells with a height.', src);
       if (st.wires) add(A, 'LiDAR', 'wires ' + sv.id, Math.round(st.wires * st.cellHa * 10000).toLocaleString() + ' m² of cells left out of the heights as power lines or pylons.', src);
     });
+    // Layer check (reference layers), one area or each of its parts
+    if (rpt.checks.layers !== false) {
+      const L = refCheck && refCheck.keys === key ? refCheck : null;
+      if (!L) add(A, 'Not checked', 'layer check', 'Layer check: the reference layers were not checked' + (refActive ? '.' : ' (they were locked in inferrd.).'), 'inferrd. Layers tab');
+      else L.result.polys.filter(p => p.label === A || p.label.startsWith(A + ' (part ')).forEach(p => {
+        const src = (l) => 'occurd. layer check of ' + l.name + ' (' + l.group + '), layer register ' + (L.register || '?') + ', checked ' + L.time.slice(0, 10) + '; ' + L.filename + '. Published GIS layer, not the legal plan map';
+        const part = p.label === A ? '' : p.label.slice(A.length).trim() + ': ';
+        p.hits.forEach(h => add(A, 'Layer check', 'hit ' + p.label + ' ' + h.layer.id, part + 'Within or touching ' + h.layer.name + ': ' +
+          (h.labels.length ? h.labels.join('; ') : h.n + (h.n === 1 ? ' feature' : ' features')) + (h.note ? ' (' + h.note + ')' : '') + '.', src(h.layer)));
+        const hit = new Set(p.hits.concat(p.errors).map(h => h.layer.id));
+        const reg = window._layersRegister && window._layersRegister();
+        const none = reg ? reg.layers.filter(l => !hit.has(l.id)) : [];
+        if (none.length) add(A, 'Layer check', 'none ' + p.label, part + 'No feature of: ' + none.map(l => l.name).join('; ') + '.', 'occurd. layer check, layer register ' + (L.register || '?') + ', checked ' + L.time.slice(0, 10) + '; ' + L.filename);
+        p.errors.forEach(e => add(A, 'Not checked', 'layer ' + p.label + ' ' + e.layer.id, part + 'Layer check: ' + e.layer.name + ' couldn\'t be checked (' + e.message + ').', 'inferrd. Layers tab'));
+      });
+    }
   });
   // occurd. files, as exported
   if (rpt.checks.occurd) rpt.occurd.forEach(f => {
@@ -9723,6 +9793,18 @@ async function rptRun() {
       const n = areas.filter(a => lidarSets.some(dd => dd.key === areaKey(a) && dd.height)).length;
       notes.push('LiDAR: ' + (n ? 'from the LiDAR tab, ' + n + ' of ' + areas.length + (areas.length === 1 ? ' area.' : ' areas.') : 'not loaded; load it on the LiDAR tab to include it.'));
     }
+    if (doc.checks.layers !== false) {
+      if (!refActive) notes.push('Layer check: NOT RUN. The reference layers are locked: enter the Layers password in the map\'s Layers panel, then gather again.');
+      else {
+        if (!(refCheck && refCheck.keys === key)) {
+          setReportStatus('info', 'Layer check…');
+          try { await runRefCheck((d, t) => setReportStatus('info', 'Layer check: ' + d + ' of ' + t + '…')); } catch (e) {}
+        }
+        const ok = refCheck && refCheck.keys === key;
+        const errs = ok ? refCheck.result.polys.reduce((n, p) => n + p.errors.length, 0) : 0;
+        notes.push('Layer check: ' + (ok ? 'done, layer register ' + (refCheck.register || '?') + (errs ? '; ' + errs + ' layer check' + (errs === 1 ? '' : 's') + ' failed (see Not checked)' : '') + '. Its CSV goes in the export.' : 'didn\'t finish; see the Layers tab for why.'));
+      }
+    }
     if (doc.checks.occurd !== false) {
       notes.push('Species: ' + (doc.occurd.length ? doc.occurd.length + (doc.occurd.length === 1 ? ' occurd. file.' : ' occurd. files.') : 'no occurd. file added.'));
       rptFailed.forEach(x => notes.push('Species: ' + x.name + ' was not added (see section 3), so none of its records are here.'));
@@ -9733,8 +9815,14 @@ async function rptRun() {
     doc.factsAt = new Date().toISOString();
     doc.factsFor = key;
     doc.factsNotes = notes;
+    // The layer check's CSV is kept with the report, for Export for report
+    doc.layerCheck = doc.checks.layers !== false && refCheck && refCheck.keys === key
+      ? { keys: key, csv: refCheck.csv, filename: refCheck.filename, register: refCheck.register, time: refCheck.time } : null;
     rptSave();
-    setReportStatus('', '');
+    if (doc.checks.layers !== false && !doc.layerCheck) setReportStatus('warning', refActive
+      ? 'The layer check didn\'t finish, so the export won\'t have a layer check CSV. See the Layers tab, then gather again.'
+      : 'The reference layers are locked, so there\'s no layer check in these facts or the export. Enter the Layers password in the map\'s Layers panel, then gather again.');
+    else setReportStatus('', '');
     renderReport();
     expandResultsPane();
   } catch (err) {
@@ -10061,6 +10149,9 @@ async function rptExport() {
       try { dir.file('map.png', await conditionMapPng({ outlines: list.map(a => ({ geometry: a.geometry, label: list.length > 1 ? a.name : null })), spots: [] })); }
       catch (e) { missing.push('map.png (' + e.message + ')'); }
     }
+    const LC = doc.checks.layers !== false && doc.layerCheck && doc.layerCheck.keys === doc.factsFor ? doc.layerCheck : null;
+    if (LC) dir.file(LC.filename, LC.csv);
+    else if (doc.checks.layers !== false) missing.push('layer_check_<date>.csv (the layer check was not run: unlock the reference layers and gather again)');
     const used = new Set(inc.map(f => f.source));
     const summary = {
       tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', exported_at: now.toISOString(),
@@ -10073,6 +10164,8 @@ async function rptExport() {
         note: 'Put on the map by hand in inferrd; only those inside the areas are included' + (ptsOut ? ' (' + ptsOut + ' elsewhere left out)' : '') + '.' },
       checks_run: RPT_CHECKS.filter(([k]) => doc.checks[k] !== false).map(([, label]) => label),
       gathering_notes: doc.factsNotes || [],
+      layer_check: LC ? { file: LC.filename, checked_at: LC.time, register_version: LC.register,
+        note: 'occurd.\'s layer check (layers.js and layers-register.json from occurd.), run in inferrd.: the same columns as occurd.\'s Projects > Layers CSV. Published GIS layers, not the legal plan maps.' } : null,
       occurd_files: doc.occurd.map(f => ({ name: f.name, kind: f.kind, rows: f.rows.length, nztcs_status: f.hasStatus, gbif_citation: f.citation || null })),
       sources: [...used].sort(),
       map_imagery: list.length ? 'Esri World Imagery (' + MAP_CREDIT.replace('Imagery: ', '') + '), retrieved ' + isoDate(now) : null,

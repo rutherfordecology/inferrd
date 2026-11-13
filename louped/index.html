@@ -82,8 +82,12 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
 .nb-nc { background: #7B0D1E; } .nb-ne { background: #A3213A; } .nb-nv { background: #C0006E; } .nb-ar { background: #D4580A; }
 .nb-rc { background: #7AAE00; } .nb-ex { background: #1F2937; } .nb-oi { background: #6B21A8; }
 .spgroups { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
-.spg-head { display: grid; grid-template-columns: 12px 8px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 7px 10px; background: var(--bg); border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; font: 600 11px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+.spg-head { display: grid; grid-template-columns: 12px 14px 8px minmax(0, 1fr) auto; gap: 7px; align-items: center; padding: 7px 10px; background: var(--bg); border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; font: 600 11px var(--f-body); letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
 .spg-head:hover { background: var(--hover); }
+.spg-head .spg-cb { margin: 0; width: 13px; height: 13px; accent-color: var(--ink); cursor: pointer; }
+.spg.off .spg-head > span:not(.chev) { opacity: .45; }
+.spg-all { display: flex; gap: 8px; align-items: center; font: 400 11.5px var(--f-body); color: var(--ink3); margin: 6px 0 4px; }
+.spg-all button { font: 600 11.5px var(--f-body); background: none; border: 0; padding: 0; color: var(--ink2); text-decoration: underline; cursor: pointer; }
 .spg-head .chev { font-size: 9px; color: var(--ink3); transition: transform .15s; }
 .spg-head[aria-expanded="false"] .chev { transform: rotate(-90deg); }
 .spg-head .n { font: 400 10.5px var(--f-data); letter-spacing: 0; text-transform: none; color: var(--ink3); }
@@ -168,7 +172,8 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
         <div class="nzchips" id="nzChips" role="group" aria-label="Threat status (NZTCS)"></div>
         <input type="search" id="spSearch" placeholder="Find a species" aria-label="Find a species">
         <div class="row" style="justify-content: space-between;"><span class="eyebrow" id="spCount"></span><span class="row"><button class="btn" type="button" id="llBtn" title="Photos of the listed species in LookLike">Photos in LookLike</button><button class="btn" type="button" id="dlRecords">Records (CSV)</button></span></div>
-        <p class="note">Click a species to show where it was recorded. Records cluster where people go, so few records means few visits, not few species.</p>
+        <div class="spg-all" id="spgAll">Groups on the map: <button type="button" data-all="1">all</button><button type="button" data-all="0">none</button></div>
+        <p class="note">Tick a group to show or hide its records on the map. Click a species to show where it was recorded. Records cluster where people go, so few records means few visits, not few species.</p>
         <div class="spgroups" id="spList"></div>
       </section>
       <section class="sec">
@@ -200,7 +205,7 @@ input[type=search] { width: 100%; font: 12.5px var(--f-body); color: var(--ink);
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
 <script>
-const VIEWER_VERSION = 'v0.16.0';
+const VIEWER_VERSION = 'v0.17.0';
 const LOOKLIKE = 'https://occurd.rutherfordecology.co.nz/looklike/';
 const CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>';
 const EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -362,11 +367,12 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
     const g = L.layerGroup();
     g.draw = (op) => {
       g.clearLayers();
-      RECS_OK.filter(filter).forEach(r => L.circleMarker([r.lat, r.lng], { renderer: recR, radius: picked && r.t === picked ? 6.5 : 4.5, color: '#fff', weight: 1, opacity: op, fillColor: TAXON_COLOURS[r.t.g][0], fillOpacity: .95 * op, interactive: false }).addTo(g));
+      RECS_OK.filter(r => filter(r) && (!hiddenG.has(r.t.g) || r.t === picked)).forEach(r => L.circleMarker([r.lat, r.lng], { renderer: recR, radius: picked && r.t === picked ? 6.5 : 4.5, color: '#fff', weight: 1, opacity: op, fillColor: TAXON_COLOURS[r.t.g][0], fillOpacity: .95 * op, interactive: false }).addTo(g));
     };
     return g;
   };
   let picked = null;
+  const hiddenG = new Set(); // taxa groups switched off in the species list
   if (RECS_OK.length) {
     const groupsTh = [...new Set(RECS_OK.filter(r => r.t.threat).map(r => r.t.g))];
     if (RECS_OK.some(r => r.t.threat)) L_.push({ key: 'rec_th', name: 'Threatened & at-risk species', group: 'Species', on: true, op: 1, kind: 'records', filter: r => r.t.threat || r.t === picked,
@@ -460,7 +466,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
     // Species records within a few pixels
     const recOn = L_.filter(e => e.kind === 'records' && e.on);
     if (recOn.length) {
-      const near = RECS_OK.filter(r => recOn.some(e => e.filter(r)) && map.latLngToContainerPoint([r.lat, r.lng]).distanceTo(p0) < 8);
+      const near = RECS_OK.filter(r => recOn.some(e => e.filter(r)) && (!hiddenG.has(r.t.g) || r.t === picked) && map.latLngToContainerPoint([r.lat, r.lng]).distanceTo(p0) < 8);
       if (near.length) out.push('<h3>Species records (' + near.length + ')</h3>' + near.slice(0, 6).map(r => '<div class="rec"><b>' + esc(r.t.label) + '</b>' + r.t.badge + (r.t.label !== r.t.name ? ' <i>' + esc(r.t.name) + '</i>' : '') +
         '\n' + esc(r.date || r.year || 'no date') + (r.unc ? ' · within ' + (r.unc >= 1000 ? (r.unc / 1000).toFixed(1) + ' km' : Math.round(r.unc) + ' m') : '') + (r.ds ? '\n' + esc(r.ds) : '') +
         (r.id && /^\d+$/.test(String(r.id)) ? ' · <a href="https://www.gbif.org/occurrence/' + esc(r.id) + '" target="_blank" rel="noopener">GBIF record</a>' : '') + '</div>').join('') + (near.length > 6 ? '<div class="rec">and ' + (near.length - 6) + ' more here</div>' : ''));
@@ -499,7 +505,7 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
     document.getElementById('spList').innerHTML = groupOrder.map(g => {
       const items = list.filter(t => t.g === g); if (!items.length) return '';
       const isOpen = open.has(g) || !!fState.search || fState.nz === 'th' || items.includes(picked);
-      return '<div class="spg" data-g="' + g + '"><div class="spg-head" role="button" tabindex="0" aria-expanded="' + isOpen + '"><span class="chev">▼</span><span class="dot" style="background:' + TAXON_COLOURS[g][0] + '"></span><span>' + TAXON_COLOURS[g][1] + '</span><span class="n">' + items.length + ' · ' + items.reduce((s, t) => s + t.n, 0).toLocaleString() + '</span></div>' +
+      return '<div class="spg' + (hiddenG.has(g) ? ' off' : '') + '" data-g="' + g + '"><div class="spg-head" role="button" tabindex="0" aria-expanded="' + isOpen + '"><span class="chev">▼</span><input type="checkbox" class="spg-cb"' + (hiddenG.has(g) ? '' : ' checked') + ' title="Show ' + esc(TAXON_COLOURS[g][1]) + ' on the map" aria-label="Show ' + esc(TAXON_COLOURS[g][1]) + ' on the map"><span class="dot" style="background:' + TAXON_COLOURS[g][0] + '"></span><span>' + TAXON_COLOURS[g][1] + '</span><span class="n">' + items.length + ' · ' + items.reduce((s, t) => s + t.n, 0).toLocaleString() + '</span></div>' +
         (isOpen ? '<ul class="splist">' + items.map(t => '<li class="sp" tabindex="0" data-sp="' + esc(t.name) + '"' + (t === picked ? ' aria-current="true"' : '') + '><span class="sp-name"><b><span class="nm">' + esc(t.label) + '</span>' + t.badge + '</b><i>' + esc(t.label !== t.name ? t.name : (t.family || t.order || '')) + '</i></span>' +
           '<span class="sp-n">' + t.n + (t.last ? '<br>' + t.last : '') + '</span>' + (/\s/.test(t.name) ? '<a class="ll" href="' + lookLikeUrl([t.name]) + '" target="_blank" rel="noopener" title="Photos of ' + esc(t.label) + ' in LookLike">' + CAMERA + '</a>' : '<span></span>') + '</li>').join('') + '</ul>' : '') + '</div>';
     }).join('') || '<p class="note" style="padding:10px;">No species match.</p>';
@@ -520,13 +526,16 @@ const paras = (text) => String(text || '').split(/\n\s*\n/).map(p => p.trim()).f
         if (rb.isValid()) map.fitBounds(rb, { padding: [40, 40], maxZoom: 15 });
       }
     };
+    const showGroups = (gs, on) => { gs.forEach(g => on ? hiddenG.delete(g) : hiddenG.add(g)); L_.filter(e => e.kind === 'records').forEach(apply); renderSpecies(); };
+    document.getElementById('spgAll').addEventListener('click', ev => { const b = ev.target.closest('[data-all]'); if (b) showGroups(groupOrder, b.dataset.all === '1'); });
     spList.addEventListener('click', ev => {
       if (ev.target.closest('a')) return;
+      const cb = ev.target.closest('.spg-cb'); if (cb) { ev.stopPropagation(); showGroups([cb.closest('.spg').dataset.g], cb.checked); return; }
       const h = ev.target.closest('.spg-head'); if (h) { const g = h.closest('.spg').dataset.g; open.has(g) ? open.delete(g) : open.add(g); renderSpecies(); return; }
       const li = ev.target.closest('.sp'); if (li) pick(li);
     });
     spList.addEventListener('keydown', ev => {
-      if (!(ev.key === 'Enter' || ev.key === ' ')) return;
+      if (!(ev.key === 'Enter' || ev.key === ' ') || ev.target.classList.contains('spg-cb')) return;
       const h = ev.target.closest('.spg-head'), li = ev.target.closest('.sp');
       if (h || li) { ev.preventDefault(); h ? h.click() : pick(li); }
     });
