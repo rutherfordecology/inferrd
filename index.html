@@ -169,6 +169,11 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .lpanel-h .chev, .lpanel-grp .chev { margin-left: auto; color: var(--text3); }
 .lpanel-grp { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: none; padding: 6px 0 3px; font: 600 10px var(--font-sans); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text3); cursor: pointer; text-align: left; }
 .lpanel-grp .chev { order: 2; }
+.lpanel-grprow { display: flex; align-items: center; gap: 8px; }
+.lpanel-grprow .lpanel-grp { flex: 1; min-width: 0; }
+.lpanel-all { display: inline-flex; gap: 6px; font: 400 11px var(--font-sans); letter-spacing: normal; text-transform: none; white-space: nowrap; }
+.lpanel-h .lpanel-all { margin-left: auto; }
+.lpanel-all a { color: var(--text2); }
 .lpanel-sec + .lpanel-sec { border-top: 1px solid var(--rule); margin-top: 6px; }
 .lpanel-none, .lpanel-lock { font-size: 11.5px; color: var(--text3); line-height: 1.45; padding: 2px 0 4px; }
 .lpanel-cond { font-size: 11px; color: var(--text2); padding: 0 0 4px; }
@@ -1557,7 +1562,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.87.0';
+const APP_VERSION = 'v0.88.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1837,17 +1842,27 @@ const mapStack = (() => {
     shown.forEach(k => { if (!tabs.includes(E[k].tab)) tabs.push(E[k].tab); });
     $('[data-list="all"]').innerHTML = tabs.length ? tabs.map(t => '<div class="lpanel-tabh">' + esc(t) + '</div><ul class="mstack-list">' + shown.filter(k => E[k].tab === t).map(k => rowHtml(k)).join('') + '</ul>').join('')
       : '<div class="lpanel-none">Nothing yet: each tab adds its layers here once it has something to show for your areas.</div>';
-    $('[data-h="ref"]').innerHTML = 'Reference layers <span class="n">' + (refActive && refs.length ? onOf(refs) : '') + '</span>';
+    // All on / all off, for every reference layer or one group
+    const allNone = (g, what) => '<span class="lpanel-all"><a href="#" data-refall="1"' + (g ? ' data-g="' + esc(g) + '"' : '') + ' title="Show every layer in ' + esc(what) + '">all</a><a href="#" data-refall="0"' + (g ? ' data-g="' + esc(g) + '"' : '') + ' title="Hide every layer in ' + esc(what) + '">none</a></span>';
+    $('[data-h="ref"]').innerHTML = 'Reference layers <span class="n">' + (refActive && refs.length ? onOf(refs) : '') + '</span>' + (refActive && refs.length ? allNone('', 'the reference layers') : '');
     const groups = [];
     if (refActive) refs.forEach(k => { if (!groups.includes(E[k].group)) groups.push(E[k].group); });
     $('.lpanel-groups').innerHTML = groups.map(g => {
       const closed = groupsClosed.includes(g);
-      return '<button class="lpanel-grp" type="button" data-grp="' + esc(g) + '" aria-expanded="' + !closed + '"><span class="chev">' + (closed ? '▸' : '▾') + '</span>' + esc(g) + '</button>' +
+      return '<div class="lpanel-grprow"><button class="lpanel-grp" type="button" data-grp="' + esc(g) + '" aria-expanded="' + !closed + '"><span class="chev">' + (closed ? '▸' : '▾') + '</span>' + esc(g) + '</button>' + allNone(g, g) + '</div>' +
         (closed ? '' : '<ul class="mstack-list">' + refs.filter(k => E[k].group === g).map(k => rowHtml(k)).join('') + '</ul>');
     }).join('');
     if (window.lpFootHook) window.lpFootHook(); // the Louped button at the foot
   }
   on('click', (ev) => {
+    const all = ev.target.closest('[data-refall]');
+    if (all) {
+      ev.preventDefault();
+      const want = all.dataset.refall === '1', g = all.dataset.g;
+      order.filter(k => E[k].ref && (!g || E[k].group === g) && E[k].on !== want).forEach(k => setOn(k, want, true));
+      save(); render();
+      return;
+    }
     const t = ev.target.closest('[data-fold]');
     if (t) { fold[t.dataset.fold] = !fold[t.dataset.fold]; save(); render(); return; }
     const g = ev.target.closest('.lpanel-grp');
@@ -1862,13 +1877,14 @@ const mapStack = (() => {
     if (!b) return;
     setOn(b.closest('.mstack-row').dataset.key, null);
   });
-  function setOn(key, on) {
+  function setOn(key, on, quiet) {
     const e = E[key];
     if (!e) return;
     e.on = on == null ? !e.on : !!on;
     applyPane(e);
     if (e.toggle) e.toggle(e.on);
     if (e.on && e.draw && e.stale) draw(e);
+    if (quiet) return; // many at once: the caller saves and renders
     save();
     render();
   }

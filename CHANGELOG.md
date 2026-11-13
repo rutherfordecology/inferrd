@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.88.0 — 2026-11-13
+
+- **All or none for the reference layers.** The Reference layers heading
+  in the Layers panel (and on the Layers tab) has "all" and "none" to
+  show or hide every reference layer at once, and each group (GDC, QEII,
+  NIWA, Manaaki Whenua…) has its own.
+
 ## v0.87.0 — 2026-11-13
 
 - **The layer check is part of the report.** Gather the facts on the
