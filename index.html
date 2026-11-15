@@ -1563,7 +1563,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.91.1';
+const APP_VERSION = 'v0.92.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -4573,7 +4573,7 @@ async function exportCondition() {
     const haSum = (list) => +list.reduce((a, sp) => a + sp.area_ha, 0).toFixed(2);
     const areaHa = (() => { try { return +(turf.area(c.area.geojson) / 10000).toFixed(2); } catch (e) { return null; } })();
     const summary = {
-      tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', run_at: c.runAt,
+      tool: 'inferrd.', version: APP_VERSION, url: 'https://inferrd.rutherfordecology.co.nz/', run_at: c.runAt,
       methods: 'docs/condition-check-methods.md: CCDC (Zhu & Woodcock 2014) for disturbance and recovery, with a Sentinel-2 year-on-year check for falls CCDC missed; Mann-Kendall/Theil-Sen with Benjamini-Hochberg FDR for steady trends; published settings, not tuned',
       validated: false,
       area: { name: c.area.name, area_ha: areaHa, source: c.area.source || 'drawn', properties: c.area.properties || null },
@@ -10171,7 +10171,7 @@ async function rptExport() {
     else if (doc.checks.layers !== false) missing.push('layer_check_<date>.csv (the layer check was not run: unlock the reference layers and gather again)');
     const used = new Set(inc.map(f => f.source));
     const summary = {
-      tool: 'inferrd.', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', exported_at: now.toISOString(),
+      tool: 'inferrd.', version: APP_VERSION, url: 'https://inferrd.rutherfordecology.co.nz/', exported_at: now.toISOString(),
       report: doc.title, facts_gathered_at: doc.factsAt,
       facts_match_areas: doc.factsFor === areas.map(areaKey).join('|'),
       facts: { ticked: inc.length, unticked_left_out: doc.facts.length - inc.length,
@@ -10445,7 +10445,7 @@ async function loupedBuild(doc, say, keys) {
   const clipFeatures = (fs) => !clip ? fs : fs.map(f => loupedClipFeature(f, clip)).filter(Boolean);
   const layers = [], left = [], sources = [], used = new Set(), unclear = [];
   const addSource = (s) => { if (!used.has(s.key)) { used.add(s.key); sources.push(s); } };
-  addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
+  addSource({ key: 'inferrd', name: 'inferrd. ' + APP_VERSION, url: 'https://inferrd.rutherfordecology.co.nz/', note: 'Areas and layer set-up exported ' + isoDate(now) + '.' });
   const reg = window._layersRegister ? window._layersRegister() : null;
   // Top of the map first
   const shown = mapStack.shown().slice().reverse().filter(s => (!keys || keys.has(s.key)) && s.key.indexOf('bio_') !== 0);
@@ -10547,7 +10547,7 @@ async function loupedBuild(doc, say, keys) {
   const bb = turf.bbox(areaFc);
   const manifest = {
     format: 'louped-package', formatVersion: LOUPED_FORMAT,
-    producer: { tool: 'inferrd', version: APP_VERSION, url: 'https://rutherfordecology.github.io/inferrd/' },
+    producer: { tool: 'inferrd', version: APP_VERSION, url: 'https://inferrd.rutherfordecology.co.nz/' },
     exported: now.toISOString(),
     title: (doc && doc.title) || '',
     bbox: bb.map(v => +v.toFixed(6)),
@@ -12890,7 +12890,7 @@ document.getElementById('exportIndexCompareCsvBtn').addEventListener('click', ()
   let popupMode = 'add';
   window.LAYERS_HOST = {
     name: 'inferrd.',
-    url: 'https://rutherfordecology.github.io/inferrd/',
+    url: 'https://inferrd.rutherfordecology.co.nz/',
     headless: true,
     paneFor: (l) => 'stk_ref_' + l.id,
     onStatus: (id, text) => mapStack.note('ref_' + id, text),

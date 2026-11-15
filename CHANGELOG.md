@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.92.0 — 2026-11-15
+
+- **inferrd. moves to https://inferrd.rutherfordecology.co.nz/** (CNAME file;
+  the github.io address now redirects there). Exported reports, area files and
+  the in-app citation give the new address. Saved reports, areas and the
+  access key are kept by the browser per address, so they don't carry over:
+  sign in again with the access key on the new address.
+
 ## v0.91.1 — 2026-11-15
 
 - **Sign-in Worker accepts inferrd.rutherfordecology.co.nz** as well as the
