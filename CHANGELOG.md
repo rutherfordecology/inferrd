@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.98.0 — 2026-11-16
+
+- Point cloud: compare one area between two dates. Areas loaded from one
+  survey now stay loaded when you pick another survey and load again (up to
+  six area and survey pairs; past that, the earliest loaded go). The density
+  chart shows both dates. **Compare 2 side by side in 3D** starts with the
+  area at its two dates, lined up, and with Move together on, both views
+  stand at the same spot. The pickers and the 3D title name the survey
+  once more than one is loaded.
+- When one area's two dates differ more than twofold in point density, the
+  status warns that the sparser survey sees less of the lower layers.
+- The map shows the trees of the survey picked under "Details, trees and 3D
+  for", so two dates don't pile up on each other. The trees CSV has every
+  loaded area and survey.
+
 ## v0.97.1 — 2026-11-16
 
 - Point cloud, 3D side by side: with Move together off, the view under the

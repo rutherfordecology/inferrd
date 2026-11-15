@@ -805,7 +805,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">3 · Load</div>
         <button class="run-btn" id="pcRunBtn" type="button" disabled>Load point cloud</button>
         <button class="dl-btn" id="pc3dBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Turn the points round, or stand among them at 1.5 m and look about">View in 3D</button>
-        <button class="dl-btn" id="pc3dPairBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Two areas in 3D side by side, moving together; pick which two at the top of each view">Compare 2 areas side by side in 3D</button>
+        <button class="dl-btn" id="pc3dPairBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Two areas, or one area at two dates, in 3D side by side, moving together; pick which at the top of each view">Compare 2 side by side in 3D</button>
         <div class="status-bar" id="pcStatus"></div>
       </div>
 
@@ -1608,7 +1608,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
@@ -1666,7 +1666,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.97.1';
+const APP_VERSION = 'v0.98.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -11749,7 +11749,11 @@ const PC_CLASS = { 0: ['Never classified', '#9e9e9e'], 1: ['Unclassified', '#bdb
 const PC_RET = [['Only return', '#c9c9c9'], ['First of several', '#ff8c00'], ['In between', '#19d3ff'], ['Last of several', '#8b5a2b']];
 let pcSurveys = [], pcSurveyId = null, pcSurveyKey = null;
 let pcPlan = null, pcData = null, pcBusy = false, pcRun = 0;
-let pcSets = []; // every area loaded, from one survey; pcData is the one shown
+let pcSets = []; // every area loaded, from any survey (so one area can be seen at two dates); pcData is the one shown
+const PC_MAX_SETS = 6;
+let pcLoadSeq = 0;
+// An area's name, and its survey too once more than one survey is loaded.
+const pcSetLabel = (d) => d.areaName + (new Set(pcSets.map(x => x.survey.id)).size > 1 ? ' · ' + d.survey.title : '');
 
 function setPcStatus(kind, msg) {
   const el = document.getElementById('pcStatus');
@@ -12116,7 +12120,7 @@ async function pcSizeUp() {
   const key = survey.id + '|' + pcAreasKey();
   const same = pcSets.filter(d => d.survey.id === survey.id), have = new Set(same.map(d => d.areaKey));
   const todo = list.filter(a => !have.has(areaKey(a)));
-  if (!todo.length) { pcPlan = { key, survey, per: [], bytes: 0, est: 0, done: true }; syncPcControls(); setPcStatus('success', pcLoadedSay()); return; }
+  if (!todo.length) { pcPlan = { key, survey, per: [], bytes: 0, est: 0, done: true }; syncPcControls(); setPcStatus('success', pcLoadedSay(survey)); return; }
   const ha = todo.reduce((t, a) => t + turf.area(a.geojson) / 1e4, 0), many = todo.length > 1;
   if (ha > PC_MAX_HA) { setPcStatus('error', (many ? 'These areas come' : 'This area is') + (many ? ' to ' : ' ') + Math.round(ha) + ' ha: far too big for a point cloud (several GB). Keep it under about ' + Math.round(PC_MAX_HA / 10) + ' ha to start.'); return; }
   try {
@@ -12136,7 +12140,7 @@ async function pcSizeUp() {
     const haIn = per.reduce((t, x) => t + x.ha, 0);
     // The points the 3D view can hold, less those already loaded; an even
     // share kept in each new area if there are more.
-    const budget = Math.max(PC_MAX_POINTS - same.reduce((t, d) => t + d.n, 0), PC_MAX_POINTS / 4), keep = est > budget ? budget / est : 1;
+    const budget = Math.max(PC_MAX_POINTS - pcSets.reduce((t, d) => t + d.n, 0), PC_MAX_POINTS / 4), keep = est > budget ? budget / est : 1;
     pcPlan = { key, survey, per, bytes, est, keep, already: same.length };
     const what = (same.length ? (same.length === 1 ? same[0].areaName + ' is' : same.length + ' areas are') + ' already loaded. The ' + (per.length > 1 ? per.length + ' new areas need ' : 'new area needs ') : 'Needs ') + pcMB(bytes) + ' from ' + tiles + ' tile' + (tiles === 1 ? '' : 's') + (per.length > 1 && !same.length ? ' for ' + per.length + ' areas' : '') + ', about ' + pcMillions(est) + ' points over ' + (haIn < 10 ? haIn.toFixed(1) : Math.round(haIn)) + ' ha' +
       (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them kept, so the 3D view keeps up)' : '') + '.' +
@@ -12249,23 +12253,27 @@ async function pcLoad() {
       setPcStatus('info', where + 'reading points…');
       const d = await pcLoadArea(L, p, keep, run, say);
       if (run !== pcRun) return;
-      if (d) { d.areaKey = areaKey(p.area); d.areaId = p.area.id; sets.push(d); } else empty.push(p.area.name);
+      if (d) { d.areaKey = areaKey(p.area); d.areaId = p.area.id; d.seq = ++pcLoadSeq; sets.push(d); } else empty.push(p.area.name);
     }
     if (!sets.length) throw new Error('no points fell inside ' + (plan.per.length > 1 ? 'the areas' : 'the area'));
     // Lines on the chart in the order the areas were drawn, this load's last.
     sets.forEach(d => pcAddProfile(d, plan.per.find(p => p.planKey === d.planKey)));
-    const showKey = pcData && pcData.areaKey;
-    // Added to the areas already loaded from this survey, in drawing order.
+    // Added to those already loaded, from this survey or others (so one area
+    // can be compared between dates); in drawing order, older surveys first.
+    // Past PC_MAX_SETS, the ones loaded longest ago go.
     const order = areas.map(areaKey);
-    pcSets = pcSets.filter(d => d.survey.id === plan.survey.id).concat(sets).sort((a, b) => order.indexOf(a.areaKey) - order.indexOf(b.areaKey));
-    pcData = sets.find(d => d.areaKey === showKey) || sets[0];
+    let all = pcSets.concat(sets);
+    while (all.length > PC_MAX_SETS) { const old = all.filter(d => !sets.includes(d)).sort((a, b) => a.seq - b.seq)[0]; if (!old) break; all = all.filter(d => d !== old); }
+    pcSets = all.sort((a, b) => order.indexOf(a.areaKey) - order.indexOf(b.areaKey) || (a.survey.end > b.survey.end) - (a.survey.end < b.survey.end));
+    const showArea = pcData && pcData.areaKey;
+    pcData = sets.find(d => d.areaKey === showArea) || sets[0];
     pcPlan = { key: plan.key, survey: plan.survey, per: [], bytes: 0, est: 0, done: true };
     pcEmptyAreas = empty;
     if (!document.getElementById('pcDlg').hidden) pcClose();
     mapStack.setOn('pc_trees', true); // just found: show them
     mapStack.refresh('pc_trees');
     pcBusy = false;
-    setPcStatus('success', pcLoadedSay());
+    setPcStatus('success', pcLoadedSay(plan.survey));
     renderPcResults();
     expandResultsPane();
   } catch (err) {
@@ -12277,15 +12285,31 @@ async function pcLoad() {
   syncPcControls();
 }
 let pcEmptyAreas = [];
-function pcLoadedSay() {
-  if (!pcSets.length) return '';
-  const d0 = pcSets[0], keep = d0.keep, trees = (d) => d.trees.list.length.toLocaleString() + ' tree' + (d.trees.list.length === 1 ? '' : 's');
-  return 'Loaded ' + (pcSets.length > 1
-    ? pcSets.length + ' areas from ' + d0.survey.title + ': ' + pcSets.map(d => d.areaName + ' (' + pcMillions(d.n) + ' points, ' + trees(d) + ')').join(', ')
+// One area at two dates: a much sparser survey sees less of the lower
+// layers, so the profiles differ for that reason too.
+function pcDensityWarn() {
+  const out = [];
+  for (const d of pcSets) for (const e of pcSets) {
+    if (d.areaKey !== e.areaKey || d.planKey >= e.planKey) continue;
+    const a = d.n / d.keep / Math.max(1, d.m2), b = e.n / e.keep / Math.max(1, e.m2), lo = a < b ? d : e;
+    if (Math.max(a, b) > 2 * Math.min(a, b)) out.push(d.areaName + ': ' + lo.survey.title + ' has about ' + Math.round(Math.min(a, b)) + ' points a m² against ' + Math.round(Math.max(a, b)));
+  }
+  return out.length ? ' Point density differs a lot (' + out.join('; ') + '). Fewer pulses reach the lower layers in a sparser survey, and fewer trees are told apart, so read differences in the understorey with care.' : '';
+}
+function pcLoadedSay(survey) {
+  const these = pcSets.filter(d => !survey || d.survey.id === survey.id), others = pcSets.filter(d => !these.includes(d));
+  if (!these.length) return '';
+  const d0 = these[0], keep = Math.min(...these.map(d => d.keep)), trees = (d) => d.trees.list.length.toLocaleString() + ' tree' + (d.trees.list.length === 1 ? '' : 's');
+  const dated = others.some(o => these.some(d => d.areaKey === o.areaKey));
+  return 'Loaded ' + (these.length > 1
+    ? these.length + ' areas from ' + d0.survey.title + ': ' + these.map(d => d.areaName + ' (' + pcMillions(d.n) + ' points, ' + trees(d) + ')').join(', ')
     : pcMillions(d0.n) + ' points from ' + d0.survey.title + ', and found ' + trees(d0)) +
     (keep < 1 ? ', keeping an even ' + Math.round(100 * keep) + '% of the points' : '') + '.' +
     (pcEmptyAreas.length ? ' No points fell inside ' + pcEmptyAreas.join(', ') + '.' : '') +
-    ' See the results below, or open ' + (pcSets.length > 1 ? 'one' : 'it') + ' in 3D.';
+    (others.length ? ' Also loaded: ' + others.map(pcSetLabel).join(', ') + '.' : '') +
+    (dated ? ' Compare the dates on the chart below, or side by side in 3D.' + pcDensityWarn()
+      : pcSurveys.length > 1 ? ' See the results below, or open ' + (pcSets.length > 1 ? 'one' : 'it') + ' in 3D. To compare dates, pick another survey under 2 · Survey and load it too.'
+      : ' See the results below, or open ' + (pcSets.length > 1 ? 'one' : 'it') + ' in 3D.');
 }
 // The ground (1 m, from ground points, gaps filled from round about), each
 // point's height above it, and the tallies for the results.
@@ -12603,7 +12627,7 @@ function renderPcResults() {
   if (!d) return;
   const showSel = document.getElementById('pcShowSel');
   document.getElementById('pcShowHead').style.display = pcSets.length > 1 ? '' : 'none';
-  showSel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.areaKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(x.areaName) + '</option>').join('');
+  showSel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.planKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(pcSetLabel(x)) + '</option>').join('');
   const metric = (label, value, title) => '<div class="metric" title="' + escHtml(title || label + ': ' + value) + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   const per = (v) => (v / d.keep / d.m2).toFixed(v / d.keep / d.m2 < 10 ? 1 : 0);
   const below = (b) => d.bands.slice(0, b + 1).reduce((s, v) => s + v, 0);
@@ -12661,7 +12685,7 @@ function syncPcControls() {
     ? 'Load point cloud' + (pcPlan.already ? ' for ' + (n > 1 ? n + ' new areas' : 'the new area') : n > 1 ? ' for ' + n + ' areas' : '') + ' (' + pcMB(pcPlan.bytes) + ')'
     : loaded ? 'All areas loaded' : 'Load point cloud';
   document.getElementById('pc3dBtn').hidden = !pcData || pcBusy;
-  document.getElementById('pc3dBtn').textContent = pcData && pcSets.length > 1 ? 'View ' + pcData.areaName + ' in 3D' : 'View in 3D';
+  document.getElementById('pc3dBtn').textContent = pcData && pcSets.length > 1 ? 'View ' + pcSetLabel(pcData) + ' in 3D' : 'View in 3D';
   document.getElementById('pc3dPairBtn').hidden = pcSets.length < 2 || pcBusy;
 }
 function pcAreasChanged() {
@@ -12677,11 +12701,12 @@ function pcAreasChanged() {
   if (appTab === 'cloud') pcFindSurveys();
 }
 document.getElementById('pcShowSel').addEventListener('change', (ev) => {
-  const d = pcSets.find(x => x.areaKey === ev.target.value);
+  const d = pcSets.find(x => x.planKey === ev.target.value);
   if (!d || d === pcData) return;
   if (!document.getElementById('pcDlg').hidden) pcClose();
   pcData = d;
   renderPcResults();
+  mapStack.refresh('pc_trees'); // the map shows the trees of the survey picked
   syncPcControls();
 });
 document.getElementById('pcRunBtn').addEventListener('click', pcLoad);
@@ -12689,7 +12714,7 @@ document.getElementById('pcTreeCsv').addEventListener('click', () => {
   if (!pcSets.length) return;
   const rows = [['area', 'survey', 'tree', 'x_nztm', 'y_nztm', 'lon', 'lat', 'height_m', 'crown_m2'].join(',')];
   pcSets.forEach(d => d.trees.list.forEach((t, i) => { const [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [t.x, t.y]); rows.push([d.areaName, d.survey.title, i + 1, t.x.toFixed(1), t.y.toFixed(1), lon.toFixed(7), lat.toFixed(7), t.h.toFixed(1), t.crown.toFixed(1)].map(csvCell).join(',')); }));
-  downloadText((pcSets.length === 1 ? pcSets[0].areaName.replace(/[^\w-]+/g, '_') : pcSets.length + '_areas') + '_trees_' + pcSets[0].survey.id + '.csv', rows.join('\n') + '\n', 'text/csv');
+  downloadText((pcSets.length === 1 ? pcSets[0].areaName.replace(/[^\w-]+/g, '_') + '_trees_' + pcSets[0].survey.id : pcSets.length + '_point_clouds_trees') + '.csv', rows.join('\n') + '\n', 'text/csv');
 });
 // Tree tops on the map, in their 3D colours, thinned on screen.
 map.createPane('pc_treesPane');
@@ -12698,7 +12723,8 @@ mapStack.add({ key: 'pc_trees', tab: 'Point cloud', rank: 4, op: 1, pane: 'pc_tr
   notes: 'The top of each tree found in the loaded point cloud, in the colour it has in 3D (Colours: Each tree). Click near one for its height.',
   available: () => pcSets.some(d => d.trees),
   draw: async (pane) => {
-    const all = pcSets.flatMap(d => d.trees.list.map((t, i) => ({ d, t, i }))), renderer = L.canvas({ pane }), marks = [], grid = new Set(), shown = [];
+    const sid = pcData ? pcData.survey.id : pcSets[0].survey.id;
+    const all = pcSets.filter(d => d.survey.id === sid).flatMap(d => d.trees.list.map((t, i) => ({ d, t, i }))), renderer = L.canvas({ pane }), marks = [], grid = new Set(), shown = [];
     const list = all.map(x => x.t);
     const order = all.map((x, j) => j).sort((a, b) => all[b].t.h - all[a].t.h);
     for (const j of order) {
@@ -12962,7 +12988,7 @@ function pcMakePane() {
     if (q) pcStand(P, q.x, q.z, P.mode === 'stand' ? P.yaw : q.yaw);
   });
   P.sel.addEventListener('change', () => {
-    const d = pcSets.find(x => x.areaKey === P.sel.value);
+    const d = pcSets.find(x => x.planKey === P.sel.value);
     if (!d || d === P.d) return;
     P.d = d;
     pcBuild(P);
@@ -13018,10 +13044,11 @@ function pcTick(now) {
 // One area (the one picked in the results), or two side by side.
 async function pcOpen(two) {
   if (!pcData) return;
-  const sets = two === true ? [pcData, pcSets.find(d => d !== pcData)].filter(Boolean) : [pcData];
+  const other = pcSets.find(d => d !== pcData && d.areaKey === pcData.areaKey) || pcSets.find(d => d !== pcData && d.survey.id === pcData.survey.id) || pcSets.find(d => d !== pcData);
+  const sets = two === true ? [pcData, other].filter(Boolean) : [pcData];
   pcDlg.hidden = false;
   pcDlg.classList.toggle('pc-two', sets.length > 1);
-  document.getElementById('pcTitle').textContent = sets.length > 1 ? 'Point clouds side by side' : 'Point cloud · ' + pcData.areaName;
+  document.getElementById('pcTitle').textContent = sets.length > 1 ? 'Point clouds side by side' : 'Point cloud · ' + pcSetLabel(pcData);
   pcPanesEl.innerHTML = '<div class="v3d-msg">Loading the 3D viewer…</div>';
   pcPanes = []; pcActive = null;
   pcSync();
@@ -13032,7 +13059,7 @@ async function pcOpen(two) {
     const P = pcPaneStore[k] || (pcPaneStore[k] = pcMakePane());
     P.d = d; P.mode = 'orbit'; P.saved = null;
     P.head.hidden = sets.length < 2;
-    P.sel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.areaKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(x.areaName) + '</option>').join('');
+    P.sel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.planKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(pcSetLabel(x)) + '</option>').join('');
     P.legend.innerHTML = '';
     P.say('Building ' + pcMillions(d.n) + ' points…');
     pcPanesEl.appendChild(P.el);
