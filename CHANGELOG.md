@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.99.0 — 2026-11-16
+
+- Draw to select now asks. Draw a shape round a QEII covenant, a PMA or any
+  other area of a ticked reference layer, and a popup on your shape offers
+  **Use the covenant instead** (adds it and removes your shape), **Add it as
+  well**, or **Keep only my shape**. Before, the areas inside were added
+  automatically and the message, with its "remove my shape" button, went to
+  the Infrared tab's status bar, which isn't shown on the Layers, Inputs,
+  Biodiversity or Louped tabs. On those tabs the covenant was added with no
+  word. The popup shows on every tab and pans clear of the Layers panel.
+
 ## v0.98.1 — 2026-11-16
 
 - Point cloud, 3D: fixed the view running off the bottom of the screen on

@@ -1614,7 +1614,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
-    <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
+    <p><strong>Draw to select:</strong> with reference layers switched on, draw a shape round a QEII covenant, a PMA or any other of their areas, and a popup on your shape offers to <strong>use</strong> what's inside instead of your shape, <strong>add</strong> it as well, or keep only your shape. An area counts as inside when 90% of it is.</p>
     <p><strong>Reference layers</strong> (password protected, in the Layers panel) are occurd.'s layers: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants, NIWA river catchments and Gisborne District Council plan layers. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
 
     <h3>Your data, your account</h3>
@@ -1669,7 +1669,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.98.1';
+const APP_VERSION = 'v0.99.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -5558,10 +5558,11 @@ map.on(L.Draw.Event.CREATED, (e) => {
   addAreasUnder(areas[areas.length - 1]);
 });
 
-// Draw to select, as in occurd.: a drawn shape also adds, each as its own
-// area, the areas of the reference layers switched on that lie within it
-// (layers.js counts an area as within when 90% of it is). The drawn shape
-// is kept.
+// Draw to select: when a drawn shape holds areas of the reference layers
+// switched on (a QEII covenant, a PMA; layers.js counts an area as within
+// when 90% of it is), a popup on the shape offers to use them instead of
+// the shape, add them as well, or keep only the shape. In a popup, not a
+// tab's status bar, so it shows on every tab.
 const LAYER_SELECT_MAX = 40;
 const tabSay = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'cloud' ? setPcStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
 // A reference shape's short name: the first part of its label, and
@@ -5577,7 +5578,7 @@ async function addAreasUnder(drawn) {
     const g = drawn.geojson.geometry, ll = r => r.slice(0, -1).map(([x, y]) => [y, x]);
     try {
       const { count, items } = await window._layersFeaturesUnder(ll(g.coordinates[0]), g.coordinates.slice(1).map(ll), LAYER_SELECT_MAX);
-      if (count && !items.length) say('warning', count + ' areas in the ticked layers lie within this shape, more than ' + LAYER_SELECT_MAX + ' to add at once. Untick some layers or draw a smaller shape.');
+      if (count && !items.length) refPickPopup(drawn, null, count + ' areas in the ticked layers lie within this shape, more than ' + LAYER_SELECT_MAX + ' to offer at once. Untick some layers or draw a smaller shape.');
       items.forEach(it => {
         found.push({ geometry: it.feature.geometry, name: refShapeName(it.label, it.layerName), meta: { source: it.layerName, properties: it.feature.properties } });
       });
@@ -5593,19 +5594,44 @@ async function addAreasUnder(drawn) {
     return true;
   });
   if (!add.length || !areas.includes(drawn)) return;
-  add.forEach(f => addArea(L.polygon(L.GeoJSON.coordsToLatLngs(f.geometry.coordinates, f.geometry.type === 'Polygon' ? 1 : 2)), f.name, f.meta));
-  const names = add.map(f => f.name);
-  say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' inside your shape: ' + names.slice(0, 6).join(', ') +
-    (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '.');
-  // One click to drop the drawn shape and keep only what it picked up.
-  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'cloud' ? 'pcStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : appTab === 'report' ? 'reportStatus' : 'statusBar');
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'dl-btn';
-  btn.textContent = 'Remove ' + drawn.name + ', keep the ' + (add.length === 1 ? 'one' : add.length) + ' inside';
-  btn.style.cssText = 'display:block;margin-top:7px;';
-  btn.addEventListener('click', () => { removeArea(drawn.id); say('', ''); });
-  bar.appendChild(btn);
+  refPickPopup(drawn, add);
+}
+// Panned clear of the Layers panel on the map, when it's open.
+function refPickPopupOpts() {
+  const panel = document.querySelector('#map .lpanel'), w = panel && panel.offsetParent ? panel.offsetWidth : 0;
+  return { maxWidth: 300, autoPanPaddingTopLeft: L.point(60, 20), autoPanPaddingBottomRight: L.point(w + 20, 20) }; // Leaflet pads top-left and bottom-right only
+}
+function refPickPopup(drawn, add, warn) {
+  const el = document.createElement('div');
+  el.style.cssText = 'font-size:12px;max-width:270px;';
+  const b = drawn.layer.getBounds(), at = L.latLng(b.getNorth(), b.getCenter().lng);
+  if (!add) {
+    el.innerHTML = '<strong>' + escHtml(drawn.name) + '</strong><div style="margin-top:4px;">' + escHtml(warn) + '</div>';
+    L.popup(refPickPopupOpts()).setLatLng(at).setContent(el).openOn(map);
+    return;
+  }
+  const one = add.length === 1, names = add.map(f => f.name), cov = add.every(f => /^Covenant /.test(f.name));
+  const layers = [...new Set(add.map(f => f.meta.source).filter(Boolean))];
+  const them = one ? (cov ? 'the covenant' : 'it') : (cov ? 'the covenants' : 'them');
+  el.innerHTML = '<strong>' + escHtml(drawn.name) + ' holds ' + (one ? escHtml(names[0]) : add.length + (cov ? ' covenants' : ' areas')) + '</strong>' +
+    (one ? '' : '<div style="margin-top:3px;">' + escHtml(names.slice(0, 6).join(', ') + (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '')) + '</div>') +
+    (layers.length ? '<div style="margin-top:3px;color:var(--text3);">From ' + escHtml(layers.join(', ')) + '</div>' : '');
+  // Swap: the shapes in, the drawn one out. Or both. Or neither.
+  const place = (swap) => {
+    map.closePopup();
+    add.forEach(f => addArea(L.polygon(L.GeoJSON.coordsToLatLngs(f.geometry.coordinates, f.geometry.type === 'Polygon' ? 1 : 2)), f.name, f.meta));
+    if (swap && areas.includes(drawn)) removeArea(drawn.id);
+    tabSay('success', 'Added ' + (one ? names[0] : add.length + ' areas') + (swap ? ' in place of ' + drawn.name : ', and kept ' + drawn.name) + '.');
+  };
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+  wrap.appendChild(analyseAreaButton(() => place(true), 'Use ' + (one ? them : 'these ' + add.length) + ' instead', 'Add ' + (one ? 'this' : 'each') + ' as an area, and remove ' + drawn.name));
+  wrap.appendChild(analyseAreaButton(() => place(false), 'Add ' + (one ? 'it' : 'them') + ' as well', 'Add ' + (one ? 'this' : 'each') + ' as an area, and keep ' + drawn.name + ' too'));
+  const keep = analyseAreaButton(() => map.closePopup(), 'Keep only my shape', 'Leave ' + drawn.name + ' as drawn');
+  keep.style.background = 'none'; keep.style.color = 'var(--base)'; keep.style.border = '1px solid var(--base)';
+  wrap.appendChild(keep);
+  el.appendChild(wrap);
+  L.popup(refPickPopupOpts()).setLatLng(at).setContent(el).openOn(map);
 }
 
 // "Analyse this area" on a QEII covenant or reference-layer popup: the
