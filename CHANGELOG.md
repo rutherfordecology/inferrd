@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.100.0 — 2026-11-16
+
+- Point cloud, trees: new crown method, after Dalponte & Coomes (2016) as in
+  lidR's its_dalponte2016. It ranked near the top against labelled broadleaf
+  forest (Cao et al. 2023).
+  - Every tree top grows its crown at once, taking canopy above 45% of the
+    top's height and 55% of the crown's mean height. A second pass takes the
+    bumps within a crown that the first couldn't climb to.
+  - Two crowns are joined only where the canopy dips less than 1 m (or a
+    tenth of the lower tree) between their tops, and only when the lower top
+    is within the taller crown's reach.
+  - Before, a top too close to a taller one was dropped, and its crown was
+    left grey.
+- Tested on Gisborne 2023:
+  - Pine over kohekohe: 116 trees (was 90). Grey returns above 5 m fell from
+    40% to 10%, and above 20 m to 0.4%. What grey remains is mostly the
+    kohekohe under the pines.
+  - Native forest: 81 trees (was 61). Grey returns above 5 m fell from 31%
+    to 10%.
+
 ## v0.99.0 — 2026-11-16
 
 - Draw to select now asks. Draw a shape round a QEII covenant, a PMA or any

@@ -1611,7 +1611,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone (after Dalponte &amp; Coomes 2016): best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, draw a shape round a QEII covenant, a PMA or any other of their areas, and a popup on your shape offers to <strong>use</strong> what's inside instead of your shape, <strong>add</strong> it as well, or keep only your shape. An area counts as inside when 90% of it is.</p>
@@ -1669,7 +1669,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.99.0';
+const APP_VERSION = 'v0.100.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12412,18 +12412,22 @@ function pcFinish(plan, S, cx, cy, keep, rgbAny) {
 }
 
 /* ---- each tree on its own: tree tops and crowns from the points ----
-   A canopy height model at 0.5 m (the highest return in each cell,
-   lightly smoothed); tree tops are the highest cells within a reach that
-   grows with height (a tall tree's crown is wider), kept only where the
-   canopy dips between two tops by at least 1.5 m or a fifth of the lower
-   one; crowns grow downhill from each top (a watershed), no lower than
-   2 m or a third of the top, and no further out than the crown of a tree
-   that tall could reach. Each return high enough in a crown takes its
-   tree. */
-const PC_SEG_RES = 0.5, PC_SEG_MIN_H = 3, PC_SEG_FLOOR_M = 2, PC_SEG_FLOOR_FRAC = 1 / 3;
-const PC_SEG_DIP_M = 1.5, PC_SEG_DIP_FRAC = 0.2;
+   After Dalponte & Coomes (2016, Methods Ecol. Evol. 7: 1236), as in
+   lidR's its_dalponte2016, which ranked near the top against labelled
+   broadleaf forest (Cao et al. 2023). A canopy height model at 0.5 m (the
+   highest return in each cell, lightly smoothed); tree tops are the
+   highest cells within a window that grows with height (Popescu & Wynne
+   2004); every top grows its crown at once, highest cells first: a cell
+   joins if it's above 45% of the top's height and 55% of the crown's mean
+   height, not climbing, and within reach of the top. Two crowns are then
+   merged where the canopy barely dips between them (one crown with two
+   peaks), so no part of a crown is left out. Each return high enough in
+   a crown takes its tree. */
+const PC_SEG_RES = 0.5, PC_SEG_MIN_H = 3, PC_SEG_FLOOR_M = 2, PC_SEG_FLOOR_FRAC = 0.3;
+const PC_SEG_TH_SEED = 0.45, PC_SEG_TH_CROWN = 0.55;              // Dalponte & Coomes's defaults
+const PC_SEG_DIP_M = 1, PC_SEG_DIP_FRAC = 0.1;                     // merge two crowns where the dip is less
 const pcSegReach = (h) => Math.max(1.5, Math.min(5, 1 + 0.08 * h));     // tree-top window radius, m
-const pcSegCrown = (h) => Math.max(2.5, Math.min(14, 1.5 + 0.3 * h));   // furthest a crown reaches, m
+const pcSegCrown = (h) => Math.max(2.5, Math.min(12, 1.5 + 0.3 * h));   // furthest a crown reaches from its top, m
 function pcSegment(d) {
   const g = d.g, S = d.S, res = PC_SEG_RES, W = Math.ceil(g.W / res), H = Math.ceil(g.H / res), N = W * H;
   const cellOf = (k) => { const c = Math.floor((S.x[k] + d.cx - g.x0) / res), r = Math.floor((g.y1 - (S.y[k] + d.cy)) / res); return c < 0 || r < 0 || c >= W || r >= H ? -1 : r * W + c; };
@@ -12452,8 +12456,8 @@ function pcSegment(d) {
     }
     chm[r * W + c] = s / w;
   }
-  // Tree tops.
-  const cand = [];
+  // Tree tops: the highest cell within a window that grows with height.
+  const tops = [];
   for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
     const i = r * W + c, v = chm[i];
     if (!(v >= PC_SEG_MIN_H)) continue;
@@ -12469,29 +12473,9 @@ function pcSegment(d) {
         if (u > v || (u === v && rr * W + cc < i)) { top = false; break; }
       }
     }
-    if (top) cand.push(i);
+    if (top) tops.push(i);
   }
-  cand.sort((a, b) => chm[b] - chm[a]);
-  const B = Math.round(10 / res), buckets = new Map(), tops = [];
-  const separate = (i, j) => {
-    const r0 = Math.floor(i / W), c0 = i % W, r1 = Math.floor(j / W), c1 = j % W, dist = Math.hypot(r1 - r0, c1 - c0) * res;
-    if (dist > 2 * pcSegCrown(chm[j])) return true;
-    const lo = Math.min(chm[i], chm[j]), need = lo - Math.max(PC_SEG_DIP_M, PC_SEG_DIP_FRAC * lo), steps = Math.max(2, Math.ceil(dist / res));
-    for (let k = 1; k < steps; k++) if (chm[Math.round(r0 + (r1 - r0) * k / steps) * W + Math.round(c0 + (c1 - c0) * k / steps)] <= need) return true;
-    return false;
-  };
-  for (const i of cand) {
-    const r = Math.floor(i / W), c = i % W, br = Math.floor(r / B), bc = Math.floor(c / B);
-    let ok = true;
-    for (let a = br - 3; a <= br + 3 && ok; a++) for (let b = bc - 3; b <= bc + 3 && ok; b++)
-      for (const j of buckets.get(a + ',' + b) || []) if (!separate(i, j)) { ok = false; break; }
-    if (!ok) continue;
-    const key = br + ',' + bc;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(i);
-    tops.push(i);
-  }
-  // Crowns: grow from the tops, highest cell first (a binary heap).
+  // Crowns: every top grows at once, highest cell first (a binary heap).
   const lab = new Int32Array(N).fill(-1), heap = [], hv = [];
   const push = (i, v) => { heap.push(i); hv.push(v); let k = heap.length - 1; while (k) { const p = (k - 1) >> 1; if (hv[p] >= hv[k]) break; [heap[p], heap[k]] = [heap[k], heap[p]]; [hv[p], hv[k]] = [hv[k], hv[p]]; k = p; } };
   const pop = () => {
@@ -12503,22 +12487,72 @@ function pcSegment(d) {
     }
     return top;
   };
-  const trees = tops.map((i, t) => { lab[i] = t; push(i, chm[i]); return { i, h: chm[i], floor: Math.max(PC_SEG_FLOOR_M, PC_SEG_FLOOR_FRAC * chm[i]), reach: pcSegCrown(chm[i]) / res, cells: 0 }; });
+  const seeds = tops.map((i, t) => { lab[i] = t; push(i, chm[i]); return { i, h: chm[i], reach: pcSegCrown(chm[i]) / res, sum: chm[i], n: 1 }; });
   while (heap.length) {
-    const i = pop(), t = lab[i], tr = trees[t], r = Math.floor(i / W), c = i % W, v = chm[i];
-    tr.cells++;
-    const r0 = Math.floor(tr.i / W), c0 = tr.i % W;
+    const i = pop(), t = lab[i], sd = seeds[t], r = Math.floor(i / W), c = i % W, v = chm[i];
+    const r0 = Math.floor(sd.i / W), c0 = sd.i % W, lo = Math.max(PC_SEG_TH_SEED * sd.h, PC_SEG_TH_CROWN * sd.sum / sd.n, PC_SEG_MIN_H * 0.5);
     for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
       const rr = r + dr, cc = c + dc;
       if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
       const j = rr * W + cc;
       if (lab[j] >= 0) continue;
       const u = chm[j];
-      if (u < tr.floor || u > v + 0.5 || Math.hypot(rr - r0, cc - c0) > tr.reach) continue; // not uphill: that's another tree
-      lab[j] = t;
+      if (u <= lo || u > v + 0.5 || Math.hypot(rr - r0, cc - c0) > sd.reach) continue; // climbing: that's another tree
+      lab[j] = t; sd.sum += u; sd.n++;
       push(j, u);
     }
   }
+  // Merge crowns that are one: where the canopy between two tops dips less
+  // than 1 m or a tenth of the lower one. The highest saddles first, as the
+  // canopy would fill; the merged crown keeps the taller top, and takes
+  // only tops within its own reach.
+  const saddle = new Map();
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const i = r * W + c, a = lab[i];
+    if (a < 0) continue;
+    for (const j of [c + 1 < W ? i + 1 : -1, r + 1 < H ? i + W : -1]) {
+      if (j < 0) continue;
+      const b = lab[j];
+      if (b < 0 || b === a) continue;
+      const key = a < b ? a * 1e6 + b : b * 1e6 + a, h = Math.min(chm[i], chm[j]);
+      if (!(saddle.get(key) >= h)) saddle.set(key, h);
+    }
+  }
+  const root = seeds.map((x, t) => t), find = (t) => { while (root[t] !== t) t = root[t] = root[root[t]]; return t; };
+  [...saddle.entries()].sort((x, y) => y[1] - x[1]).forEach(([key, h]) => {
+    let a = find(Math.floor(key / 1e6)), b = find(key % 1e6);
+    if (a === b) return;
+    if (seeds[a].h < seeds[b].h) [a, b] = [b, a];
+    const low = seeds[b].h, ia = seeds[a].i, ib = seeds[b].i;
+    // Only a top the taller tree's crown could reach: no chains of merges.
+    if (Math.hypot(Math.floor(ia / W) - Math.floor(ib / W), ia % W - ib % W) > seeds[a].reach) return;
+    if (low - h < Math.max(PC_SEG_DIP_M, PC_SEG_DIP_FRAC * low)) root[b] = a;
+  });
+  const keepIdx = new Map(), trees = [];
+  seeds.forEach((sd, t) => { if (find(t) === t) { keepIdx.set(t, trees.length); trees.push({ i: sd.i, h: sd.h, floor: Math.max(PC_SEG_FLOOR_M, PC_SEG_FLOOR_FRAC * sd.h), cells: 0, sd }); } });
+  for (let i = 0; i < N; i++) if (lab[i] >= 0) lab[i] = keepIdx.get(find(lab[i]));
+  // Then bumps within a crown that the first pass couldn't climb to (after
+  // the merge, so they don't join crowns up): unclaimed canopy cells next to
+  // a crown join it, if high enough for it and within
+  // its reach, nearest first.
+  let front = [];
+  for (let i = 0; i < N; i++) if (lab[i] >= 0) front.push(i);
+  while (front.length) {
+    const next = [];
+    for (const i of front) {
+      const t = lab[i], sd = trees[t].sd, r = Math.floor(i / W), c = i % W, r0 = Math.floor(sd.i / W), c0 = sd.i % W;
+      const lo = Math.max(PC_SEG_TH_SEED * sd.h, PC_SEG_TH_CROWN * sd.sum / sd.n, PC_SEG_MIN_H * 0.5);
+      for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+        const j = rr * W + cc;
+        if (lab[j] >= 0 || chm[j] <= lo || Math.hypot(rr - r0, cc - c0) > sd.reach) continue;
+        lab[j] = t; next.push(j);
+      }
+    }
+    front = next;
+  }
+  for (let i = 0; i < N; i++) if (lab[i] >= 0) trees[lab[i]].cells++;
   // Bird colours, touching crowns never the same: each tree takes the
   // first colour, from its own place in the list on, that no neighbour has.
   const adj = trees.map(() => new Set());
@@ -12692,7 +12726,7 @@ function renderPcResults() {
   document.getElementById('pcNotes').innerHTML =
     '<p><strong>' + escHtml(d.areaName) + '</strong>, ' + escHtml(d.survey.title) + ', flown ' + escHtml(surveyDates(d.survey)) + '.</p>' +
     '<p><strong>Layer density</strong> is how much of each layer the laser found: the returns in it as a share of those that got down to it, that is the layer and everything below it. Measured that way, a layer under a thick canopy isn\'t read as thin just because few pulses got that far, though where almost nothing gets through (see Ground per m²) it is still the least certain. <strong>Understorey density</strong> is that share for 0.5 to 2 m: high under a dense understorey, low where the forest floor is open, browsed or grazed.</p>' +
-    '<p><strong>Trees</strong> are found from the points alone: tree tops are the highest points of the canopy within a reach that grows with height (about 2.5 m for a 20 m tree), kept as separate trees only where the canopy dips between them by 1.5 m or a fifth of the lower one, and each crown runs downhill from its top. It works best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, neighbouring crowns that touch can be read as one tree, or one broad crown as two. Trees under 3 m, and those under another tree\'s crown, aren\'t counted. Each tree\'s height is its highest return.</p>' +
+    '<p><strong>Trees</strong> are found from the points alone, after Dalponte &amp; Coomes (2016): tree tops are the highest points of the canopy within a reach that grows with height (about 2.5 m for a 20 m tree); every top grows its crown at once, taking the canopy next to it that stands above 45% of the top\'s height and 55% of the crown\'s average, as far as a tree that tall could reach; and two crowns are joined where the canopy dips less than 1 m, or a tenth of the lower one, between their tops. It works best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, crowns that touch can still be read as one tree, or one broad crown as two. Trees under 3 m, and those under another tree\'s crown, aren\'t counted: no method yet tells understorey trees apart reliably from the air (Cao et al. 2023). Each tree\'s height is its highest return.</p>' +
     '<p>It measures structure, not species: a dense understorey of seedlings and one of bracken or gorse look alike. Surveys differ in pulse density, sensor and season, so compare areas within one survey; across surveys or years it is rougher. Heights are above the ground the survey classed, averaged on a 1 m grid, with gaps under dense cover filled from round about.</p>' +
     '<p>Point cloud: ' + escHtml(d.survey.title) + ', Toitū Te Whenua LINZ and the survey\'s licensor, distributed by OpenTopography' + (d.survey.doi ? ' (<a href="' + escHtml(d.survey.doi) + '" target="_blank" rel="noopener">' + escHtml(d.survey.doi.replace(/^https?:\/\/doi\.org\//, 'doi ')) + '</a>)' : '') + ', CC BY 4.0.</p>';
 }
