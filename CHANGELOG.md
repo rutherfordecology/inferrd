@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.95.2 — 2026-11-16
+
+- Point cloud, Each tree: the colours are no longer named after birds, in
+  the 3D legend, the map dot popup or the help. The colours stay the same.
+
 ## v0.95.1 — 2026-11-16
 
 - Point cloud, Each tree: the trees now take the colours of New Zealand

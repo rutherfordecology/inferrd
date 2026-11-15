@@ -1582,7 +1582,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one area and inferrd. lists the surveys with points over it, newest first, then sizes up the download. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Each tree</strong> colours every tree found its own colour, from New Zealand birds (kererū, tūī, kea, kākāpō, kākā, kōtare, ruru), with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
@@ -1640,7 +1640,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.95.1';
+const APP_VERSION = 'v0.95.2';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12435,7 +12435,6 @@ const PC_BIRD_RGB = PC_BIRDS.map(b => [parseInt(b[1].slice(1, 3), 16), parseInt(
 // A tree's bird colour: picked when the crowns are drawn, so that no two
 // touching crowns share one.
 const pcTreeColour = (d, t) => PC_BIRD_RGB[d.trees.col[t]];
-const pcTreeBird = (d, t) => PC_BIRDS[d.trees.col[t]][0];
 
 /* ---- results ---- */
 function renderPcResults() {
@@ -12544,7 +12543,7 @@ mapStack.add({ key: 'pc_trees', tab: 'Point cloud', rank: 4, op: 1, pane: 'pc_tr
       marks.push(L.circleMarker(ll, { pane, renderer, interactive: false, radius: 4, color: '#fff', weight: 1.2, fillColor: 'rgb(' + r + ',' + g + ',' + b + ')', fillOpacity: 1 }));
     }
     pcTreesShown = shown;
-    return { layer: L.layerGroup(marks), legend: [['#e76f51', 'A tree top, in its tree\'s bird colour']],
+    return { layer: L.layerGroup(marks), legend: [['#e76f51', 'A tree top, in its tree\'s colour']],
       note: list.length.toLocaleString() + ' trees' + (shown.length < list.length ? ', ' + shown.length.toLocaleString() + ' shown at this zoom' : '') + '. Click near one for its height.' };
   } });
 map.on('zoomend', () => { if (mapStack.shown().some(l => l.key === 'pc_trees')) mapStack.refresh('pc_trees'); });
@@ -12553,7 +12552,7 @@ map.on('click', (e) => {
   const pt = map.latLngToContainerPoint(e.latlng);
   let near = null, best = 144;
   for (const s of pcTreesShown) { const q = map.latLngToContainerPoint(s.ll), dd = (q.x - pt.x) ** 2 + (q.y - pt.y) ** 2; if (dd <= best) { best = dd; near = s; } }
-  if (near) L.popup().setLatLng(near.ll).setContent('<strong>Tree ' + near.t.h.toFixed(1) + ' m</strong><br>Crown about ' + Math.round(near.t.crown) + ' m²<br>In ' + escHtml(pcTreeBird(pcData, near.i)) + '<br><span style="color:var(--text3)">' + escHtml(pcData.survey.title) + ' point cloud</span>').openOn(map);
+  if (near) L.popup().setLatLng(near.ll).setContent('<strong>Tree ' + near.t.h.toFixed(1) + ' m</strong><br>Crown about ' + Math.round(near.t.crown) + ' m²<br><span style="color:var(--text3)">' + escHtml(pcData.survey.title) + ' point cloud</span>').openOn(map);
 });
 
 /* ---- 3D: turn it round, or stand in it ---- */
@@ -12596,7 +12595,7 @@ function pcColourArray(d, mode) {
   if (mode === 'tree' && d.trees) {
     const t = d.trees.treeOf, gc = pcHex('#9c7a54'), under = pcHex('#9a9a9a'), cols = d.trees.list.map((x, i) => pcTreeColour(d, i));
     for (let j = 0; j < d.n; j++) { const k = o[j]; set(j, t[k] >= 0 ? cols[t[k]] : S.cls[k] === 2 ? gc : under); }
-    legend = [['', 'Each colour: one tree (' + d.trees.list.length.toLocaleString() + '), in the colours of New Zealand birds'], ['#9a9a9a', 'Below the crowns, and low growth'], ['#9c7a54', 'Ground']];
+    legend = [['', 'Each colour: one tree (' + d.trees.list.length.toLocaleString() + ')'], ['#9a9a9a', 'Below the crowns, and low growth'], ['#9c7a54', 'Ground']];
   } else if (mode === 'rgb' && d.rgb) {
     const sh = d.rgbShift;
     for (let j = 0; j < d.n; j++) { const k = o[j]; out[j * 3] = S.rgb[k * 3] >> sh; out[j * 3 + 1] = S.rgb[k * 3 + 1] >> sh; out[j * 3 + 2] = S.rgb[k * 3 + 2] >> sh; }
