@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.97.1 — 2026-11-16
+
+- Point cloud, 3D side by side: with Move together off, the view under the
+  cursor is the one steered (drag, scroll, double-click and the walking
+  keys), with no click needed first. A drag that strays over the other view
+  keeps steering the view it started in. The footer says which mode you're in.
+
 ## v0.97.0 — 2026-11-16
 
 - Point cloud, 3D: **Compare 2 areas side by side in 3D** opens two views,

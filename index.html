@@ -1608,7 +1608,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area, and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
@@ -1666,7 +1666,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.97.0';
+const APP_VERSION = 'v0.97.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12818,7 +12818,7 @@ function pcSync() {
   document.getElementById('pcPtSize').value = pcV.size[mode];
   const surveys = [...new Set(pcPanes.filter(P => P.d).map(P => P.d.survey.title))];
   const credit = surveys.length ? ' Point cloud: ' + surveys.map(escHtml).join(', ') + ', Toitū Te Whenua LINZ, via OpenTopography, CC BY 4.0.' : '';
-  document.getElementById('pcFoot').innerHTML = (two ? (pcLinked() ? '<strong>Both views move together</strong>, from the same place in each area. ' : '<strong>Click a view to steer it.</strong> ') : '') +
+  document.getElementById('pcFoot').innerHTML = (two ? (pcLinked() ? '<strong>Both views move together</strong>, from the same place in each area; untick Move together to steer each on its own. ' : '<strong>Each view moves on its own:</strong> the one under the cursor is steered. ') : '') +
     (mode === 'stand'
       ? '<strong>Standing at ' + PC_EYE_M + ' m.</strong> Drag to look about. W A S D or the arrow keys to walk (Shift to go faster). Double-click to jump to a spot. Esc to go back to the overview.'
       : 'Drag to turn, right-drag to pan, scroll to zoom. <strong>Double-click anywhere to stand there at ' + PC_EYE_M + ' m</strong>, or use Stand.') + credit;
@@ -12944,6 +12944,9 @@ function pcMakePane() {
     if (P.mode === 'stand') { P.drag = { x: ev.clientX, y: ev.clientY }; renderer.domElement.setPointerCapture(ev.pointerId); }
   });
   renderer.domElement.addEventListener('wheel', () => pcSetActive(P), { passive: true, capture: true });
+  // The view under the cursor is the one steered, walking keys included;
+  // not while a drag from the other view is still going.
+  el.addEventListener('pointerenter', (ev) => { if (!ev.buttons) { pcSetActive(P); if (!/^(input|select|textarea)$/i.test((document.activeElement || {}).tagName || '')) el.focus({ preventScroll: true }); } });
   // Looking about when standing: drag turns the head.
   renderer.domElement.addEventListener('pointermove', (ev) => {
     if (!P.drag || P.mode !== 'stand') return;
