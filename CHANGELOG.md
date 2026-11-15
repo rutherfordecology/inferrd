@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.96.1 — 2026-11-16
+
+- Point cloud: Load now loads every drawn area (up to six) in one go, so
+  their density profiles are compared after a single click. Before, only
+  the area picked under 1 · Area loaded. The sizing and the button give the
+  total download for all the areas, and any area the survey has no points
+  over is named and left out. When there are more points than the 3D view
+  can hold, the same even share is kept in every area, so they still compare.
+- A "Details, trees and 3D for" picker in the results chooses which loaded
+  area the figures, tables and 3D view show. The map shows every area's
+  trees, and the trees CSV has every area, with an area column.
+
 ## v0.96.0 — 2026-11-16
 
 - Point cloud: **Density by height**, a chart in the results. Height above

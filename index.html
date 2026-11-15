@@ -783,13 +783,9 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <div id="cloudPanel">
       <div class="sidebar-section">
         <div class="section-label">1 · Area</div>
-        <div class="instruction-box">Draw or pick an area. Point clouds are big: even a hectare usually means reading 20 to 60 MB, so start small.</div>
+        <div class="instruction-box">Draw or pick one or more areas: they all load together, to compare. Point clouds are big: even a hectare usually means reading 20 to 60 MB, so start small.</div>
         <div id="pcAreaList"></div>
         <div class="poly-empty" id="pcAreaEmpty">No areas drawn yet</div>
-        <div class="field" id="pcAreaField" style="display:none;margin-top:8px;">
-          <label>Point cloud for</label>
-          <select id="pcAreaSel"></select>
-        </div>
       </div>
 
       <div class="sidebar-section">
@@ -1242,6 +1238,10 @@ table.stats-table tr:last-child td { border-bottom: none; }
         </div>
         <div id="pcContent" style="display:none">
           <div id="pcNow">
+          <div class="table-card-head" id="pcShowHead" style="display:none;margin-bottom:8px;">
+            <div class="card-title" style="margin:0;">Details, trees and 3D for</div>
+            <select id="pcShowSel" style="font-size:12px;padding:2px 4px;" aria-label="Details for area"></select>
+          </div>
           <div class="metrics" id="pcMetrics"></div>
           </div>
           <div class="chart-card" id="pcProfileCard" style="margin-bottom:14px;">
@@ -1598,8 +1598,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
 
     <h3>Point cloud tab (New Zealand)</h3>
-    <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one area and inferrd. lists the surveys with points over it, newest first, then sizes up the download. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
-    <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); load a second area and its line is added, so two areas' profiles can be compared, up to six at once. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
+    <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
+    <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
     <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
@@ -1658,7 +1658,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.96.0';
+const APP_VERSION = 'v0.96.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -11739,8 +11739,9 @@ const PC_RGB_OFF = { 2: 20, 3: 28, 5: 28, 7: 30, 8: 30, 10: 30 };
 const PC_BANDS = [['Ground', -Infinity, -Infinity], ['0–0.5 m', -Infinity, 0.5], ['0.5–2 m', 0.5, 2], ['2–5 m', 2, 5], ['5–10 m', 5, 10], ['10–20 m', 10, 20], ['20–30 m', 20, 30], ['Over 30 m', 30, Infinity]];
 const PC_CLASS = { 0: ['Never classified', '#9e9e9e'], 1: ['Unclassified', '#bdbdbd'], 2: ['Ground', '#9c7a54'], 3: ['Low vegetation', '#b5e48c'], 4: ['Medium vegetation', '#52b788'], 5: ['High vegetation', '#1b6b3a'], 6: ['Building', '#e63946'], 9: ['Water', '#3a86ff'], 17: ['Bridge', '#ff9f1c'] };
 const PC_RET = [['Only return', '#c9c9c9'], ['First of several', '#ff8c00'], ['In between', '#19d3ff'], ['Last of several', '#8b5a2b']];
-let pcSurveys = [], pcSurveyId = null, pcSurveyKey = null, pcAreaId = null;
+let pcSurveys = [], pcSurveyId = null, pcSurveyKey = null;
 let pcPlan = null, pcData = null, pcBusy = false, pcRun = 0;
+let pcSets = [], pcLoadedKey = null; // every area loaded together; pcData is the one shown
 
 function setPcStatus(kind, msg) {
   const el = document.getElementById('pcStatus');
@@ -11757,7 +11758,9 @@ function pcYield(force) {
   pcLastYield = now;
   return new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
 }
-const pcArea = () => areas.find(a => a.id === pcAreaId) || null;
+const PC_MAX_AREAS = 6;
+const pcAreasNow = () => areas.slice(0, PC_MAX_AREAS);
+const pcAreasKey = () => pcAreasNow().map(areaKey).join(',');
 const pcMB = (b) => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
 const pcMillions = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + ' million' : Math.round(n).toLocaleString();
 
@@ -12009,16 +12012,16 @@ function pcLazPerf() {
   return pcLazPromise;
 }
 
-/* ---- surveys over the area ---- */
+/* ---- surveys over the areas ---- */
 async function pcFindSurveys() {
-  const a = pcArea();
-  if (!a) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; renderPcSurveys(''); return; }
-  const key = areaKey(a);
+  const list = pcAreasNow();
+  if (!list.length) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; renderPcSurveys(''); return; }
+  const key = pcAreasKey();
   if (key === pcSurveyKey) return;
   pcSurveyKey = key;
   pcSurveys = []; renderPcSurveys('Finding point cloud surveys…');
   try {
-    const bb = turf.bbox(a.geojson);
+    const bb = turf.bbox({ type: 'FeatureCollection', features: list.map(a => a.geojson) });
     const url = PC_CATALOG + '?productFormat=PointCloud&minx=' + bb[0] + '&miny=' + bb[1] + '&maxx=' + bb[2] + '&maxy=' + bb[3] + '&detail=false&outputFormat=json&include_federated=false';
     const c = await fetchJson(url);
     if (pcSurveyKey !== key) return;
@@ -12030,7 +12033,7 @@ async function pcFindSurveys() {
       return { id: d.alternateName, title: d.name.replace(/, New Zealand/, ''), start: t[0] || '', end: t[1] || t[0] || '', doi: d.url || '' };
     }).sort((x, y) => (y.end > x.end) - (y.end < x.end));
     if (!pcSurveys.some(s => s.id === pcSurveyId)) pcSurveyId = pcSurveys.length ? pcSurveys[0].id : null;
-    renderPcSurveys(pcSurveys.length ? '' : 'No point cloud survey covers this area.');
+    renderPcSurveys(pcSurveys.length ? '' : 'No point cloud survey covers ' + (list.length > 1 ? 'these areas.' : 'this area.'));
     pcSizeUp();
   } catch (err) {
     if (pcSurveyKey !== key) return;
@@ -12054,66 +12057,80 @@ function renderPcSurveys(emptyMsg) {
 }
 
 /* ---- sizing up: which chunks, how many MB ---- */
+// One area: its mask, and the chunks of each tile with points under it.
+async function pcSizeArea(a, survey, index, run, progress) {
+  const polys = lidarAreaRings(a.geojson), nb = ringsBounds(polys);
+  const g = { res: 1, x0: Math.floor(nb[0]), y0: Math.floor(nb[1]), x1: Math.ceil(nb[2]), y1: Math.ceil(nb[3]) };
+  g.W = g.x1 - g.x0; g.H = g.y1 - g.y0;
+  const mask = lidarMask(polys, g);
+  const hits = index.filter(t => t.x0 < g.x1 && t.x1 > g.x0 && t.y0 < g.y1 && t.y1 > g.y0);
+  // Mask cells (1 m) inside a box, as a share of the box.
+  const maskShare = (x0, y0, x1, y1) => {
+    const c0 = Math.max(0, Math.floor(x0 - g.x0)), c1 = Math.min(g.W, Math.ceil(x1 - g.x0)), r0 = Math.max(0, Math.floor(g.y1 - y1)), r1 = Math.min(g.H, Math.ceil(g.y1 - y0));
+    let n = 0;
+    for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) n += mask[r * g.W + c];
+    return n / Math.max(1, (x1 - x0) * (y1 - y0));
+  };
+  const tiles = [];
+  const one = async (t) => {
+    const info = await pcTileInfo(t.url);
+    if (run !== pcRun) return;
+    const need = new Set(), fixed = info.h.chunkSize !== 0xFFFFFFFF;
+    let est = 0;
+    if (info.cells) {
+      for (const c of info.cells) {
+        const share = maskShare(c.x0, c.y0, c.x1, c.y1);
+        if (!share) continue;
+        est += c.n * share;
+        for (const [s0, e] of c.iv) {
+          let k = fixed ? Math.floor(s0 / info.h.chunkSize) : info.chunks.findIndex(ch => ch.first + ch.count > s0);
+          for (; k >= 0 && k < info.chunks.length && info.chunks[k].first <= e; k++) need.add(k);
+        }
+      }
+    } else {
+      info.chunks.forEach((ch, k) => need.add(k));
+      est = info.h.count * maskShare(t.x0, t.y0, t.x1, t.y1);
+    }
+    if (need.size) tiles.push({ url: t.url, h: info.h, chunks: info.chunks, need: [...need].sort((x, y) => x - y), est });
+    progress();
+  };
+  for (let i = 0; i < hits.length; i += 4) await Promise.all(hits.slice(i, i + 4).map(one));
+  if (!tiles.length) return null;
+  return { planKey: areaKey(a) + '|' + survey.id, area: a, survey, polys, g, mask, tiles, ha: turf.area(a.geojson) / 1e4,
+    bytes: tiles.reduce((t, x) => t + x.need.reduce((u, k) => u + x.chunks[k].size, 0), 0), est: tiles.reduce((t, x) => t + x.est, 0) };
+}
 async function pcSizeUp() {
-  const a = pcArea(), survey = pcSurveys.find(s => s.id === pcSurveyId);
+  const list = pcAreasNow(), survey = pcSurveys.find(s => s.id === pcSurveyId);
   pcPlan = null;
   const run = ++pcRun;
   syncPcControls();
-  if (!a || !survey) return;
-  if (pcData && pcData.planKey === areaKey(a) + '|' + survey.id) { setPcStatus('success', pcData.say); return; }
-  const ha = turf.area(a.geojson) / 1e4;
-  if (ha > PC_MAX_HA) { setPcStatus('error', 'This area is ' + Math.round(ha) + ' ha: far too big for a point cloud (several GB). Draw an area under about ' + Math.round(PC_MAX_HA / 10) + ' ha to start.'); return; }
+  if (!list.length || !survey) return;
+  const key = survey.id + '|' + pcAreasKey();
+  if (pcLoadedKey === key && pcSets.length) { setPcStatus('success', pcLoadedSay()); return; }
+  const ha = list.reduce((t, a) => t + turf.area(a.geojson) / 1e4, 0), many = list.length > 1;
+  if (ha > PC_MAX_HA) { setPcStatus('error', (many ? 'These areas come' : 'This area is') + (many ? ' to ' : ' ') + Math.round(ha) + ' ha: far too big for a point cloud (several GB). Keep it under about ' + Math.round(PC_MAX_HA / 10) + ' ha to start.'); return; }
   try {
     setPcStatus('info', 'Sizing up: reading the survey\'s tile index…');
     await loadLidarLibs();
-    const polys = lidarAreaRings(a.geojson), nb = ringsBounds(polys);
-    const g = { res: 1, x0: Math.floor(nb[0]), y0: Math.floor(nb[1]), x1: Math.ceil(nb[2]), y1: Math.ceil(nb[3]) };
-    g.W = g.x1 - g.x0; g.H = g.y1 - g.y0;
-    const mask = lidarMask(polys, g);
     const index = await pcTileIndex(survey.id);
     if (run !== pcRun) return;
-    const hits = index.filter(t => t.x0 < g.x1 && t.x1 > g.x0 && t.y0 < g.y1 && t.y1 > g.y0);
-    if (!hits.length) { setPcStatus('warning', survey.title + ' has no points over this area. Try another survey, if there is one.'); return; }
-    // Mask cells (1 m) inside a box, as a share of the box.
-    const maskShare = (x0, y0, x1, y1) => {
-      const c0 = Math.max(0, Math.floor(x0 - g.x0)), c1 = Math.min(g.W, Math.ceil(x1 - g.x0)), r0 = Math.max(0, Math.floor(g.y1 - y1)), r1 = Math.min(g.H, Math.ceil(g.y1 - y0));
-      let n = 0;
-      for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) n += mask[r * g.W + c];
-      return n / Math.max(1, (x1 - x0) * (y1 - y0));
-    };
-    const tiles = [];
+    const per = [], none = [];
     let done = 0;
-    const one = async (t) => {
-      const info = await pcTileInfo(t.url);
+    for (const a of list) {
+      const pa = await pcSizeArea(a, survey, index, run, () => setPcStatus('info', 'Sizing up' + (many ? ' ' + a.name : '') + ': ' + (++done) + ' tiles read…'));
       if (run !== pcRun) return;
-      const need = new Set(), fixed = info.h.chunkSize !== 0xFFFFFFFF;
-      let est = 0;
-      if (info.cells) {
-        for (const c of info.cells) {
-          const share = maskShare(c.x0, c.y0, c.x1, c.y1);
-          if (!share) continue;
-          est += c.n * share;
-          for (const [s, e] of c.iv) {
-            let k = fixed ? Math.floor(s / info.h.chunkSize) : info.chunks.findIndex(ch => ch.first + ch.count > s);
-            for (; k >= 0 && k < info.chunks.length && info.chunks[k].first <= e; k++) need.add(k);
-          }
-        }
-      } else {
-        info.chunks.forEach((ch, k) => need.add(k));
-        est = info.h.count * maskShare(t.x0, t.y0, t.x1, t.y1);
-      }
-      if (need.size) tiles.push({ url: t.url, h: info.h, chunks: info.chunks, need: [...need].sort((x, y) => x - y), est, indexed: !!info.cells });
-      setPcStatus('info', 'Sizing up: ' + (++done) + ' of ' + hits.length + ' tile' + (hits.length === 1 ? '' : 's') + '…');
-    };
-    for (let i = 0; i < hits.length; i += 4) await Promise.all(hits.slice(i, i + 4).map(one));
-    if (run !== pcRun) return;
-    const bytes = tiles.reduce((s, t) => s + t.need.reduce((u, k) => u + t.chunks[k].size, 0), 0);
-    const est = tiles.reduce((s, t) => s + t.est, 0);
-    pcPlan = { planKey: areaKey(a) + '|' + survey.id, area: a, survey, polys, g, mask, tiles, bytes, est, ha };
-    const what = 'Needs ' + pcMB(bytes) + ' from ' + tiles.length + ' tile' + (tiles.length === 1 ? '' : 's') + ', for about ' + pcMillions(est) + ' points over ' + (ha < 10 ? ha.toFixed(1) : Math.round(ha)) + ' ha' +
-      (est > PC_MAX_POINTS ? ' (an even ' + Math.round(100 * PC_MAX_POINTS / est) + '% of them kept, so the 3D view keeps up)' : '') + '.';
-    if (bytes > PC_MAX_MB * 1e6) { pcPlan.tooBig = true; setPcStatus('error', what + ' That\'s too much to read in a browser: draw a smaller area.'); }
-    else if (bytes > PC_WARN_MB * 1e6) setPcStatus('warning', what + ' That\'s a big download: it may take several minutes and a lot of memory. Draw a smaller area, or load it anyway.');
+      if (pa) per.push(pa); else none.push(a.name);
+    }
+    if (!per.length) { setPcStatus('warning', survey.title + ' has no points over ' + (many ? 'these areas' : 'this area') + '. Try another survey, if there is one.'); return; }
+    const bytes = per.reduce((t, x) => t + x.bytes, 0), est = per.reduce((t, x) => t + x.est, 0), tiles = new Set(per.flatMap(x => x.tiles.map(t => t.url))).size;
+    const haIn = per.reduce((t, x) => t + x.ha, 0);
+    pcPlan = { key, survey, per, bytes, est };
+    const what = 'Needs ' + pcMB(bytes) + ' from ' + tiles + ' tile' + (tiles === 1 ? '' : 's') + (per.length > 1 ? ' for ' + per.length + ' areas' : '') + ', about ' + pcMillions(est) + ' points over ' + (haIn < 10 ? haIn.toFixed(1) : Math.round(haIn)) + ' ha' +
+      (est > PC_MAX_POINTS ? ' (an even ' + Math.round(100 * PC_MAX_POINTS / est) + '% of them kept, so the 3D view keeps up)' : '') + '.' +
+      (none.length ? ' ' + survey.title + ' has no points over ' + none.join(', ') + ', so ' + (none.length > 1 ? 'they\'re' : 'it\'s') + ' left out.' : '') +
+      (areas.length > PC_MAX_AREAS ? ' Only the first ' + PC_MAX_AREAS + ' areas load.' : '');
+    if (bytes > PC_MAX_MB * 1e6) { pcPlan.tooBig = true; setPcStatus('error', what + ' That\'s too much to read in a browser: draw smaller or fewer areas.'); }
+    else if (bytes > PC_WARN_MB * 1e6) setPcStatus('warning', what + ' That\'s a big download: it may take several minutes and a lot of memory. Draw smaller or fewer areas, or load it anyway.');
     else setPcStatus('info', what);
   } catch (err) {
     if (run !== pcRun) return;
@@ -12162,6 +12179,44 @@ function pcDecodeChunk(L, h, bytes, count, P, keep) {
     }
   } finally { dec.delete(); L._free(bp); L._free(pp); }
 }
+// One area's points: read its chunks, keep those inside it.
+async function pcLoadArea(L, p, keep, run, say) {
+  const g = p.g, cx = Math.round((g.x0 + g.x1) / 2), cy = Math.round((g.y0 + g.y1) / 2);
+  const S = new PcStore(Math.min(p.est * keep, PC_MAX_POINTS) * 1.1 + 1000);
+  const P = { g, mask: p.mask, cx, cy, S, acc: 0 };
+  // Runs of touching chunks, one request each.
+  const jobs = [];
+  for (const t of p.tiles) {
+    let cur = null;
+    for (const k of t.need) {
+      const ch = t.chunks[k];
+      if (cur && cur.last === k - 1 && ch.at + ch.size - cur.at <= PC_RUN_MB * 1e6) { cur.last = k; continue; }
+      cur = { t, first: k, last: k, at: ch.at }; jobs.push(cur);
+    }
+  }
+  let rgbAny = false, next = 0;
+  const worker = async () => {
+    while (next < jobs.length && run === pcRun) {
+      const j = jobs[next++], last = j.t.chunks[j.last];
+      const buf = await pcRange(j.t.url, j.at, last.at + last.size - 1);
+      if (run !== pcRun) return;
+      for (let k = j.first; k <= j.last; k++) {
+        const ch = j.t.chunks[k];
+        pcDecodeChunk(L, j.t.h, buf.subarray(ch.at - j.at, ch.at - j.at + ch.size), ch.count, P, keep);
+        if (PC_RGB_OFF[j.t.h.format]) rgbAny = true;
+        const y = pcYield();
+        if (y) { say(ch.size, S.n); await y; } else say(ch.size, -1);
+        if (run !== pcRun) return;
+      }
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  if (run !== pcRun || !S.n) return null;
+  const d = pcFinish(p, S, cx, cy, keep, rgbAny);
+  await pcYield(true);
+  d.trees = pcSegment(d);
+  return d;
+}
 async function pcLoad() {
   const plan = pcPlan;
   if (!plan || plan.tooBig || pcBusy) return;
@@ -12170,59 +12225,32 @@ async function pcLoad() {
   try {
     setPcStatus('info', 'Loading the point cloud reader…');
     const L = await pcLazPerf();
-    const g = plan.g, cx = Math.round((g.x0 + g.x1) / 2), cy = Math.round((g.y0 + g.y1) / 2);
+    // One share kept across all the areas, so they compare like with like.
     const keep = plan.est > PC_MAX_POINTS ? PC_MAX_POINTS / plan.est : 1;
-    const S = new PcStore(Math.min(plan.est, PC_MAX_POINTS) * 1.1 + 1000);
-    const P = { g, mask: plan.mask, cx, cy, S, acc: 0 };
-    // Runs of touching chunks, one request each.
-    const jobs = [];
-    for (const t of plan.tiles) {
-      let cur = null;
-      for (const k of t.need) {
-        const ch = t.chunks[k];
-        if (cur && cur.last === k - 1 && ch.at + ch.size - cur.at <= PC_RUN_MB * 1e6) { cur.last = k; continue; }
-        cur = { t, first: k, last: k, at: ch.at }; jobs.push(cur);
-      }
+    const sets = [], empty = [];
+    let got = 0;
+    for (let k = 0; k < plan.per.length; k++) {
+      const p = plan.per[k], where = plan.per.length > 1 ? p.area.name + ' (' + (k + 1) + ' of ' + plan.per.length + '): ' : '';
+      let n = 0;
+      const say = (bytes, pts) => { got += bytes; if (pts >= 0) n = pts; if (pts >= 0) setPcStatus('info', where + 'reading points: ' + pcMB(got) + ' of ' + pcMB(plan.bytes) + ', ' + pcMillions(n) + ' in the area so far…'); };
+      setPcStatus('info', where + 'reading points…');
+      const d = await pcLoadArea(L, p, keep, run, say);
+      if (run !== pcRun) return;
+      if (d) { d.areaKey = areaKey(p.area); d.areaId = p.area.id; sets.push(d); } else empty.push(p.area.name);
     }
-    let got = 0, rgbAny = false;
-    const say = () => setPcStatus('info', 'Reading points: ' + pcMB(got) + ' of ' + pcMB(plan.bytes) + ', ' + pcMillions(S.n) + ' in the area so far…');
-    say();
-    let next = 0;
-    const worker = async () => {
-      while (next < jobs.length && run === pcRun) {
-        const j = jobs[next++], last = j.t.chunks[j.last];
-        const buf = await pcRange(j.t.url, j.at, last.at + last.size - 1);
-        if (run !== pcRun) return;
-        for (let k = j.first; k <= j.last; k++) {
-          const ch = j.t.chunks[k];
-          pcDecodeChunk(L, j.t.h, buf.subarray(ch.at - j.at, ch.at - j.at + ch.size), ch.count, P, keep);
-          got += ch.size;
-          if (PC_RGB_OFF[j.t.h.format]) rgbAny = true;
-          const y = pcYield();
-          if (y) { say(); await y; }
-          if (run !== pcRun) return;
-        }
-      }
-    };
-    await Promise.all([worker(), worker(), worker(), worker()]);
-    if (run !== pcRun) return;
-    if (!S.n) throw new Error('no points fell inside the area');
-    setPcStatus('info', 'Working out the ground and heights…');
-    await new Promise(r => setTimeout(r, 0));
-    const done = pcFinish(plan, S, cx, cy, keep, rgbAny);
-    if (run !== pcRun) return;
-    setPcStatus('info', 'Finding the trees…');
-    await pcYield(true);
-    done.trees = pcSegment(done);
-    if (run !== pcRun) return;
-    pcData = done;
-    pcAddProfile(done, plan);
-    const nt = pcData.trees.list.length;
-    pcData.say = 'Loaded ' + pcMillions(S.n) + ' points from ' + plan.survey.title + (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them)' : '') + ', and found ' + nt.toLocaleString() + ' tree' + (nt === 1 ? '' : 's') + '. Open it in 3D, or see the results below.';
+    if (!sets.length) throw new Error('no points fell inside ' + (plan.per.length > 1 ? 'the areas' : 'the area'));
+    // Lines on the chart in the order the areas were drawn, this load's last.
+    sets.forEach(d => pcAddProfile(d, plan.per.find(p => p.planKey === d.planKey)));
+    const showKey = pcData && pcData.areaKey;
+    pcSets = sets;
+    pcData = sets.find(d => d.areaKey === showKey) || sets[0];
+    pcLoadedKey = plan.key;
+    pcEmptyAreas = empty;
+    if (!document.getElementById('pcDlg').hidden) pcClose();
     mapStack.setOn('pc_trees', true); // just found: show them
     mapStack.refresh('pc_trees');
     pcBusy = false;
-    setPcStatus('success', pcData.say);
+    setPcStatus('success', pcLoadedSay());
     renderPcResults();
     expandResultsPane();
   } catch (err) {
@@ -12232,6 +12260,17 @@ async function pcLoad() {
   }
   pcBusy = false;
   syncPcControls();
+}
+let pcEmptyAreas = [];
+function pcLoadedSay() {
+  if (!pcSets.length) return '';
+  const d0 = pcSets[0], keep = d0.keep, trees = (d) => d.trees.list.length.toLocaleString() + ' tree' + (d.trees.list.length === 1 ? '' : 's');
+  return 'Loaded ' + (pcSets.length > 1
+    ? pcSets.length + ' areas from ' + d0.survey.title + ': ' + pcSets.map(d => d.areaName + ' (' + pcMillions(d.n) + ' points, ' + trees(d) + ')').join(', ')
+    : pcMillions(d0.n) + ' points from ' + d0.survey.title + ', and found ' + trees(d0)) +
+    (keep < 1 ? ', keeping an even ' + Math.round(100 * keep) + '% of the points' : '') + '.' +
+    (pcEmptyAreas.length ? ' No points fell inside ' + pcEmptyAreas.join(', ') + '.' : '') +
+    ' See the results below, or open ' + (pcSets.length > 1 ? 'one' : 'it') + ' in 3D.';
 }
 // The ground (1 m, from ground points, gaps filled from round about), each
 // point's height above it, and the tallies for the results.
@@ -12517,7 +12556,7 @@ function renderPcProfile() {
       ' <button type="button" class="pc-prof-x" data-k="' + k + '" title="Take this area off the chart" style="border:none;background:none;color:var(--text3);cursor:pointer;padding:0 2px;">✕</button></span>').join('') + '</div>';
   el.querySelectorAll('.pc-prof-x').forEach(b => b.addEventListener('click', () => { pcProfiles.splice(Number(b.dataset.k), 1); renderPcResults(); }));
   hint.textContent = ps.length < 2
-    ? 'To compare, pick another area under 1 · Area and load it: its line is added here.'
+    ? 'To compare, draw another area and load again: every drawn area loads together, each its own line here.'
     : 'Each line is one area. Where one line sits right of another, that layer is denser there.';
 }
 document.getElementById('pcProfileMeasure').value = pcProfileMeasure;
@@ -12547,6 +12586,9 @@ function renderPcResults() {
   document.getElementById('pcProfileCard').style.display = pcProfiles.length ? '' : 'none';
   renderPcProfile();
   if (!d) return;
+  const showSel = document.getElementById('pcShowSel');
+  document.getElementById('pcShowHead').style.display = pcSets.length > 1 ? '' : 'none';
+  showSel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.areaKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(x.areaName) + '</option>').join('');
   const metric = (label, value, title) => '<div class="metric" title="' + escHtml(title || label + ': ' + value) + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   const per = (v) => (v / d.keep / d.m2).toFixed(v / d.keep / d.m2 < 10 ? 1 : 0);
   const below = (b) => d.bands.slice(0, b + 1).reduce((s, v) => s + v, 0);
@@ -12590,6 +12632,8 @@ function clearPc() {
   pcRun++;
   pcBusy = false;
   pcData = null;
+  pcSets = [];
+  pcLoadedKey = null;
   pcPlan = null;
   if (!document.getElementById('pcDlg').hidden) pcClose();
   renderPcResults();
@@ -12597,57 +12641,56 @@ function clearPc() {
 }
 function syncPcControls() {
   const btn = document.getElementById('pcRunBtn');
-  const loaded = !!(pcData && pcPlan && pcData.planKey === pcPlan.planKey);
+  const loaded = !!(pcPlan && pcLoadedKey === pcPlan.key && pcSets.length);
   btn.disabled = pcBusy || !pcPlan || !!pcPlan.tooBig || loaded;
-  btn.textContent = pcBusy ? 'Loading…' : pcPlan && !pcPlan.tooBig && !loaded ? 'Load point cloud (' + pcMB(pcPlan.bytes) + ')' : 'Load point cloud';
+  btn.textContent = pcBusy ? 'Loading…' : pcPlan && !pcPlan.tooBig && !loaded ? 'Load point cloud' + (pcPlan.per.length > 1 ? ' for ' + pcPlan.per.length + ' areas' : '') + ' (' + pcMB(pcPlan.bytes) + ')' : 'Load point cloud';
   document.getElementById('pc3dBtn').hidden = !pcData || pcBusy;
+  document.getElementById('pc3dBtn').textContent = pcData && pcSets.length > 1 ? 'View ' + pcData.areaName + ' in 3D' : 'View in 3D';
 }
 function pcAreasChanged() {
   if (!pcReady) return; // areas restored before this part of the page has run
   renderTabAreaList('pcAreaList', 'pcAreaEmpty');
-  if (!areas.some(a => a.id === pcAreaId)) pcAreaId = areas.length ? areas[areas.length - 1].id : null;
-  const sel = document.getElementById('pcAreaSel');
-  sel.innerHTML = areas.map(a => '<option value="' + a.id + '"' + (a.id === pcAreaId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
-  document.getElementById('pcAreaField').style.display = areas.length > 1 ? '' : 'none';
-  const keys = new Set(areas.map(areaKey)), had = pcProfiles.length;
+  // Areas gone or reshaped drop out; the rest stay loaded.
+  const keys = new Set(areas.map(areaKey)), had = pcProfiles.length + pcSets.length;
   pcProfiles = pcProfiles.filter(x => keys.has(x.areaKey));
-  const a = pcArea();
-  if (pcData && (!a || !pcData.planKey.startsWith(areaKey(a) + '|'))) clearPc();
-  else if (pcProfiles.length !== had) renderPcResults();
-  if (!a) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; pcPlan = null; setPcStatus('', ''); renderPcSurveys(''); return; }
+  pcSets = pcSets.filter(d => keys.has(d.areaKey));
+  if (pcData && !pcSets.includes(pcData)) { if (!document.getElementById('pcDlg').hidden) pcClose(); pcData = pcSets[0] || null; }
+  if (pcProfiles.length + pcSets.length !== had) { renderPcResults(); mapStack.refresh('pc_trees'); syncPcControls(); }
+  if (!areas.length) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; pcPlan = null; setPcStatus('', ''); renderPcSurveys(''); return; }
   if (appTab === 'cloud') pcFindSurveys();
 }
-document.getElementById('pcAreaSel').addEventListener('change', (ev) => {
-  pcAreaId = Number(ev.target.value);
-  pcAreasChanged();
+document.getElementById('pcShowSel').addEventListener('change', (ev) => {
+  const d = pcSets.find(x => x.areaKey === ev.target.value);
+  if (!d || d === pcData) return;
+  if (!document.getElementById('pcDlg').hidden) pcClose();
+  pcData = d;
+  renderPcResults();
+  syncPcControls();
 });
 document.getElementById('pcRunBtn').addEventListener('click', pcLoad);
 document.getElementById('pcTreeCsv').addEventListener('click', () => {
-  if (!pcData || !pcData.trees) return;
-  const rows = [['tree', 'x_nztm', 'y_nztm', 'lon', 'lat', 'height_m', 'crown_m2']];
-  pcData.trees.list.forEach((t, i) => { const [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [t.x, t.y]); rows.push([i + 1, t.x.toFixed(1), t.y.toFixed(1), lon.toFixed(7), lat.toFixed(7), t.h.toFixed(1), t.crown.toFixed(1)]); });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n') + '\n'], { type: 'text/csv' }));
-  a.download = (pcData.areaName || 'area').replace(/[^\w-]+/g, '_') + '_trees_' + pcData.survey.id + '.csv';
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  if (!pcSets.length) return;
+  const rows = [['area', 'survey', 'tree', 'x_nztm', 'y_nztm', 'lon', 'lat', 'height_m', 'crown_m2'].join(',')];
+  pcSets.forEach(d => d.trees.list.forEach((t, i) => { const [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [t.x, t.y]); rows.push([d.areaName, d.survey.title, i + 1, t.x.toFixed(1), t.y.toFixed(1), lon.toFixed(7), lat.toFixed(7), t.h.toFixed(1), t.crown.toFixed(1)].map(csvCell).join(',')); }));
+  downloadText((pcSets.length === 1 ? pcSets[0].areaName.replace(/[^\w-]+/g, '_') : pcSets.length + '_areas') + '_trees_' + pcSets[0].survey.id + '.csv', rows.join('\n') + '\n', 'text/csv');
 });
 // Tree tops on the map, in their 3D colours, thinned on screen.
 map.createPane('pc_treesPane');
 let pcTreesShown = [];
 mapStack.add({ key: 'pc_trees', tab: 'Point cloud', rank: 4, op: 1, pane: 'pc_treesPane', swatch: '#e76f51', name: 'Trees from the point cloud',
   notes: 'The top of each tree found in the loaded point cloud, in the colour it has in 3D (Colours: Each tree). Click near one for its height.',
-  available: () => !!(pcData && pcData.trees),
+  available: () => pcSets.some(d => d.trees),
   draw: async (pane) => {
-    const list = pcData.trees.list, renderer = L.canvas({ pane }), marks = [], grid = new Set(), shown = [];
-    const order = list.map((t, i) => i).sort((a, b) => list[b].h - list[a].h);
-    for (const i of order) {
-      const t = list[i], [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [t.x, t.y]), ll = L.latLng(lat, lon), q = map.latLngToContainerPoint(ll);
+    const all = pcSets.flatMap(d => d.trees.list.map((t, i) => ({ d, t, i }))), renderer = L.canvas({ pane }), marks = [], grid = new Set(), shown = [];
+    const list = all.map(x => x.t);
+    const order = all.map((x, j) => j).sort((a, b) => all[b].t.h - all[a].t.h);
+    for (const j of order) {
+      const { d, t, i } = all[j], [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [t.x, t.y]), ll = L.latLng(lat, lon), q = map.latLngToContainerPoint(ll);
       const cell = Math.floor(q.x / 8) + ',' + Math.floor(q.y / 8);
       if (grid.has(cell)) continue;
       grid.add(cell);
-      shown.push({ t, ll, i });
-      const [r, g, b] = pcTreeColour(pcData, i);
+      shown.push({ t, ll, i, d });
+      const [r, g, b] = pcTreeColour(d, i);
       marks.push(L.circleMarker(ll, { pane, renderer, interactive: false, radius: 4, color: '#fff', weight: 1.2, fillColor: 'rgb(' + r + ',' + g + ',' + b + ')', fillOpacity: 1 }));
     }
     pcTreesShown = shown;
@@ -12660,7 +12703,7 @@ map.on('click', (e) => {
   const pt = map.latLngToContainerPoint(e.latlng);
   let near = null, best = 144;
   for (const s of pcTreesShown) { const q = map.latLngToContainerPoint(s.ll), dd = (q.x - pt.x) ** 2 + (q.y - pt.y) ** 2; if (dd <= best) { best = dd; near = s; } }
-  if (near) L.popup().setLatLng(near.ll).setContent('<strong>Tree ' + near.t.h.toFixed(1) + ' m</strong><br>Crown about ' + Math.round(near.t.crown) + ' m²<br><span style="color:var(--text3)">' + escHtml(pcData.survey.title) + ' point cloud</span>').openOn(map);
+  if (near) L.popup().setLatLng(near.ll).setContent('<strong>Tree ' + near.t.h.toFixed(1) + ' m</strong><br>Crown about ' + Math.round(near.t.crown) + ' m²<br><span style="color:var(--text3)">' + escHtml(near.d.areaName) + ', ' + escHtml(near.d.survey.title) + ' point cloud</span>').openOn(map);
 });
 
 /* ---- 3D: turn it round, or stand in it ---- */
