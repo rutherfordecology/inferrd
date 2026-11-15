@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.94.0 — 2026-11-16
+
+- **Point cloud**, a new tab after LiDAR: the full LiDAR point cloud for one
+  area, every return of every pulse, from OpenTopography's copy of LINZ's
+  surveys (LAZ, CC BY 4.0). It lists the surveys with points over the area
+  (OpenTopography's catalogue), finds the tiles from each survey's tile
+  index, and reads only the 50,000-point chunks the tiles' .lax spatial
+  indexes say hold points under the area, with HTTP range requests. The
+  LASzip chunk table is decoded in inferrd.; the points with laz-perf 0.0.6.
+- **Sized up before loading**: the exact download (from the chunk tables)
+  and the points expected. Points are stored by flight line, so even a
+  small area needs a good share of a tile (0.5 ha in Gisborne 2023: 20 MB,
+  157,000 points, 5 s; 36 ha: 194 MB, 11 million). Over 100 MB it warns;
+  over 1.5 GB or 300 ha it won't load. Over 8 million points it keeps an
+  even share, so the 3D view keeps up. Noise classes are left out.
+- **Results**: area, points, pulses and ground returns per m², understorey
+  density, the tallest returns, and where the pulses stopped: returns in
+  each height band above the ground with each band's layer density (its
+  returns as a share of those that got down to it). Also returns (only,
+  first, in between, last) and classes. Heights are above a 1 m ground made
+  from the ground points, gaps filled from round about.
+- **View in 3D**: points coloured by height above ground, true colour (the
+  survey's RGB), class, return or intensity; hide ground; point size; black
+  background. Overview to turn round, or **stand at 1.5 m**: double-click
+  anywhere (or press Stand), drag to look about, W A S D or the arrows to
+  walk (Shift faster), the eye kept 1.5 m above the ground as you go; Esc
+  goes back to the overview.
+
 ## v0.93.0 — 2026-11-15
 
 - **Trees above the canopy**, a new LiDAR layer in the Layers panel: a pink

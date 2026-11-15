@@ -61,6 +61,8 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .app-tab.active { color: #fff; border-bottom-color: var(--base-light); }
 .sidebar.lidar-mode > :not(#lidarPanel), .sidebar:not(.lidar-mode) > #lidarPanel { display: none !important; }
 .results-pane.lidar-mode > :not(#lidarResults), .results-pane:not(.lidar-mode) > #lidarResults { display: none !important; }
+.sidebar.cloud-mode > :not(#cloudPanel), .sidebar:not(.cloud-mode) > #cloudPanel { display: none !important; }
+.results-pane.cloud-mode > :not(#cloudResults), .results-pane:not(.cloud-mode) > #cloudResults { display: none !important; }
 .sidebar.climate-mode > :not(#climatePanel), .sidebar:not(.climate-mode) > #climatePanel { display: none !important; }
 .results-pane.climate-mode > :not(#climateResults), .results-pane:not(.climate-mode) > #climateResults { display: none !important; }
 .sidebar.physical-mode > :not(#physicalPanel), .sidebar:not(.physical-mode) > #physicalPanel { display: none !important; }
@@ -150,7 +152,7 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .rpt-fact .id { color: var(--text3); font-size: 11px; padding-top: 2px; font-variant-numeric: tabular-nums; }
 .rpt-fact .src { display: block; color: var(--text3); font-size: 11px; margin-top: 1px; }
 .rpt-fact.out .tx { color: var(--text3); text-decoration: line-through; }
-#lidarPanel, #climatePanel, #physicalPanel, #coverPanel, #reportPanel { display: flex; flex-direction: column; flex: 1; }
+#lidarPanel, #cloudPanel, #climatePanel, #physicalPanel, #coverPanel, #reportPanel { display: flex; flex-direction: column; flex: 1; }
 .phys-bar { display: flex; height: 14px; overflow: hidden; background: var(--surface2); }
 .phys-sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
 /* Layers panel (one for every layer and every tab), right of the map */
@@ -284,6 +286,12 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .v3d-msg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text2); pointer-events: none; }
 .v3d-foot { padding: 6px 12px; border-top: 1px solid var(--rule); font-size: 11.5px; color: var(--text3); }
 .v3d-foot a { color: inherit; }
+.pc-sw { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(0,0,0,0.15); }
+.pc-legend { position: absolute; left: 10px; bottom: 10px; background: rgba(255,255,255,0.85); padding: 6px 8px; font-size: 11.5px; line-height: 1.6; pointer-events: none; }
+.pc-legend:empty { display: none; }
+.pc-legend.dark { background: rgba(0,0,0,0.6); color: #eee; }
+.pc-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+#pcView:focus { outline: none; }
 .cut-box { background: var(--white); border: 1px solid var(--rule); width: 420px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 14px 16px; font-family: var(--font-sans); font-size: 12.5px; color: var(--text); }
 .cut-box label.f { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin: 10px 0 4px; }
 .cut-box select, .cut-box input[type=number] { font-size: 12.5px; font-family: var(--font-sans); padding: 4px 6px; border: 1px solid var(--border); }
@@ -429,6 +437,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <button class="app-tab" id="tabInputs" data-tab="inputs" type="button" role="tab" aria-selected="false" title="Every file in one place: areas (KML/KMZ), species records from occurd., and your own layers">Inputs</button>
     <button class="app-tab active" id="tabInfrared" data-tab="infrared" type="button" role="tab" aria-selected="true" title="Sentinel-2 vegetation indices over time">Infrared</button>
     <button class="app-tab" id="tabLidar" data-tab="lidar" type="button" role="tab" aria-selected="false" title="LINZ 1 m LiDAR: terrain, surface and vegetation height">LiDAR</button>
+    <button class="app-tab" id="tabCloud" data-tab="cloud" type="button" role="tab" aria-selected="false" title="The full LiDAR point cloud for an area, every return: in 3D, or stand in it at eye height">Point cloud</button>
     <button class="app-tab" id="tabClimate" data-tab="climate" type="button" role="tab" aria-selected="false" title="ERA5-Land rainfall and temperature since 1950">Climate</button>
     <button class="app-tab" id="tabCover" data-tab="cover" type="button" role="tab" aria-selected="false" title="Tree cover loss, canopy height and surface water">Trees &amp;&nbsp;water</button>
     <button class="app-tab" id="tabPhysical" data-tab="physical" type="button" role="tab" aria-selected="false" title="Geology, terrain, erosion-prone land and soils">Physical</button>
@@ -768,6 +777,36 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
       <div class="sidebar-footer">
         <p class="note">LiDAR: Toitū Te Whenua LINZ (<a href="https://registry.opendata.aws/nz-elevation/" target="_blank" rel="noopener">nz-elevation</a>), CC BY 4.0.</p>
+      </div>
+    </div>
+
+    <div id="cloudPanel">
+      <div class="sidebar-section">
+        <div class="section-label">1 · Area</div>
+        <div class="instruction-box">Draw or pick an area. Point clouds are big: even a hectare usually means reading 20 to 60 MB, so start small.</div>
+        <div id="pcAreaList"></div>
+        <div class="poly-empty" id="pcAreaEmpty">No areas drawn yet</div>
+        <div class="field" id="pcAreaField" style="display:none;margin-top:8px;">
+          <label>Point cloud for</label>
+          <select id="pcAreaSel"></select>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">2 · Survey</div>
+        <div class="mode-row" id="pcSurveys" role="radiogroup" aria-label="Point cloud survey"></div>
+        <div class="poly-empty" id="pcSurveyEmpty">Draw an area to see its surveys</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="section-label">3 · Load</div>
+        <button class="run-btn" id="pcRunBtn" type="button" disabled>Load point cloud</button>
+        <button class="dl-btn" id="pc3dBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Turn the points round, or stand among them at 1.5 m and look about">View in 3D</button>
+        <div class="status-bar" id="pcStatus"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="note">Point clouds: Toitū Te Whenua LINZ and each survey's licensor, distributed by <a href="https://opentopography.org/" target="_blank" rel="noopener">OpenTopography</a>, CC BY 4.0.</p>
       </div>
     </div>
 
@@ -1196,6 +1235,31 @@ table.stats-table tr:last-child td { border-bottom: none; }
           </div>
         </div>
       </div>
+      <div id="cloudResults">
+        <div class="results-empty" id="pcEmpty">
+          <span class="big">◌</span>
+          Draw an area and load its point cloud.
+        </div>
+        <div id="pcContent" style="display:none">
+          <div class="metrics" id="pcMetrics"></div>
+          <div class="pc-tables">
+            <div class="table-card">
+              <div class="card-title">Where the pulses stopped</div>
+              <div style="overflow-x:auto;"><table class="stats-table" id="pcBandTable"></table></div>
+            </div>
+            <div class="table-card">
+              <div class="card-title">Returns</div>
+              <div style="overflow-x:auto;"><table class="stats-table" id="pcRetTable"></table></div>
+              <div class="card-title" style="margin-top:12px;">Classes</div>
+              <div style="overflow-x:auto;"><table class="stats-table" id="pcClassTable"></table></div>
+            </div>
+          </div>
+          <div class="interp-card">
+            <div class="card-title">Reading this</div>
+            <div id="pcNotes"></div>
+          </div>
+        </div>
+      </div>
       <div id="lidarResults">
         <div class="results-empty" id="lidarEmpty">
           <span class="big">◌</span>
@@ -1508,6 +1572,11 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
 
 
+    <h3>Point cloud tab (New Zealand)</h3>
+    <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one area and inferrd. lists the surveys with points over it, newest first, then sizes up the download. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
+    <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
     <p><strong>Reference layers</strong> (password protected, in the Layers panel) are occurd.'s layers: current land cover (LCDB v6), potential vegetation, the Vegetative Cover Map, threatened environments, protected areas, QEII covenants, NIWA river catchments and Gisborne District Council plan layers. The layers module and its layer list are loaded live from occurd., so a layer added there appears here too. "Analyse this area" in a layer popup turns that boundary into an area for a trend or change map. These are published GIS layers, not legal plan maps.</p>
@@ -1564,7 +1633,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.93.0';
+const APP_VERSION = 'v0.94.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -1737,7 +1806,7 @@ const areaHalos = L.layerGroup().addTo(map);
    --------------------------------------------------------------------- */
 const EYE_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const EYE_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10 10 0 0 1 12 19c-7 0-11-7-11-7a18.5 18.5 0 0 1 5.06-5.94M9.9 4.24A9 9 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
-const TAB_LABEL = { inputs: 'Inputs', infrared: 'Infrared', lidar: 'LiDAR', climate: 'Climate', cover: 'Trees & water', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
+const TAB_LABEL = { inputs: 'Inputs', infrared: 'Infrared', lidar: 'LiDAR', cloud: 'Point cloud', climate: 'Climate', cover: 'Trees & water', physical: 'Physical', bio: 'Biodiversity', layers: 'Layers', report: 'Report', louped: 'Louped' };
 const mapStack = (() => {
   const E = {};   // key -> layer entry
   let order = []; // keys, top of the map first
@@ -2177,6 +2246,7 @@ function renderAreaList() {
     : 'Runs ~12x more sub-queries (one per month instead of one per year), so it\'s slower — but it\'s the only way to see the normal seasonal wave and get a real, this-location-specific baseline for "how much does this area\'s index normally fluctuate."';
   document.getElementById('layerControls').style.display = areas.length ? 'block' : 'none';
   lidarAreasChanged();
+  pcAreasChanged();
   climateAreasChanged();
   physicalAreasChanged();
   coverAreasChanged();
@@ -5457,7 +5527,7 @@ map.on(L.Draw.Event.CREATED, (e) => {
 // (layers.js counts an area as within when 90% of it is). The drawn shape
 // is kept.
 const LAYER_SELECT_MAX = 40;
-const tabSay = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
+const tabSay = (kind, msg) => (appTab === 'lidar' ? setLidarStatus : appTab === 'cloud' ? setPcStatus : appTab === 'climate' ? setClimateStatus : appTab === 'physical' ? setPhysicalStatus : appTab === 'cover' ? setCoverStatus : appTab === 'report' ? setReportStatus : setStatus)(kind, msg);
 // A reference shape's short name: the first part of its label, and
 // "Covenant …" for a QEII covenant number.
 function refShapeName(label, layerName) {
@@ -5492,7 +5562,7 @@ async function addAreasUnder(drawn) {
   say('success', 'Added ' + add.length + ' area' + (add.length === 1 ? '' : 's') + ' inside your shape: ' + names.slice(0, 6).join(', ') +
     (names.length > 6 ? ' and ' + (names.length - 6) + ' more' : '') + '.');
   // One click to drop the drawn shape and keep only what it picked up.
-  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : appTab === 'report' ? 'reportStatus' : 'statusBar');
+  const bar = document.getElementById(appTab === 'lidar' ? 'lidarStatus' : appTab === 'cloud' ? 'pcStatus' : appTab === 'climate' ? 'climateStatus' : appTab === 'physical' ? 'physicalStatus' : appTab === 'cover' ? 'coverStatus' : appTab === 'report' ? 'reportStatus' : 'statusBar');
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'dl-btn';
@@ -5534,6 +5604,7 @@ map.on(L.Draw.Event.EDITED, (e) => {
   });
   syncAreaCentreLines();
   lidarAreasChanged();
+  pcAreasChanged();
   climateAreasChanged();
   physicalAreasChanged();
   coverAreasChanged();
@@ -11621,6 +11692,917 @@ lpInit();
 
 rptInit();
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Point cloud tab: every LiDAR return over one area, from OpenTopography's
+   copy of LINZ's surveys (LAZ files, CC BY 4.0), to turn round in 3D or to
+   stand in at eye height and look about. A survey tile is a LAZ file of
+   50,000-point chunks with a LAStools .lax index beside it; only the chunks
+   holding points under the area are read. Points are stored by flight
+   line, not by place, so even a small area needs a good share of a tile.
+   ────────────────────────────────────────────────────────────────────────── */
+const PC_BULK = 'https://opentopography.s3.sdsc.edu/pc-bulk/';
+const PC_CATALOG = 'https://portal.opentopography.org/API/otCatalog';
+const PC_LAZPERF = 'https://cdn.jsdelivr.net/npm/laz-perf@0.0.6/lib/web/laz-perf.js';
+const PC_WARN_MB = 100;      // over this, say it's a big download before loading
+const PC_MAX_MB = 1500;      // over this, don't load: draw a smaller area
+const PC_MAX_HA = 300;       // over this, don't even size it up
+const PC_MAX_POINTS = 8e6;   // more than this in the area: keep an even share
+const PC_RUN_MB = 24;        // read touching chunks in one request, up to this
+const PC_EYE_M = 1.5;        // eye height when standing
+const PC_NOISE = new Set([7, 18]); // low and high noise: left out
+const PC_RGB_OFF = { 2: 20, 3: 28, 5: 28, 7: 30, 8: 30, 10: 30 };
+const PC_BANDS = [['Ground', -Infinity, -Infinity], ['0–0.5 m', -Infinity, 0.5], ['0.5–2 m', 0.5, 2], ['2–5 m', 2, 5], ['5–10 m', 5, 10], ['10–20 m', 10, 20], ['20–30 m', 20, 30], ['Over 30 m', 30, Infinity]];
+const PC_CLASS = { 0: ['Never classified', '#9e9e9e'], 1: ['Unclassified', '#bdbdbd'], 2: ['Ground', '#9c7a54'], 3: ['Low vegetation', '#b5e48c'], 4: ['Medium vegetation', '#52b788'], 5: ['High vegetation', '#1b6b3a'], 6: ['Building', '#e63946'], 9: ['Water', '#3a86ff'], 17: ['Bridge', '#ff9f1c'] };
+const PC_RET = [['Only return', '#c9c9c9'], ['First of several', '#ff8c00'], ['In between', '#19d3ff'], ['Last of several', '#8b5a2b']];
+let pcSurveys = [], pcSurveyId = null, pcSurveyKey = null, pcAreaId = null;
+let pcPlan = null, pcData = null, pcBusy = false, pcRun = 0;
+
+function setPcStatus(kind, msg) {
+  const el = document.getElementById('pcStatus');
+  el.className = 'status-bar ' + kind;
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+// Let the page breathe during long work, at most every 50 ms. A message
+// channel, not a timer: timers in a background tab wait a second each.
+let pcLastYield = 0;
+function pcYield(force) {
+  const now = performance.now();
+  if (!force && now - pcLastYield < 50) return null;
+  pcLastYield = now;
+  return new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
+}
+const pcArea = () => areas.find(a => a.id === pcAreaId) || null;
+const pcMB = (b) => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB';
+const pcMillions = (n) => n >= 1e6 ? (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + ' million' : Math.round(n).toLocaleString();
+
+/* ---- reading LAZ in parts ---- */
+// LASzip's arithmetic decoder, only as much as the chunk table needs.
+class PcModel {
+  constructor(n) {
+    this.n = n; this.last = n - 1;
+    if (n > 16) {
+      let tb = 3; while (n > (1 << (tb + 2))) tb++;
+      this.tsize = 1 << tb; this.tshift = 15 - tb; this.table = new Uint32Array(this.tsize + 2);
+    } else { this.tsize = 0; this.tshift = 0; this.table = null; }
+    this.dist = new Uint32Array(n); this.count = new Uint32Array(n).fill(1);
+    this.total = 0; this.cycle = n; this.update(); this.cycle = this.until = (n + 6) >> 1;
+  }
+  update() {
+    const n = this.n;
+    if ((this.total += this.cycle) > (1 << 15)) { this.total = 0; for (let k = 0; k < n; k++) this.total += (this.count[k] = (this.count[k] + 1) >>> 1); }
+    const scale = Math.floor(0x80000000 / this.total);
+    let sum = 0, s = 0;
+    for (let k = 0; k < n; k++) {
+      this.dist[k] = Math.floor((scale * sum) / 65536);
+      sum += this.count[k];
+      if (this.table) { const w = this.dist[k] >>> this.tshift; while (s < w) this.table[++s] = k - 1; }
+    }
+    if (this.table) { this.table[0] = 0; while (s <= this.tsize) this.table[++s] = n - 1; }
+    this.cycle = (5 * this.cycle) >>> 2;
+    const mc = (n + 6) << 3; if (this.cycle > mc) this.cycle = mc;
+    this.until = this.cycle;
+  }
+}
+class PcBit {
+  constructor() { this.b0 = 1; this.bc = 2; this.p0 = 1 << 12; this.cycle = this.until = 4; }
+  update() {
+    if ((this.bc += this.cycle) > (1 << 13)) { this.bc = (this.bc + 1) >>> 1; this.b0 = (this.b0 + 1) >>> 1; if (this.b0 === this.bc) this.bc++; }
+    this.p0 = Math.floor((this.b0 * Math.floor(0x80000000 / this.bc)) / 262144);
+    this.cycle = (5 * this.cycle) >>> 2; if (this.cycle > 64) this.cycle = 64; this.until = this.cycle;
+  }
+}
+class PcDecoder {
+  constructor(bytes) {
+    this.b = bytes; this.p = 0; this.len = 0xFFFFFFFF;
+    this.val = ((this.byte() << 24) | (this.byte() << 16) | (this.byte() << 8) | this.byte()) >>> 0;
+  }
+  byte() { return this.p < this.b.length ? this.b[this.p++] : 0; }
+  renorm() { do { this.val = ((this.val << 8) | this.byte()) >>> 0; this.len = (this.len << 8) >>> 0; } while (this.len < 0x01000000); }
+  bit(m) {
+    const x = m.p0 * (this.len >>> 13);
+    let sym;
+    if (this.val < x) { sym = 0; this.len = x; m.b0++; } else { sym = 1; this.val -= x; this.len -= x; }
+    if (this.len < 0x01000000) this.renorm();
+    if (--m.until === 0) m.update();
+    return sym;
+  }
+  symbol(m) {
+    let x, sym, y = this.len;
+    if (m.table) {
+      this.len >>>= 15;
+      const dv = Math.floor(this.val / this.len), t = dv >>> m.tshift;
+      sym = m.table[t]; let n = m.table[t + 1] + 1;
+      while (n > sym + 1) { const k = (sym + n) >>> 1; if (m.dist[k] > dv) n = k; else sym = k; }
+      x = m.dist[sym] * this.len;
+      if (sym !== m.last) y = m.dist[sym + 1] * this.len;
+    } else {
+      x = sym = 0; this.len >>>= 15;
+      let n = m.n, k = n >>> 1;
+      do { const z = this.len * m.dist[k]; if (z > this.val) { n = k; y = z; } else { sym = k; x = z; } } while ((k = (sym + n) >>> 1) !== sym);
+    }
+    this.val -= x; this.len = y - x;
+    if (this.len < 0x01000000) this.renorm();
+    m.count[sym]++;
+    if (--m.until === 0) m.update();
+    return sym;
+  }
+  bits(n) {
+    if (n > 19) { const lo = this.short(); return ((this.bits(n - 16) << 16) | lo) >>> 0; }
+    const sym = Math.floor(this.val / (this.len >>>= n));
+    this.val -= this.len * sym;
+    if (this.len < 0x01000000) this.renorm();
+    return sym;
+  }
+  short() {
+    const sym = Math.floor(this.val / (this.len >>>= 16));
+    this.val -= this.len * sym;
+    if (this.len < 0x01000000) this.renorm();
+    return sym;
+  }
+}
+// LASzip's IntegerCompressor at 32 bits, 2 contexts, decompress only.
+class PcInts {
+  constructor(dec) {
+    this.d = dec; this.hi = 8;
+    this.mBits = [new PcModel(33), new PcModel(33)];
+    this.corr = [new PcBit()];
+    for (let i = 1; i <= 32; i++) this.corr.push(new PcModel(1 << Math.min(i, this.hi)));
+  }
+  next(pred, ctx) {
+    const d = this.d;
+    const k = d.symbol(this.mBits[ctx]);
+    let c;
+    if (k) {
+      if (k < 32) {
+        if (k <= this.hi) c = d.symbol(this.corr[k]);
+        else { const k1 = k - this.hi; c = d.symbol(this.corr[k]) * Math.pow(2, k1) + d.bits(k1); }
+        if (c >= Math.pow(2, k - 1)) c += 1; else c -= Math.pow(2, k) - 1;
+      } else c = -2147483648;
+    } else c = d.bit(this.corr[0]);
+    return (pred + c) | 0;
+  }
+}
+// The LAS header and the LASzip record, from the file's first bytes.
+function pcHeader(buf) {
+  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  if (String.fromCharCode(buf[0], buf[1], buf[2], buf[3]) !== 'LASF') throw new Error('not a LAS file');
+  const minor = buf[25], hsize = v.getUint16(94, true), offset = v.getUint32(96, true), nvlr = v.getUint32(100, true);
+  const h = { minor, offset, format: buf[104] & 0x3f, compressed: !!(buf[104] & 0xc0), recLen: v.getUint16(105, true),
+    scale: [v.getFloat64(131, true), v.getFloat64(139, true), v.getFloat64(147, true)],
+    off: [v.getFloat64(155, true), v.getFloat64(163, true), v.getFloat64(171, true)] };
+  h.count = (minor >= 4 ? Number(v.getBigUint64(247, true)) : 0) || v.getUint32(107, true);
+  let p = hsize;
+  for (let i = 0; i < nvlr && p + 54 <= buf.length; i++) {
+    const uid = String.fromCharCode(...buf.subarray(p + 2, p + 18)).replace(/\0.*$/, ''), len = v.getUint16(p + 20, true);
+    if (uid === 'laszip encoded' && p + 70 <= buf.length) { h.compressor = v.getUint16(p + 54, true); h.chunkSize = v.getUint32(p + 66, true); }
+    p += 54 + len;
+  }
+  return h;
+}
+// Where every chunk starts, its size and its points. `tbl`: the chunk table.
+function pcChunkTable(tbl, h) {
+  const n = new DataView(tbl.buffer, tbl.byteOffset, tbl.byteLength).getUint32(4, true), variable = h.chunkSize === 0xFFFFFFFF;
+  const ic = new PcInts(new PcDecoder(tbl.subarray(8)));
+  const out = [];
+  let ps = 0, pc = 0, at = h.offset + 8, first = 0;
+  for (let i = 0; i < n; i++) {
+    if (variable) pc = ic.next(i ? pc : 0, 0);
+    ps = ic.next(i ? ps : 0, 1);
+    const count = variable ? pc : Math.min(h.chunkSize, h.count - first);
+    out.push({ at, size: ps, first, count });
+    at += ps; first += count;
+  }
+  return out;
+}
+// A LAStools .lax index: each cell's box, its points, and their ranges.
+function pcLax(buf) {
+  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const tag = (p) => String.fromCharCode(buf[p], buf[p + 1], buf[p + 2], buf[p + 3]);
+  if (tag(0) !== 'LASX' || tag(8) !== 'LASS' || tag(16) !== 'LASQ') throw new Error('unknown .lax');
+  const levels = v.getUint32(24, true);
+  const minx = v.getFloat32(36, true), maxx = v.getFloat32(40, true), miny = v.getFloat32(44, true), maxy = v.getFloat32(48, true);
+  if (tag(52) !== 'LASV') throw new Error('unknown .lax');
+  const ncells = v.getUint32(60, true), off = [0];
+  for (let l = 0; l <= levels + 1; l++) off.push(off[l] + Math.pow(4, l));
+  const cells = [];
+  let p = 64;
+  for (let c = 0; c < ncells; c++) {
+    const idx = v.getInt32(p, true), nint = v.getUint32(p + 4, true), n = v.getUint32(p + 8, true); p += 12;
+    const iv = [];
+    for (let k = 0; k < nint; k++, p += 8) iv.push([v.getUint32(p, true), v.getUint32(p + 4, true)]);
+    let l = 0; while (l < levels && off[l + 1] <= idx) l++;
+    const loc = idx - off[l];
+    let x0 = minx, x1 = maxx, y0 = miny, y1 = maxy;
+    for (let k = l - 1; k >= 0; k--) {
+      const q = Math.floor(loc / Math.pow(4, k)) % 4, mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+      if (q & 1) x0 = mx; else x1 = mx;
+      if (q & 2) y0 = my; else y1 = my;
+    }
+    cells.push({ x0, y0, x1, y1, n, iv });
+  }
+  return cells;
+}
+async function pcRange(url, a, b) {
+  const r = await fetch(url, { headers: { Range: 'bytes=' + a + '-' + (b == null ? '' : b) } });
+  if (!r.ok) throw new Error(url.split('/').pop() + ' returned ' + r.status);
+  return new Uint8Array(await r.arrayBuffer());
+}
+// A tile's header, chunk table and index (all small), cached.
+const pcTileCache = new Map();
+function pcTileInfo(url) {
+  if (!pcTileCache.has(url)) pcTileCache.set(url, (async () => {
+    const head = await pcRange(url, 0, 16383), h = pcHeader(head);
+    if (!h.compressed || h.chunkSize == null || h.compressor < 2) throw new Error(url.split('/').pop() + ' isn\'t chunked LAZ, so it can\'t be read in parts');
+    const ptrBytes = head.length >= h.offset + 8 ? head.subarray(h.offset, h.offset + 8) : await pcRange(url, h.offset, h.offset + 7);
+    let tpos = Number(new DataView(ptrBytes.buffer, ptrBytes.byteOffset, 8).getBigInt64(0, true));
+    if (tpos < 0) { const tail = await pcRange(url, '', 8); tpos = Number(new DataView(tail.buffer, tail.byteOffset + tail.length - 8, 8).getBigInt64(0, true)); }
+    const chunks = pcChunkTable(await pcRange(url, tpos), h);
+    let cells = null;
+    try { const r = await fetch(url.replace(/\.la[sz]$/i, '.lax')); if (r.ok) cells = pcLax(new Uint8Array(await r.arrayBuffer())); } catch (e) {}
+    return { h, chunks, cells };
+  })().catch(err => { pcTileCache.delete(url); throw err; }));
+  return pcTileCache.get(url);
+}
+// One file from a zip, inflated by the browser.
+async function pcUnzip(buf, want) {
+  const v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let e = buf.length - 22;
+  while (e >= 0 && v.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('not a zip file');
+  let p = v.getUint32(e + 16, true);
+  for (let i = v.getUint16(e + 10, true); i > 0; i--) {
+    const method = v.getUint16(p + 10, true), csize = v.getUint32(p + 20, true), nlen = v.getUint16(p + 28, true);
+    const name = new TextDecoder().decode(buf.subarray(p + 46, p + 46 + nlen)), lho = v.getUint32(p + 42, true);
+    p += 46 + nlen + v.getUint16(p + 30, true) + v.getUint16(p + 32, true);
+    if (!want(name)) continue;
+    const start = lho + 30 + v.getUint16(lho + 26, true) + v.getUint16(lho + 28, true), data = buf.subarray(start, start + csize);
+    if (method === 0) return data;
+    if (method !== 8) throw new Error('unknown zip compression');
+    return new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  }
+  throw new Error('no ' + want + ' in the zip');
+}
+// A survey's tile index (OpenTopography's TileIndex.zip): every tile's
+// file and bounds, from the shapefile's table.
+const pcIndexCache = new Map();
+function pcTileIndex(id) {
+  if (!pcIndexCache.has(id)) pcIndexCache.set(id, (async () => {
+    const r = await fetch(PC_BULK + id + '/' + id + '_TileIndex.zip');
+    if (!r.ok) throw new Error('the survey\'s tile index returned ' + r.status);
+    const b = await pcUnzip(new Uint8Array(await r.arrayBuffer()), n => /\.dbf$/i.test(n));
+    const v = new DataView(b.buffer, b.byteOffset, b.byteLength), n = v.getUint32(4, true), hl = v.getUint16(8, true), rl = v.getUint16(10, true);
+    const f = {};
+    for (let p = 32, o = 1; b[p] !== 0x0d && p < hl; p += 32) {
+      const name = String.fromCharCode(...b.subarray(p, p + 11)).replace(/\0.*$/, '').toLowerCase().replace(/_/g, '');
+      f[name] = { o, len: b[p + 16] }; o += b[p + 16];
+    }
+    if (!f.minx || !f.maxx || !f.miny || !f.maxy || !(f.filename || f.url)) throw new Error('the survey\'s tile index has no tile bounds');
+    const td = new TextDecoder('latin1'), out = [];
+    for (let k = 0; k < n; k++) {
+      const s = hl + k * rl;
+      if (b[s] === 0x2a) continue; // deleted
+      const get = (x) => x ? td.decode(b.subarray(s + x.o, s + x.o + x.len)).trim() : '';
+      let url = get(f.url);
+      if (!/\.la[sz]$/i.test(url)) url = PC_BULK + id + '/' + get(f.filename);
+      out.push({ url: url.replace(/^http:/, 'https:'), x0: Number(get(f.minx)), x1: Number(get(f.maxx)), y0: Number(get(f.miny)), y1: Number(get(f.maxy)) });
+    }
+    return out;
+  })().catch(err => { pcIndexCache.delete(id); throw err; }));
+  return pcIndexCache.get(id);
+}
+let pcLazPromise = null;
+function pcLazPerf() {
+  if (!pcLazPromise) pcLazPromise = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = PC_LAZPERF;
+    sc.onload = resolve;
+    sc.onerror = () => reject(new Error('could not load laz-perf'));
+    document.head.appendChild(sc);
+  }).then(() => window.createLazPerf({ locateFile: (f) => PC_LAZPERF.replace(/[^/]*$/, f) }))
+    .catch(err => { pcLazPromise = null; throw err; });
+  return pcLazPromise;
+}
+
+/* ---- surveys over the area ---- */
+async function pcFindSurveys() {
+  const a = pcArea();
+  if (!a) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; renderPcSurveys(''); return; }
+  const key = areaKey(a);
+  if (key === pcSurveyKey) return;
+  pcSurveyKey = key;
+  pcSurveys = []; renderPcSurveys('Finding point cloud surveys…');
+  try {
+    const bb = turf.bbox(a.geojson);
+    const url = PC_CATALOG + '?productFormat=PointCloud&minx=' + bb[0] + '&miny=' + bb[1] + '&maxx=' + bb[2] + '&maxy=' + bb[3] + '&detail=false&outputFormat=json&include_federated=false';
+    const c = await fetchJson(url);
+    if (pcSurveyKey !== key) return;
+    pcSurveys = (c.Datasets || []).map(x => x.Dataset).filter(d => d && /^NZ\d/.test(d.alternateName || '')).filter(d => {
+      const epsg = ((d.spatialCoverage || {}).additionalProperty || []).find(p => p.name === 'EPSG (Horizontal)');
+      return !epsg || String(epsg.value) === '2193';
+    }).map(d => {
+      const t = String(d.temporalCoverage || '').split('/').map(s => s.trim());
+      return { id: d.alternateName, title: d.name.replace(/, New Zealand/, ''), start: t[0] || '', end: t[1] || t[0] || '', doi: d.url || '' };
+    }).sort((x, y) => (y.end > x.end) - (y.end < x.end));
+    if (!pcSurveys.some(s => s.id === pcSurveyId)) pcSurveyId = pcSurveys.length ? pcSurveys[0].id : null;
+    renderPcSurveys(pcSurveys.length ? '' : 'No point cloud survey covers this area.');
+    pcSizeUp();
+  } catch (err) {
+    if (pcSurveyKey !== key) return;
+    pcSurveyKey = null;
+    renderPcSurveys('Couldn\'t get the survey list from OpenTopography: ' + err.message);
+  }
+}
+function renderPcSurveys(emptyMsg) {
+  const list = document.getElementById('pcSurveys'), empty = document.getElementById('pcSurveyEmpty');
+  list.innerHTML = pcSurveys.map(s => '<button class="mode-btn' + (s.id === pcSurveyId ? ' active' : '') + '" type="button" role="radio" aria-checked="' + (s.id === pcSurveyId) + '" data-id="' + s.id + '">' +
+    '<span class="mode-name">' + escHtml(s.title) + '</span><span class="mode-desc">Flown ' + escHtml(surveyDates(s)) + '.</span></button>').join('');
+  list.querySelectorAll('.mode-btn').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.id === pcSurveyId || pcBusy) return;
+    pcSurveyId = b.dataset.id;
+    renderPcSurveys('');
+    pcSizeUp();
+  }));
+  empty.textContent = emptyMsg || 'Draw an area to see its surveys';
+  empty.style.display = pcSurveys.length ? 'none' : 'block';
+  syncPcControls();
+}
+
+/* ---- sizing up: which chunks, how many MB ---- */
+async function pcSizeUp() {
+  const a = pcArea(), survey = pcSurveys.find(s => s.id === pcSurveyId);
+  pcPlan = null;
+  const run = ++pcRun;
+  syncPcControls();
+  if (!a || !survey) return;
+  if (pcData && pcData.planKey === areaKey(a) + '|' + survey.id) { setPcStatus('success', pcData.say); return; }
+  const ha = turf.area(a.geojson) / 1e4;
+  if (ha > PC_MAX_HA) { setPcStatus('error', 'This area is ' + Math.round(ha) + ' ha: far too big for a point cloud (several GB). Draw an area under about ' + Math.round(PC_MAX_HA / 10) + ' ha to start.'); return; }
+  try {
+    setPcStatus('info', 'Sizing up: reading the survey\'s tile index…');
+    await loadLidarLibs();
+    const polys = lidarAreaRings(a.geojson), nb = ringsBounds(polys);
+    const g = { res: 1, x0: Math.floor(nb[0]), y0: Math.floor(nb[1]), x1: Math.ceil(nb[2]), y1: Math.ceil(nb[3]) };
+    g.W = g.x1 - g.x0; g.H = g.y1 - g.y0;
+    const mask = lidarMask(polys, g);
+    const index = await pcTileIndex(survey.id);
+    if (run !== pcRun) return;
+    const hits = index.filter(t => t.x0 < g.x1 && t.x1 > g.x0 && t.y0 < g.y1 && t.y1 > g.y0);
+    if (!hits.length) { setPcStatus('warning', survey.title + ' has no points over this area. Try another survey, if there is one.'); return; }
+    // Mask cells (1 m) inside a box, as a share of the box.
+    const maskShare = (x0, y0, x1, y1) => {
+      const c0 = Math.max(0, Math.floor(x0 - g.x0)), c1 = Math.min(g.W, Math.ceil(x1 - g.x0)), r0 = Math.max(0, Math.floor(g.y1 - y1)), r1 = Math.min(g.H, Math.ceil(g.y1 - y0));
+      let n = 0;
+      for (let r = r0; r < r1; r++) for (let c = c0; c < c1; c++) n += mask[r * g.W + c];
+      return n / Math.max(1, (x1 - x0) * (y1 - y0));
+    };
+    const tiles = [];
+    let done = 0;
+    const one = async (t) => {
+      const info = await pcTileInfo(t.url);
+      if (run !== pcRun) return;
+      const need = new Set(), fixed = info.h.chunkSize !== 0xFFFFFFFF;
+      let est = 0;
+      if (info.cells) {
+        for (const c of info.cells) {
+          const share = maskShare(c.x0, c.y0, c.x1, c.y1);
+          if (!share) continue;
+          est += c.n * share;
+          for (const [s, e] of c.iv) {
+            let k = fixed ? Math.floor(s / info.h.chunkSize) : info.chunks.findIndex(ch => ch.first + ch.count > s);
+            for (; k >= 0 && k < info.chunks.length && info.chunks[k].first <= e; k++) need.add(k);
+          }
+        }
+      } else {
+        info.chunks.forEach((ch, k) => need.add(k));
+        est = info.h.count * maskShare(t.x0, t.y0, t.x1, t.y1);
+      }
+      if (need.size) tiles.push({ url: t.url, h: info.h, chunks: info.chunks, need: [...need].sort((x, y) => x - y), est, indexed: !!info.cells });
+      setPcStatus('info', 'Sizing up: ' + (++done) + ' of ' + hits.length + ' tile' + (hits.length === 1 ? '' : 's') + '…');
+    };
+    for (let i = 0; i < hits.length; i += 4) await Promise.all(hits.slice(i, i + 4).map(one));
+    if (run !== pcRun) return;
+    const bytes = tiles.reduce((s, t) => s + t.need.reduce((u, k) => u + t.chunks[k].size, 0), 0);
+    const est = tiles.reduce((s, t) => s + t.est, 0);
+    pcPlan = { planKey: areaKey(a) + '|' + survey.id, area: a, survey, polys, g, mask, tiles, bytes, est, ha };
+    const what = 'Needs ' + pcMB(bytes) + ' from ' + tiles.length + ' tile' + (tiles.length === 1 ? '' : 's') + ', for about ' + pcMillions(est) + ' points over ' + (ha < 10 ? ha.toFixed(1) : Math.round(ha)) + ' ha' +
+      (est > PC_MAX_POINTS ? ' (an even ' + Math.round(100 * PC_MAX_POINTS / est) + '% of them kept, so the 3D view keeps up)' : '') + '.';
+    if (bytes > PC_MAX_MB * 1e6) { pcPlan.tooBig = true; setPcStatus('error', what + ' That\'s too much to read in a browser: draw a smaller area.'); }
+    else if (bytes > PC_WARN_MB * 1e6) setPcStatus('warning', what + ' That\'s a big download: it may take several minutes and a lot of memory. Draw a smaller area, or load it anyway.');
+    else setPcStatus('info', what);
+  } catch (err) {
+    if (run !== pcRun) return;
+    setPcStatus('error', 'Couldn\'t size up the point cloud: ' + err.message);
+  }
+  syncPcControls();
+}
+
+/* ---- loading ---- */
+class PcStore {
+  constructor(n) { this.n = 0; this.alloc(Math.max(1 << 16, Math.ceil(n))); }
+  alloc(cap) {
+    const grow = (A, old, k) => { const a = new A(cap * k); if (old) a.set(old.subarray(0, this.n * k)); return a; };
+    this.x = grow(Float32Array, this.x, 1); this.y = grow(Float32Array, this.y, 1); this.z = grow(Float32Array, this.z, 1);
+    this.cls = grow(Uint8Array, this.cls, 1); this.ret = grow(Uint8Array, this.ret, 1); this.int = grow(Uint16Array, this.int, 1); this.rgb = grow(Uint16Array, this.rgb, 3);
+    this.cap = cap;
+  }
+}
+function pcDecodeChunk(L, h, bytes, count, P, keep) {
+  const bp = L._malloc(bytes.length), pp = L._malloc(h.recLen);
+  L.HEAPU8.set(bytes, bp);
+  const dec = new L.ChunkDecoder();
+  try {
+    dec.open(h.format, h.recLen, bp);
+    const u = L.HEAPU8, // after open: the heap can be replaced when it grows
+      legacy = h.format < 6, rgbOff = PC_RGB_OFF[h.format];
+    const [sx, sy, sz] = h.scale, [ox, oy, oz] = h.off, { g, mask, cx, cy, S } = P;
+    const i32 = (o) => u[o] | (u[o + 1] << 8) | (u[o + 2] << 16) | (u[o + 3] << 24);
+    for (let i = 0; i < count; i++) {
+      dec.getPoint(pp);
+      if (keep < 1 && (P.acc += keep) < 1) continue;
+      if (keep < 1) P.acc -= 1;
+      const x = i32(pp) * sx + ox, y = i32(pp + 4) * sy + oy;
+      const c = Math.floor(x - g.x0), r = Math.floor(g.y1 - y);
+      if (c < 0 || r < 0 || c >= g.W || r >= g.H || !mask[r * g.W + c]) continue;
+      const b14 = u[pp + 14], cls = legacy ? u[pp + 15] & 31 : u[pp + 16];
+      if (PC_NOISE.has(cls)) continue;
+      if (S.n === S.cap) S.alloc(S.cap * 2);
+      const k = S.n++;
+      S.x[k] = x - cx; S.y[k] = y - cy; S.z[k] = i32(pp + 8) * sz + oz;
+      S.cls[k] = cls;
+      const rn = legacy ? b14 & 7 : b14 & 15, nr = legacy ? (b14 >> 3) & 7 : b14 >> 4;
+      S.ret[k] = nr <= 1 ? 0 : rn <= 1 ? 1 : rn >= nr ? 3 : 2;
+      S.int[k] = u[pp + 12] | (u[pp + 13] << 8);
+      if (rgbOff) { const o = pp + rgbOff; S.rgb[k * 3] = u[o] | (u[o + 1] << 8); S.rgb[k * 3 + 1] = u[o + 2] | (u[o + 3] << 8); S.rgb[k * 3 + 2] = u[o + 4] | (u[o + 5] << 8); }
+    }
+  } finally { dec.delete(); L._free(bp); L._free(pp); }
+}
+async function pcLoad() {
+  const plan = pcPlan;
+  if (!plan || plan.tooBig || pcBusy) return;
+  const run = ++pcRun;
+  pcBusy = true; syncPcControls();
+  try {
+    setPcStatus('info', 'Loading the point cloud reader…');
+    const L = await pcLazPerf();
+    const g = plan.g, cx = Math.round((g.x0 + g.x1) / 2), cy = Math.round((g.y0 + g.y1) / 2);
+    const keep = plan.est > PC_MAX_POINTS ? PC_MAX_POINTS / plan.est : 1;
+    const S = new PcStore(Math.min(plan.est, PC_MAX_POINTS) * 1.1 + 1000);
+    const P = { g, mask: plan.mask, cx, cy, S, acc: 0 };
+    // Runs of touching chunks, one request each.
+    const jobs = [];
+    for (const t of plan.tiles) {
+      let cur = null;
+      for (const k of t.need) {
+        const ch = t.chunks[k];
+        if (cur && cur.last === k - 1 && ch.at + ch.size - cur.at <= PC_RUN_MB * 1e6) { cur.last = k; continue; }
+        cur = { t, first: k, last: k, at: ch.at }; jobs.push(cur);
+      }
+    }
+    let got = 0, rgbAny = false;
+    const say = () => setPcStatus('info', 'Reading points: ' + pcMB(got) + ' of ' + pcMB(plan.bytes) + ', ' + pcMillions(S.n) + ' in the area so far…');
+    say();
+    let next = 0;
+    const worker = async () => {
+      while (next < jobs.length && run === pcRun) {
+        const j = jobs[next++], last = j.t.chunks[j.last];
+        const buf = await pcRange(j.t.url, j.at, last.at + last.size - 1);
+        if (run !== pcRun) return;
+        for (let k = j.first; k <= j.last; k++) {
+          const ch = j.t.chunks[k];
+          pcDecodeChunk(L, j.t.h, buf.subarray(ch.at - j.at, ch.at - j.at + ch.size), ch.count, P, keep);
+          got += ch.size;
+          if (PC_RGB_OFF[j.t.h.format]) rgbAny = true;
+          const y = pcYield();
+          if (y) { say(); await y; }
+          if (run !== pcRun) return;
+        }
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    if (run !== pcRun) return;
+    if (!S.n) throw new Error('no points fell inside the area');
+    setPcStatus('info', 'Working out the ground and heights…');
+    await new Promise(r => setTimeout(r, 0));
+    pcData = pcFinish(plan, S, cx, cy, keep, rgbAny);
+    if (run !== pcRun) return;
+    pcData.say = 'Loaded ' + pcMillions(S.n) + ' points from ' + plan.survey.title + (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them)' : '') + '. Open it in 3D, or see where the pulses stopped on the right.';
+    pcBusy = false;
+    setPcStatus('success', pcData.say);
+    renderPcResults();
+    expandResultsPane();
+  } catch (err) {
+    if (run !== pcRun) return;
+    pcBusy = false;
+    setPcStatus('error', 'Couldn\'t load the point cloud: ' + err.message);
+  }
+  pcBusy = false;
+  syncPcControls();
+}
+// The ground (1 m, from ground points, gaps filled from round about), each
+// point's height above it, and the tallies for the results.
+function pcFinish(plan, S, cx, cy, keep, rgbAny) {
+  const g = plan.g, W = g.W, H = g.H, n = S.n;
+  const sum = new Float64Array(W * H), cnt = new Uint32Array(W * H), low = new Float32Array(W * H).fill(Infinity);
+  let anyGround = 0;
+  const cellOf = (k) => { const c = Math.floor(S.x[k] + cx - g.x0), r = Math.floor(g.y1 - (S.y[k] + cy)); return c < 0 || r < 0 || c >= W || r >= H ? -1 : r * W + c; };
+  for (let k = 0; k < n; k++) {
+    const i = cellOf(k);
+    if (i < 0) continue;
+    if (S.cls[k] === 2) { sum[i] += S.z[k]; cnt[i]++; anyGround++; }
+    if (S.z[k] < low[i]) low[i] = S.z[k];
+  }
+  let ground = new Float32Array(W * H).fill(NaN);
+  for (let i = 0; i < W * H; i++) ground[i] = cnt[i] ? sum[i] / cnt[i] : !anyGround && low[i] < Infinity ? low[i] : NaN;
+  // Fill gaps a ring at a time from the cells round them, until the area
+  // has ground everywhere; the rest of the box gets the area's average.
+  for (let pass = 0, empty = 1; pass < 300 && empty; pass++) {
+    const next = ground.slice();
+    empty = 0;
+    for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+      const i = r * W + c;
+      if (ground[i] === ground[i]) continue;
+      let s = 0, m = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+        const v = ground[rr * W + cc];
+        if (v === v) { s += v; m++; }
+      }
+      if (m) next[i] = s / m; else if (plan.mask[i]) empty++;
+    }
+    ground = next;
+  }
+  let gs = 0, gn = 0;
+  for (let i = 0; i < W * H; i++) if (ground[i] === ground[i]) { gs += ground[i]; gn++; }
+  for (let i = 0; i < W * H; i++) if (!(ground[i] === ground[i])) ground[i] = gn ? gs / gn : 0;
+  const hag = new Float32Array(n);
+  const bands = PC_BANDS.map(() => 0), rets = [0, 0, 0, 0], classes = {};
+  let firsts = 0, grounds = 0, zMin = Infinity, zMax = -Infinity, hMax = 0;
+  for (let k = 0; k < n; k++) {
+    const i = cellOf(k), gz = i < 0 ? S.z[k] : ground[i];
+    const h = S.cls[k] === 2 ? 0 : S.z[k] - gz;
+    hag[k] = h;
+    if (S.cls[k] === 2) { bands[0]++; grounds++; }
+    else { let b = 1; while (b < PC_BANDS.length - 1 && h >= PC_BANDS[b][2]) b++; bands[b]++; if (h > hMax) hMax = h; }
+    rets[S.ret[k]]++;
+    if (S.ret[k] <= 1) firsts++;
+    classes[S.cls[k]] = (classes[S.cls[k]] || 0) + 1;
+    if (S.z[k] < zMin) zMin = S.z[k];
+    if (S.z[k] > zMax) zMax = S.z[k];
+  }
+  let gMin = Infinity;
+  for (let i = 0; i < W * H; i++) if (plan.mask[i] && ground[i] < gMin) gMin = ground[i];
+  if (!(gMin < Infinity)) gMin = zMin;
+  // Tallest returns, without the odd bird or wire: the 99.9th percentile.
+  const sample = [];
+  for (let k = 0; k < n; k += Math.max(1, Math.floor(n / 200000))) if (S.cls[k] !== 2) sample.push(hag[k]);
+  sample.sort((a, b) => a - b);
+  const p999 = sample.length ? sample[Math.floor(sample.length * 0.999)] : 0;
+  // RGB stored as 8-bit in a 16-bit field by some surveys.
+  let rgbMax = 0;
+  if (rgbAny) for (let k = 0; k < Math.min(n * 3, 300000); k++) if (S.rgb[k] > rgbMax) rgbMax = S.rgb[k];
+  const maskM2 = plan.mask.reduce((s, v) => s + v, 0);
+  return { planKey: plan.planKey, areaName: plan.area.name, survey: plan.survey, g, ground, gMin, S, n, hag, cx, cy, keep,
+    bands, rets, classes, firsts, grounds, m2: maskM2, zMin, zMax, hMax, p999, rgb: rgbAny && rgbMax > 0, rgbShift: rgbMax > 255 ? 8 : 0 };
+}
+
+/* ---- results ---- */
+function renderPcResults() {
+  const d = pcData;
+  document.getElementById('pcEmpty').style.display = d ? 'none' : '';
+  document.getElementById('pcContent').style.display = d ? '' : 'none';
+  if (!d) return;
+  const metric = (label, value, title) => '<div class="metric" title="' + escHtml(title || label + ': ' + value) + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
+  const per = (v) => (v / d.keep / d.m2).toFixed(v / d.keep / d.m2 < 10 ? 1 : 0);
+  const below = (b) => d.bands.slice(0, b + 1).reduce((s, v) => s + v, 0);
+  const under = d.bands[2] / Math.max(1, below(2));
+  document.getElementById('pcMetrics').innerHTML =
+    metric('Area', (d.m2 / 1e4).toFixed(d.m2 < 1e5 ? 2 : 1) + ' ha') +
+    metric('Points', pcMillions(d.n), d.keep < 1 ? 'An even ' + Math.round(100 * d.keep) + '% of the points over the area' : 'Every point over the area, noise left out') +
+    metric('Points per m²', per(d.n), 'All returns, per square metre') +
+    metric('Pulses per m²', per(d.firsts), 'First (and only) returns per square metre: how many laser pulses came down') +
+    metric('Ground per m²', per(d.grounds), 'Returns classed as ground, per square metre: how much got through to the ground') +
+    metric('Understorey density', Math.round(100 * under) + '%', 'Of the returns that got down to 2 m or lower, the share stopped between 0.5 and 2 m') +
+    metric('Tallest', d.p999.toFixed(1) + ' m', 'Height above ground that only 0.1% of the returns are above (the very highest: ' + d.hMax.toFixed(1) + ' m)');
+  const total = d.n, rows = [];
+  for (let b = PC_BANDS.length - 1; b >= 0; b--) {
+    const v = d.bands[b], dens = b ? v / Math.max(1, below(b)) : null;
+    rows.push('<tr><td>' + PC_BANDS[b][0] + '</td><td class="num">' + Math.round(v / d.keep).toLocaleString() + '</td><td class="num">' + (100 * v / total).toFixed(1) + '%</td><td class="num">' + (dens == null ? '–' : Math.round(100 * dens) + '%') + '</td></tr>');
+  }
+  document.getElementById('pcBandTable').innerHTML = '<thead><tr><th>Height above ground</th><th class="num">Returns</th><th class="num">Share</th><th class="num" title="Returns in the layer, as a share of those that got down to it: the layer, and everything below it">Layer density</th></tr></thead><tbody>' + rows.join('') + '</tbody>';
+  document.getElementById('pcRetTable').innerHTML = '<thead><tr><th>Return</th><th class="num">Returns</th><th class="num">Share</th></tr></thead><tbody>' +
+    PC_RET.map((r, i) => '<tr><td><span class="pc-sw" style="background:' + r[1] + '"></span>' + r[0] + '</td><td class="num">' + Math.round(d.rets[i] / d.keep).toLocaleString() + '</td><td class="num">' + (100 * d.rets[i] / total).toFixed(1) + '%</td></tr>').join('') + '</tbody>';
+  document.getElementById('pcClassTable').innerHTML = '<thead><tr><th>Class</th><th class="num">Returns</th><th class="num">Share</th></tr></thead><tbody>' +
+    Object.keys(d.classes).map(Number).sort((a, b) => d.classes[b] - d.classes[a]).map(c => { const k = PC_CLASS[c] || ['Class ' + c, '#b07cc6'];
+      return '<tr><td><span class="pc-sw" style="background:' + k[1] + '"></span>' + k[0] + '</td><td class="num">' + Math.round(d.classes[c] / d.keep).toLocaleString() + '</td><td class="num">' + (100 * d.classes[c] / total).toFixed(1) + '%</td></tr>'; }).join('') + '</tbody>';
+  document.getElementById('pcNotes').innerHTML =
+    '<p><strong>' + escHtml(d.areaName) + '</strong>, ' + escHtml(d.survey.title) + ', flown ' + escHtml(surveyDates(d.survey)) + '.</p>' +
+    '<p><strong>Layer density</strong> is how much of each layer the laser found: the returns in it as a share of those that got down to it, that is the layer and everything below it. Measured that way, a layer under a thick canopy isn\'t read as thin just because few pulses got that far, though where almost nothing gets through (see Ground per m²) it is still the least certain. <strong>Understorey density</strong> is that share for 0.5 to 2 m: high under a dense understorey, low where the forest floor is open, browsed or grazed.</p>' +
+    '<p>It measures structure, not species: a dense understorey of seedlings and one of bracken or gorse look alike. Surveys differ in pulse density, sensor and season, so compare areas within one survey; across surveys or years it is rougher. Heights are above the ground the survey classed, averaged on a 1 m grid, with gaps under dense cover filled from round about.</p>' +
+    '<p>Point cloud: ' + escHtml(d.survey.title) + ', Toitū Te Whenua LINZ and the survey\'s licensor, distributed by OpenTopography' + (d.survey.doi ? ' (<a href="' + escHtml(d.survey.doi) + '" target="_blank" rel="noopener">' + escHtml(d.survey.doi.replace(/^https?:\/\/doi\.org\//, 'doi ')) + '</a>)' : '') + ', CC BY 4.0.</p>';
+}
+function clearPc() {
+  pcRun++;
+  pcBusy = false;
+  pcData = null;
+  pcPlan = null;
+  if (!document.getElementById('pcDlg').hidden) pcClose();
+  renderPcResults();
+}
+function syncPcControls() {
+  const btn = document.getElementById('pcRunBtn');
+  const loaded = !!(pcData && pcPlan && pcData.planKey === pcPlan.planKey);
+  btn.disabled = pcBusy || !pcPlan || !!pcPlan.tooBig || loaded;
+  btn.textContent = pcBusy ? 'Loading…' : pcPlan && !pcPlan.tooBig && !loaded ? 'Load point cloud (' + pcMB(pcPlan.bytes) + ')' : 'Load point cloud';
+  document.getElementById('pc3dBtn').hidden = !pcData || pcBusy;
+}
+function pcAreasChanged() {
+  if (!pcReady) return; // areas restored before this part of the page has run
+  renderTabAreaList('pcAreaList', 'pcAreaEmpty');
+  if (!areas.some(a => a.id === pcAreaId)) pcAreaId = areas.length ? areas[areas.length - 1].id : null;
+  const sel = document.getElementById('pcAreaSel');
+  sel.innerHTML = areas.map(a => '<option value="' + a.id + '"' + (a.id === pcAreaId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
+  document.getElementById('pcAreaField').style.display = areas.length > 1 ? '' : 'none';
+  const a = pcArea();
+  if (pcData && (!a || !pcData.planKey.startsWith(areaKey(a) + '|'))) clearPc();
+  if (!a) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; pcPlan = null; setPcStatus('', ''); renderPcSurveys(''); return; }
+  if (appTab === 'cloud') pcFindSurveys();
+}
+document.getElementById('pcAreaSel').addEventListener('change', (ev) => {
+  pcAreaId = Number(ev.target.value);
+  pcAreasChanged();
+});
+document.getElementById('pcRunBtn').addEventListener('click', pcLoad);
+
+/* ---- 3D: turn it round, or stand in it ---- */
+document.body.insertAdjacentHTML('beforeend',
+  '<div class="v3d" id="pcDlg" hidden><div class="v3d-box">' +
+  '<div class="v3d-bar"><strong id="pcTitle">Point cloud</strong>' +
+  '<div class="v3d-seg" id="pcModeSeg"><button type="button" data-mode="orbit" class="on" title="Turn the whole area round">Overview</button><button type="button" data-mode="stand" title="Stand in the middle of the area at ' + PC_EYE_M + ' m and look about">Stand at ' + PC_EYE_M + ' m</button></div>' +
+  '<label>Colours <select id="pcColours"><option value="hag">Height above ground</option><option value="rgb">True colour</option><option value="cls">Class</option><option value="ret">Return</option><option value="int">Intensity</option></select></label>' +
+  '<label title="Leave out the ground points, to see the understorey and canopy"><input type="checkbox" id="pcHideGround">Hide ground</label>' +
+  '<label title="How big each point is drawn">Points <input type="range" id="pcPtSize" min="0.02" max="0.6" step="0.01"></label>' +
+  '<label title="A black background"><input type="checkbox" id="pcDark">Black background</label>' +
+  '<button class="v3d-close" type="button" title="Close (Esc)">✕</button></div>' +
+  '<div class="v3d-view" id="pcView" tabindex="0"><div class="v3d-msg" id="pcMsg"></div><div class="pc-legend" id="pcLegend"></div></div>' +
+  '<div class="v3d-foot" id="pcFoot"></div></div></div>');
+const pcDlg = document.getElementById('pcDlg'), pcViewEl = document.getElementById('pcView');
+const pcV = { mode: 'orbit', colours: 'hag', hideGround: false, dark: false, size: { orbit: 0.2, stand: 0.09 }, keys: new Set(), yaw: 0, pitch: 0, three: null };
+const PC_HAG_STOPS = ['#4575b4', '#74add1', '#a6d96a', '#fee08b', '#f46d43']; // low blue, through green, to red at the top
+try { const s = JSON.parse(localStorage.getItem('inferrd.pcView') || '{}'); if (s.colours) pcV.colours = s.colours; pcV.dark = !!s.dark; pcV.hideGround = !!s.hideGround; if (s.size) Object.assign(pcV.size, s.size); } catch (e) {}
+const pcSave = () => { try { localStorage.setItem('inferrd.pcView', JSON.stringify({ colours: pcV.colours, dark: pcV.dark, hideGround: pcV.hideGround, size: pcV.size })); } catch (e) {} };
+const pcSay = (m) => { const el = document.getElementById('pcMsg'); el.textContent = m || ''; el.style.display = m ? '' : 'none'; };
+const pcHex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+function pcRamp(stops) {
+  const cs = stops.map(pcHex);
+  return (t) => { t = Math.max(0, Math.min(1, t)) * (cs.length - 1); const i = Math.min(cs.length - 2, Math.floor(t)), f = t - i; return [0, 1, 2].map(j => cs[i][j] + (cs[i + 1][j] - cs[i][j]) * f); };
+}
+// The order points are drawn in: ground first, so it can be left out with
+// the draw range.
+function pcOrder(d) {
+  if (d.order) return d.order;
+  const o = new Uint32Array(d.n);
+  let a = 0;
+  for (let k = 0; k < d.n; k++) if (d.S.cls[k] === 2) o[a++] = k;
+  d.groundN = a;
+  for (let k = 0; k < d.n; k++) if (d.S.cls[k] !== 2) o[a++] = k;
+  return (d.order = o);
+}
+function pcColourArray(d, mode) {
+  const o = pcOrder(d), S = d.S, out = new Uint8Array(d.n * 3), set = (j, c) => { out[j * 3] = c[0]; out[j * 3 + 1] = c[1]; out[j * 3 + 2] = c[2]; };
+  let legend = [];
+  if (mode === 'rgb' && d.rgb) {
+    const sh = d.rgbShift;
+    for (let j = 0; j < d.n; j++) { const k = o[j]; out[j * 3] = S.rgb[k * 3] >> sh; out[j * 3 + 1] = S.rgb[k * 3 + 1] >> sh; out[j * 3 + 2] = S.rgb[k * 3 + 2] >> sh; }
+    legend = [['', 'Colours from the survey\'s photos']];
+  } else if (mode === 'cls') {
+    const seen = {};
+    for (let j = 0; j < d.n; j++) { const c = S.cls[o[j]], k = PC_CLASS[c] || ['Class ' + c, '#b07cc6']; set(j, pcHex(k[1])); seen[c] = k; }
+    legend = Object.values(seen).map(k => [k[1], k[0]]);
+  } else if (mode === 'ret') {
+    const cs = PC_RET.map(r => pcHex(r[1]));
+    for (let j = 0; j < d.n; j++) set(j, cs[S.ret[o[j]]]);
+    legend = PC_RET.map(r => [r[1], r[0]]);
+  } else if (mode === 'int') {
+    const s = [];
+    for (let k = 0; k < d.n; k += Math.max(1, Math.floor(d.n / 50000))) s.push(S.int[k]);
+    s.sort((a, b) => a - b);
+    const lo = s[Math.floor(s.length * 0.02)] || 0, hi = s[Math.floor(s.length * 0.98)] || 1;
+    for (let j = 0; j < d.n; j++) { const v = Math.round(255 * Math.max(0, Math.min(1, (S.int[o[j]] - lo) / Math.max(1, hi - lo)))); out[j * 3] = out[j * 3 + 1] = out[j * 3 + 2] = v; }
+    legend = [['#202020', 'Weak return'], ['#f0f0f0', 'Strong return']];
+  } else {
+    const top = Math.max(5, d.p999), ramp = pcRamp(PC_HAG_STOPS), gc = pcHex('#9c7a54');
+    for (let j = 0; j < d.n; j++) { const k = o[j]; set(j, S.cls[k] === 2 ? gc : ramp(d.hag[k] / top)); }
+    legend = [['#9c7a54', 'Ground'], [PC_HAG_STOPS[0], '0 m'], [PC_HAG_STOPS[2], Math.round(top / 2) + ' m'], [PC_HAG_STOPS[4], Math.round(top) + ' m and up']];
+  }
+  document.getElementById('pcLegend').innerHTML = legend.map(([c, t]) => '<div>' + (c ? '<span class="pc-sw" style="background:' + c + '"></span>' : '') + escHtml(t) + '</div>').join('');
+  return out;
+}
+// Ground height in the 3D scene's frame (x east, z south, from the middle).
+function pcGroundAt(d, lx, lz) {
+  const g = d.g, c = Math.max(0, Math.min(g.W - 1, Math.floor(d.cx + lx - g.x0))), r = Math.max(0, Math.min(g.H - 1, Math.floor(g.y1 - (d.cy - lz))));
+  return d.ground[r * g.W + c] - d.gMin;
+}
+function pcSync() {
+  pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === pcV.mode));
+  const sel = document.getElementById('pcColours');
+  sel.querySelector('option[value="rgb"]').disabled = !(pcData && pcData.rgb);
+  if (pcV.colours === 'rgb' && !(pcData && pcData.rgb)) pcV.colours = 'hag';
+  sel.value = pcV.colours;
+  document.getElementById('pcHideGround').checked = pcV.hideGround;
+  document.getElementById('pcDark').checked = pcV.dark;
+  document.getElementById('pcPtSize').value = pcV.size[pcV.mode];
+  const credit = pcData ? ' Point cloud: ' + escHtml(pcData.survey.title) + ', Toitū Te Whenua LINZ, via OpenTopography, CC BY 4.0.' : '';
+  document.getElementById('pcFoot').innerHTML = (pcV.mode === 'stand'
+    ? '<strong>Standing at ' + PC_EYE_M + ' m.</strong> Drag to look about. W A S D or the arrow keys to walk (Shift to go faster). Double-click to jump to a spot. Esc to go back to the overview.'
+    : 'Drag to turn, right-drag to pan, scroll to zoom. <strong>Double-click anywhere to stand there at ' + PC_EYE_M + ' m</strong>, or use Stand.') + credit;
+  if (pcV.three) {
+    pcV.three.renderer.setClearColor(pcV.dark ? 0x000000 : 0xdfe6ea);
+    pcViewEl.style.background = pcV.dark ? '#000' : '';
+    document.getElementById('pcLegend').classList.toggle('dark', pcV.dark);
+  }
+}
+function pcBuild() {
+  const T = pcV.three, d = pcData;
+  if (T.points) { T.scene.remove(T.points); T.points.geometry.dispose(); T.points.material.dispose(); T.points = null; }
+  const o = pcOrder(d), S = d.S, pos = new Float32Array(d.n * 3);
+  for (let j = 0; j < d.n; j++) { const k = o[j]; pos[j * 3] = S.x[k]; pos[j * 3 + 1] = S.z[k] - d.gMin; pos[j * 3 + 2] = -S.y[k]; }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(d, pcV.colours), 3, true));
+  geo.computeBoundingSphere();
+  const mat = new THREE.ShaderMaterial({
+    uniforms: { size: { value: pcV.size[pcV.mode] }, scale: { value: 500 }, minPx: { value: 1.5 }, maxPx: { value: 14 } },
+    vertexShader: 'attribute vec3 pcColor; uniform float size, scale, minPx, maxPx; varying vec3 vC;\nvoid main() { vC = pcColor; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(size * scale / -mv.z, minPx, maxPx); }',
+    fragmentShader: 'varying vec3 vC;\nvoid main() { vec2 c = gl_PointCoord - 0.5; if (dot(c, c) > 0.25) discard; gl_FragColor = vec4(vC, 1.0); }'
+  });
+  T.points = new THREE.Points(geo, mat);
+  T.points.frustumCulled = false;
+  T.scene.add(T.points);
+  pcDrawRange();
+  pcScale();
+}
+function pcDrawRange() {
+  const T = pcV.three, d = pcData;
+  if (!T || !T.points) return;
+  const from = pcV.hideGround ? d.groundN : 0;
+  T.points.geometry.setDrawRange(from, d.n - from);
+}
+function pcScale() {
+  const T = pcV.three;
+  if (!T || !T.points) return;
+  const h = T.renderer.domElement.height || 600;
+  T.points.material.uniforms.scale.value = h / (2 * Math.tan(T.camera.fov * Math.PI / 360));
+  T.points.material.uniforms.size.value = pcV.size[pcV.mode];
+  T.points.material.uniforms.minPx.value = pcV.mode === 'stand' ? 2 : 1.5;
+}
+function pcOverview(reset) {
+  const T = pcV.three, d = pcData;
+  pcV.mode = 'orbit';
+  T.controls.enabled = true;
+  T.camera.fov = 45; T.camera.near = 0.5; T.camera.updateProjectionMatrix();
+  if (reset || !T.saved) {
+    // Frame the whole box, slope and all, from the south-south-east and above.
+    const midY = (d.zMin + d.zMax) / 2 - d.gMin, r = Math.hypot(d.g.W / 2, d.g.H / 2, (d.zMax - d.zMin) / 2);
+    const dist = r / Math.sin(T.camera.fov * Math.PI / 360) * 0.8, dir = new THREE.Vector3(0.3, 0.75, 0.6).normalize();
+    T.controls.target.set(0, midY, 0);
+    T.camera.position.set(dir.x * dist, midY + dir.y * dist, dir.z * dist);
+  } else { T.camera.position.copy(T.saved.pos); T.controls.target.copy(T.saved.target); }
+  T.camera.up.set(0, 1, 0);
+  T.controls.update();
+  pcScale(); pcSync();
+}
+function pcStand(lx, lz, yaw) {
+  const T = pcV.three, d = pcData;
+  if (pcV.mode === 'orbit') T.saved = { pos: T.camera.position.clone(), target: T.controls.target.clone() };
+  pcV.mode = 'stand';
+  T.controls.enabled = false;
+  T.camera.fov = 70; T.camera.near = 0.05; T.camera.updateProjectionMatrix();
+  pcV.yaw = yaw == null ? 0 : yaw; pcV.pitch = 0.05;
+  T.camera.position.set(lx, pcGroundAt(d, lx, lz) + PC_EYE_M, lz);
+  T.camera.rotation.set(pcV.pitch, pcV.yaw, 0, 'YXZ');
+  pcScale(); pcSync();
+  pcViewEl.focus();
+}
+// Where a click meets the ground: walk along the ray until under it.
+function pcPick(ev) {
+  const T = pcV.three, d = pcData, rect = T.renderer.domElement.getBoundingClientRect();
+  const ndc = new THREE.Vector2(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc, T.camera);
+  const o = ray.ray.origin, v = ray.ray.direction, half = Math.max(d.g.W, d.g.H);
+  let prev = null;
+  for (let t = 0.2; t < half * 6; t += Math.max(0.2, t * 0.01)) {
+    const x = o.x + v.x * t, y = o.y + v.y * t, z = o.z + v.z * t;
+    if (Math.abs(x) > half || Math.abs(z) > half) { if (prev) break; continue; }
+    prev = true;
+    if (y <= pcGroundAt(d, x, z)) return { x, z, yaw: Math.atan2(-v.x, -v.z) };
+  }
+  return null;
+}
+async function pcOpen() {
+  if (!pcData) return;
+  pcDlg.hidden = false;
+  document.getElementById('pcTitle').textContent = 'Point cloud · ' + pcData.areaName;
+  pcSync();
+  pcSay('Loading the 3D viewer…');
+  try { await v3dLoadLibs(); } catch (err) { pcSay('Couldn\'t load the 3D viewer: ' + err.message); return; }
+  if (pcDlg.hidden) return;
+  if (!pcV.three) {
+    const renderer = new THREE.WebGLRenderer({ antialias: false });
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(45, 1, 0.5, 1e5);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.maxPolarAngle = Math.PI * 0.495;
+    pcV.three = { renderer, scene, camera, controls, points: null, raf: 0, last: 0 };
+    renderer.domElement.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); cancelAnimationFrame(pcV.three.raf); pcSay('The 3D view ran out of graphics memory. Close it and try a smaller area.'); });
+    new ResizeObserver(() => {
+      const w = pcViewEl.clientWidth, h = pcViewEl.clientHeight;
+      if (!w || !h) return;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h; camera.updateProjectionMatrix();
+      pcScale();
+    }).observe(pcViewEl);
+    // Looking about when standing: drag turns the head.
+    let drag = null;
+    renderer.domElement.addEventListener('pointerdown', (ev) => { if (pcV.mode === 'stand') { drag = { x: ev.clientX, y: ev.clientY }; renderer.domElement.setPointerCapture(ev.pointerId); } });
+    renderer.domElement.addEventListener('pointermove', (ev) => {
+      if (!drag || pcV.mode !== 'stand') return;
+      pcV.yaw += (ev.clientX - drag.x) * 0.004; pcV.pitch += (ev.clientY - drag.y) * 0.004;
+      pcV.pitch = Math.max(-1.45, Math.min(1.45, pcV.pitch));
+      drag = { x: ev.clientX, y: ev.clientY };
+      camera.rotation.set(pcV.pitch, pcV.yaw, 0, 'YXZ');
+    });
+    renderer.domElement.addEventListener('pointerup', () => { drag = null; });
+    renderer.domElement.addEventListener('dblclick', (ev) => {
+      const p = pcPick(ev);
+      if (p) pcStand(p.x, p.z, pcV.mode === 'stand' ? pcV.yaw : p.yaw);
+    });
+  }
+  pcViewEl.insertBefore(pcV.three.renderer.domElement, document.getElementById('pcMsg'));
+  pcSay('Building ' + pcMillions(pcData.n) + ' points…');
+  await new Promise(r => setTimeout(r, 30));
+  if (pcDlg.hidden) return;
+  pcBuild();
+  pcOverview(true);
+  pcSay('');
+  const T = pcV.three;
+  cancelAnimationFrame(T.raf);
+  T.last = performance.now();
+  const tick = (now) => {
+    T.raf = requestAnimationFrame(tick);
+    const dt = Math.min(0.1, (now - T.last) / 1000); T.last = now;
+    if (pcV.mode === 'stand') {
+      const k = pcV.keys, f = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0), s = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+      const p = T.camera.position, half = Math.max(pcData.g.W, pcData.g.H) / 2 + 20;
+      if (f || s) {
+        const v = (k.has('shift') ? 6 : 1.4) * dt, sy = Math.sin(pcV.yaw), cyw = Math.cos(pcV.yaw);
+        p.x = Math.max(-half, Math.min(half, p.x + (-sy * f + cyw * s) * v));
+        p.z = Math.max(-half, Math.min(half, p.z + (-cyw * f - sy * s) * v));
+      }
+      p.y += (pcGroundAt(pcData, p.x, p.z) + PC_EYE_M - p.y) * Math.min(1, dt * 12);
+    } else T.controls.update();
+    T.renderer.render(T.scene, T.camera);
+  };
+  T.raf = requestAnimationFrame(tick);
+}
+function pcClose() {
+  pcDlg.hidden = true;
+  pcV.keys.clear();
+  const T = pcV.three;
+  if (!T) return;
+  cancelAnimationFrame(T.raf);
+  if (T.points) { T.scene.remove(T.points); T.points.geometry.dispose(); T.points.material.dispose(); T.points = null; }
+  T.saved = null;
+}
+document.getElementById('pc3dBtn').addEventListener('click', pcOpen);
+pcDlg.querySelector('.v3d-close').addEventListener('click', pcClose);
+pcDlg.addEventListener('click', (ev) => { if (ev.target === pcDlg) pcClose(); });
+pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.addEventListener('click', () => {
+  if (!pcV.three || !pcV.three.points) return;
+  if (b.dataset.mode === 'stand') pcStand(0, 0, 0); else pcOverview(false);
+}));
+document.getElementById('pcColours').addEventListener('change', (ev) => {
+  pcV.colours = ev.target.value; pcSave();
+  if (pcV.three && pcV.three.points) pcV.three.points.geometry.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(pcData, pcV.colours), 3, true));
+});
+document.getElementById('pcHideGround').addEventListener('change', (ev) => { pcV.hideGround = ev.target.checked; pcSave(); pcDrawRange(); });
+document.getElementById('pcDark').addEventListener('change', (ev) => { pcV.dark = ev.target.checked; pcSave(); pcSync(); });
+document.getElementById('pcPtSize').addEventListener('input', (ev) => { pcV.size[pcV.mode] = Number(ev.target.value); pcSave(); pcScale(); });
+const pcKeyName = (ev) => ev.key.length === 1 ? ev.key.toLowerCase() : ev.key.toLowerCase();
+document.addEventListener('keydown', (ev) => {
+  if (pcDlg.hidden) return;
+  if (ev.key === 'Escape') { if (pcV.mode === 'stand' && pcV.three) pcOverview(false); else pcClose(); ev.preventDefault(); return; }
+  if (/^(input|select|textarea)$/i.test(ev.target.tagName)) return;
+  const k = pcKeyName(ev);
+  if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { pcV.keys.add(k); if (k.startsWith('arrow')) ev.preventDefault(); }
+});
+document.addEventListener('keyup', (ev) => { pcV.keys.delete(pcKeyName(ev)); if (ev.key === 'Shift') pcV.keys.delete('shift'); });
+window.addEventListener('blur', () => pcV.keys.clear());
+var pcReady = true;
+
 function setAppTab(tab) {
   appTab = tab;
   document.querySelectorAll('.app-tab').forEach(b => {
@@ -11630,6 +12612,8 @@ function setAppTab(tab) {
   });
   document.querySelector('.sidebar').classList.toggle('lidar-mode', tab === 'lidar');
   document.getElementById('resultsPane').classList.toggle('lidar-mode', tab === 'lidar');
+  document.querySelector('.sidebar').classList.toggle('cloud-mode', tab === 'cloud');
+  document.getElementById('resultsPane').classList.toggle('cloud-mode', tab === 'cloud');
   document.querySelector('.sidebar').classList.toggle('climate-mode', tab === 'climate');
   document.getElementById('resultsPane').classList.toggle('climate-mode', tab === 'climate');
   document.querySelector('.sidebar').classList.toggle('physical-mode', tab === 'physical');
@@ -11651,6 +12635,7 @@ function setAppTab(tab) {
   else document.getElementById('areaEmpty').after(poiBlock);
   mapStack.setTab(tab);
   if (tab === 'lidar') lidarAreasChanged();
+  if (tab === 'cloud') pcAreasChanged();
   if (tab === 'climate') climateAreasChanged();
   if (tab === 'physical') physicalAreasChanged();
   if (tab === 'cover') coverAreasChanged();
@@ -11663,7 +12648,7 @@ function setAppTab(tab) {
 document.querySelectorAll('.app-tab').forEach(b => b.addEventListener('click', () => { if (b.dataset.tab !== appTab) setAppTab(b.dataset.tab); }));
 
 renderAreaList();
-try { const t = localStorage.getItem('inferrd.tab'); if (t === 'inputs' || t === 'lidar' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report' || t === 'louped') setAppTab(t); } catch (e) {}
+try { const t = localStorage.getItem('inferrd.tab'); if (t === 'inputs' || t === 'lidar' || t === 'cloud' || t === 'climate' || t === 'physical' || t === 'cover' || t === 'report' || t === 'louped') setAppTab(t); } catch (e) {}
 try { const m = localStorage.getItem('inferrd.mode'); if (m === 'change' || m === 'condition') setAnalysisMode(m); } catch (e) {}
 
 /* ---------------------------------------------------------------------
