@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.101.1 — 2026-11-16
+
+- Point cloud: checking the trees against your dots is now step **4 · Check
+  the trees** in the Point cloud panel, under Load. It was a card at the
+  foot of the results, easy to miss. With several areas loaded, it has its
+  own "Dot trees in" picker, which stays in step with "Details, trees and
+  3D for".
+
 ## v0.101.0 — 2026-11-16
 
 - Point cloud, trees: check and tune the trees found against your own dots.
