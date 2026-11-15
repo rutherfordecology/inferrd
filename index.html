@@ -1683,7 +1683,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.103.0';
+const APP_VERSION = 'v0.103.1';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12685,6 +12685,11 @@ function pcSegment(d, prm) {
         pieces[k] = biggest;
       }
       if (pieces[0].length < minCells || pieces[1].length < minCells) return [list];
+      // Two trees' tops stand apart: at least as far as tops are looked for
+      // (the window for the taller), or it's one crown in two colours.
+      const topOf = (pc) => pc.reduce((b, i) => chm[i] > chm[b] ? i : b, pc[0]), t0 = topOf(pieces[0]), t1 = topOf(pieces[1]);
+      const win = Math.max(1.5, Math.min(5, P.reachB + P.reachA * Math.max(chm[t0], chm[t1])));
+      if (Math.hypot((t0 % W) - (t1 % W), Math.floor(t0 / W) - Math.floor(t1 / W)) * res < win) return [list];
       // Each part needs a top of its own, near the crown's height: not a shaded flank.
       { let top = 0, h0 = 0, h1 = 0; for (const i of list) top = Math.max(top, chm[i]); for (const i of pieces[0]) h0 = Math.max(h0, chm[i]); for (const i of pieces[1]) h1 = Math.max(h1, chm[i]);
         if (h0 < PC_SEG_SPLIT_TOP * top || h1 < PC_SEG_SPLIT_TOP * top) return [list]; }
@@ -12880,7 +12885,7 @@ function renderPcResults() {
     metric('Pulses per m²', per(d.firsts), 'First (and only) returns per square metre: how many laser pulses came down') +
     metric('Ground per m²', per(d.grounds), 'Returns classed as ground, per square metre: how much got through to the ground') +
     metric('Understorey density', Math.round(100 * under) + '%', 'Of the returns that got down to 2 m or lower, the share stopped between 0.5 and 2 m') +
-    metric('Tallest', d.p999.toFixed(1) + ' m', 'Height above ground that only 0.1% of the returns are above (the very highest: ' + d.hMax.toFixed(1) + ' m)');
+    metric('Tallest', (d.trees.list.length ? Math.max(...d.trees.list.map(t => t.h)) : d.hMax).toFixed(1) + ' m', d.trees.list.length ? 'The tallest tree found: its highest return above the ground (the highest return of all: ' + d.hMax.toFixed(1) + ' m)' : 'The highest return above the ground');
   const total = d.n, rows = [];
   for (let b = PC_BANDS.length - 1; b >= 0; b--) {
     const v = d.bands[b], dens = b ? v / Math.max(1, below(b)) : null;

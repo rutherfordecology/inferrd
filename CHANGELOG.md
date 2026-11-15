@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.103.1 — 2026-11-16
+
+- Point cloud: **Tallest** is now the tallest tree found, its highest
+  return, and it agrees with the LiDAR tab. It was the height that only
+  0.1% of returns stand above, which in a big area of tall trees cut off
+  the tallest. One 6 ha pine block showed 45.1 m against the LiDAR tab's
+  53.4 m. It now shows 53.3 m; the small gap is the 1 m grid against single
+  returns.
+- Trees: the colour split no longer splits one crown into two trees whose
+  tops are side by side. The two parts' tops must now stand at least as
+  far apart as tops are looked for. In the same block, side-by-side pairs
+  went from 72 to 1, and trees from 885 to 801. Scores against the dotted
+  trees held or improved: Area 5 26 of 45 found, Area 2 15 of 19.
+
 ## v0.103.0 — 2026-11-16
 
 - Point cloud, 3D: a new **Show** picker takes the canopy away, to see the
