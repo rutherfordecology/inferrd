@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.101.0 — 2026-11-16
+
+- Point cloud, trees: check and tune the trees found against your own dots.
+  The new **Check the trees against yours** card, under Trees:
+  - **Dot trees on the map:** click each tree top you can see on the aerial
+    photo, inside the area. Click a dot again to remove it.
+  - **Score:** how many of your trees were found, and how many of the trees
+    found are yours, matched within 3 m. The photo's shift from the LiDAR
+    (the median offset from dots to the nearest tops) is measured and
+    allowed for. On the map, dots for trees not found are red.
+  - **Tune to my dots** (10 or more dots) tries each setting in turn, twice
+    round, and keeps whichever matches best: the tree-top window, the dip
+    that joins crowns, the crown edge thresholds, and colour.
+  - **Use these settings** applies them to every point cloud in this
+    browser. **Back to the defaults** undoes it.
+  - Dots stay in this browser, and **Download dots** saves them as a CSV.
+- Colour: where a survey carries photo colour, two touching crowns can be
+  kept as separate trees when they differ in colour (hue in full,
+  lightness at half). It's off by default and offered by the tuning, since
+  native canopy often shows crowns by colour more than by height.
+- The settings are now passed to the tree-finding, and the canopy height
+  model is built once per point cloud, so tuning takes a few seconds.
+
 ## v0.100.0 — 2026-11-16
 
 - Point cloud, trees: new crown method, after Dalponte & Coomes (2016) as in
