@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.98.1 — 2026-11-16
+
+- Point cloud, 3D: fixed the view running off the bottom of the screen on
+  displays scaled over 100% (it came in with the side-by-side views in
+  v0.97.0). The drawing surface is now pinned to the view, so it can't
+  push the view taller.
+
 ## v0.98.0 — 2026-11-16
 
 - Point cloud: compare one area between two dates. Areas loaded from one
