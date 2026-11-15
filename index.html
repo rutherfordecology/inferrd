@@ -1625,7 +1625,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone (after Dalponte &amp; Coomes 2016): best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Where the survey has photo colour, touching crowns that differ in colour are told apart. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Show</strong> takes the canopy away: <strong>Under the trees found</strong> leaves out each tree found from its crown down to its lower limit (30% of its height, at least 2 m), leaving what grows beneath it and in the gaps; <strong>Up to</strong> a height leaves out everything above it. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view. To compare one area between two dates, load it from one survey, pick another survey under 2 · Survey and load it again: both stay loaded, the chart shows both dates, and side by side in 3D starts with the area at its two dates. Surveys differ in point density (older ones often have a quarter of the points), and a sparser survey sees less of the lower layers, so inferrd. warns when two dates differ more than twofold; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area (untick it and each view moves on its own, steered when the cursor is over it), and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone (after Dalponte &amp; Coomes 2016): best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Where the survey has photo colour, touching crowns that differ in colour are told apart. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, draw a shape round a QEII covenant, a PMA or any other of their areas, and a popup on your shape offers to <strong>use</strong> what's inside instead of your shape, <strong>add</strong> it as well, or keep only your shape. An area counts as inside when 90% of it is.</p>
@@ -1683,7 +1683,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.102.1';
+const APP_VERSION = 'v0.103.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -13204,12 +13204,17 @@ map.on('click', (e) => {
 });
 
 /* ---- 3D: turn it round, or stand in it; one area, or two side by side ---- */
+// Show: everything; only what's under the trees found (each tree's crown
+// taken away, leaving what stands below it, and the gaps); or only points
+// up to a height above ground.
+const PC_SHOW_UPTO = [2, 5, 10, 15, 20];
 document.body.insertAdjacentHTML('beforeend',
   '<div class="v3d" id="pcDlg" hidden><div class="v3d-box">' +
   '<div class="v3d-bar"><strong id="pcTitle">Point cloud</strong>' +
   '<div class="v3d-seg" id="pcModeSeg"><button type="button" data-mode="orbit" class="on" title="Turn the whole area round">Overview</button><button type="button" data-mode="stand" title="Stand in the middle of the area at ' + PC_EYE_M + ' m and look about">Stand at ' + PC_EYE_M + ' m</button></div>' +
   '<label>Colours <select id="pcColours"><option value="hag">Height above ground</option><option value="tree">Each tree</option><option value="rgb">True colour</option><option value="cls">Class</option><option value="ret">Return</option><option value="int">Intensity</option></select></label>' +
   '<label title="Leave out the ground points, to see the understorey and canopy"><input type="checkbox" id="pcHideGround">Hide ground</label>' +
+  '<label title="Take the canopy away, to see the subcanopy and understorey">Show <select id="pcShow"><option value="all">Everything</option><option value="under">Under the trees found</option>' + PC_SHOW_UPTO.map(h => '<option value="' + h + '">Up to ' + h + ' m</option>').join('') + '</select></label>' +
   '<label title="How big each point is drawn">Points <input type="range" id="pcPtSize" min="0.02" max="0.6" step="0.01"></label>' +
   '<label title="A black background"><input type="checkbox" id="pcDark">Black background</label>' +
   '<label id="pcLinkLab" hidden title="Turn, zoom and walk both views together, from the same place in each area"><input type="checkbox" id="pcLink">Move together</label>' +
@@ -13219,10 +13224,10 @@ document.body.insertAdjacentHTML('beforeend',
 const pcDlg = document.getElementById('pcDlg'), pcPanesEl = document.getElementById('pcPanes');
 // Settings shared by the views; each view (pane) has its own area, camera
 // and mode.
-const pcV = { colours: 'hag', hideGround: false, dark: false, link: true, size: { orbit: 0.2, stand: 0.09 }, keys: new Set() };
+const pcV = { colours: 'hag', hideGround: false, show: 'all', dark: false, link: true, size: { orbit: 0.2, stand: 0.09 }, keys: new Set() };
 const PC_HAG_STOPS = ['#4575b4', '#74add1', '#a6d96a', '#fee08b', '#f46d43']; // low blue, through green, to red at the top
-try { const s = JSON.parse(localStorage.getItem('inferrd.pcView') || '{}'); if (s.colours) pcV.colours = s.colours; pcV.dark = !!s.dark; pcV.hideGround = !!s.hideGround; if (s.link === false) pcV.link = false; if (s.size) Object.assign(pcV.size, s.size); } catch (e) {}
-const pcSave = () => { try { localStorage.setItem('inferrd.pcView', JSON.stringify({ colours: pcV.colours, dark: pcV.dark, hideGround: pcV.hideGround, link: pcV.link, size: pcV.size })); } catch (e) {} };
+try { const s = JSON.parse(localStorage.getItem('inferrd.pcView') || '{}'); if (s.colours) pcV.colours = s.colours; pcV.dark = !!s.dark; pcV.hideGround = !!s.hideGround; if (s.show === 'under' || PC_SHOW_UPTO.includes(+s.show)) pcV.show = s.show; if (s.link === false) pcV.link = false; if (s.size) Object.assign(pcV.size, s.size); } catch (e) {}
+const pcSave = () => { try { localStorage.setItem('inferrd.pcView', JSON.stringify({ colours: pcV.colours, dark: pcV.dark, hideGround: pcV.hideGround, show: pcV.show, link: pcV.link, size: pcV.size })); } catch (e) {} };
 let pcPanes = [], pcActive = null, pcRaf = 0, pcLast = 0;
 const pcPaneStore = [];
 const pcHex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -13292,6 +13297,8 @@ function pcSync() {
   if (pcV.colours === 'rgb' && !rgb) pcV.colours = 'hag';
   sel.value = pcV.colours;
   document.getElementById('pcHideGround').checked = pcV.hideGround;
+  document.getElementById('pcShow').value = pcV.show;
+  document.getElementById('pcShow').querySelector('option[value="under"]').disabled = !pcPanes.some(P => P.d && P.d.trees);
   document.getElementById('pcDark').checked = pcV.dark;
   document.getElementById('pcLink').checked = pcV.link;
   document.getElementById('pcLinkLab').hidden = !two;
@@ -13317,10 +13324,14 @@ function pcBuild(P) {
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(d, pcV.colours, P.legend, pcHagTop()), 3, true));
+  const hagA = new Float32Array(d.n);
+  for (let j = 0; j < d.n; j++) hagA[j] = d.hag[o[j]];
+  geo.setAttribute('pcHag', new THREE.BufferAttribute(hagA, 1));
+  geo.setAttribute('pcInTree', new THREE.BufferAttribute(pcInTreeArray(d, o), 1));
   geo.computeBoundingSphere();
   const mat = new THREE.ShaderMaterial({
-    uniforms: { size: { value: pcV.size[P.mode] }, scale: { value: 500 }, minPx: { value: 1.5 }, maxPx: { value: 14 } },
-    vertexShader: 'attribute vec3 pcColor; uniform float size, scale, minPx, maxPx; varying vec3 vC;\nvoid main() { vC = pcColor; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(size * scale / -mv.z, minPx, maxPx); }',
+    uniforms: { size: { value: pcV.size[P.mode] }, scale: { value: 500 }, minPx: { value: 1.5 }, maxPx: { value: 14 }, upTo: { value: 1e6 }, noTrees: { value: 0 } },
+    vertexShader: 'attribute vec3 pcColor; attribute float pcHag, pcInTree; uniform float size, scale, minPx, maxPx, upTo, noTrees; varying vec3 vC;\nvoid main() { vC = pcColor; if (pcHag > upTo || pcInTree * noTrees > 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); gl_PointSize = 0.0; return; } vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(size * scale / -mv.z, minPx, maxPx); }',
     fragmentShader: 'varying vec3 vC;\nvoid main() { vec2 c = gl_PointCoord - 0.5; if (dot(c, c) > 0.25) discard; gl_FragColor = vec4(vC, 1.0); }'
   });
   P.points = new THREE.Points(geo, mat);
@@ -13331,12 +13342,24 @@ function pcBuild(P) {
 }
 function pcRecolour() {
   const top = pcHagTop();
-  for (const P of pcPanes) if (P.points) P.points.geometry.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(P.d, pcV.colours, P.legend, top), 3, true));
+  for (const P of pcPanes) if (P.points) {
+    P.points.geometry.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(P.d, pcV.colours, P.legend, top), 3, true));
+    P.points.geometry.setAttribute('pcInTree', new THREE.BufferAttribute(pcInTreeArray(P.d, pcOrder(P.d)), 1)); // the trees may have been found again
+  }
 }
 function pcDrawRange(P) {
   if (!P.points) return;
   const from = pcV.hideGround ? P.d.groundN : 0;
   P.points.geometry.setDrawRange(from, P.d.n - from);
+  const u = P.points.material.uniforms;
+  u.upTo.value = pcV.show === 'all' || pcV.show === 'under' ? 1e6 : +pcV.show;
+  u.noTrees.value = pcV.show === 'under' ? 1 : 0;
+}
+// 1 for a point in a tree found (its crown, above the tree's floor), else 0; in draw order.
+function pcInTreeArray(d, o) {
+  const a = new Float32Array(d.n), t = d.trees && d.trees.treeOf;
+  if (t) for (let j = 0; j < d.n; j++) a[j] = t[o[j]] >= 0 ? 1 : 0;
+  return a;
 }
 function pcScale(P) {
   if (!P.points) return;
@@ -13554,6 +13577,7 @@ pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.addEventListener('cli
 }));
 document.getElementById('pcColours').addEventListener('change', (ev) => { pcV.colours = ev.target.value; pcSave(); pcRecolour(); });
 document.getElementById('pcHideGround').addEventListener('change', (ev) => { pcV.hideGround = ev.target.checked; pcSave(); pcPanes.forEach(pcDrawRange); });
+document.getElementById('pcShow').addEventListener('change', (ev) => { pcV.show = ev.target.value; pcSave(); pcPanes.forEach(pcDrawRange); });
 document.getElementById('pcDark').addEventListener('change', (ev) => { pcV.dark = ev.target.checked; pcSave(); pcSync(); });
 document.getElementById('pcLink').addEventListener('change', (ev) => { pcV.link = ev.target.checked; pcSave(); pcSync(); });
 document.getElementById('pcPtSize').addEventListener('input', (ev) => { const mode = pcActive ? pcActive.mode : 'orbit'; pcV.size[mode] = Number(ev.target.value); pcSave(); pcPanes.forEach(pcScale); });

@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.103.0 — 2026-11-16
+
+- Point cloud, 3D: a new **Show** picker takes the canopy away, to see the
+  subcanopy and understorey:
+  - **Under the trees found** leaves out each tree found, from its crown
+    down to its lower limit (30% of its height, at least 2 m). What grows
+    beneath it, and in the gaps, stays.
+  - **Up to 2, 5, 10, 15 or 20 m** leaves out everything higher above the
+    ground.
+  It works with any colours, with Hide ground, and in both views side by
+  side, and is remembered like the other view settings.
+
 ## v0.102.1 — 2026-11-16
 
 - Point cloud: **4 · Check the trees** (dotting trees, scoring and tuning
