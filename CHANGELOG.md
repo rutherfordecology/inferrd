@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.102.1 — 2026-11-16
+
+- Point cloud: **4 · Check the trees** (dotting trees, scoring and tuning
+  to them) is hidden for now, along with the "Your tree dots" map layer.
+  Trees are found with the defaults tuned in v0.102.0; any settings tuned
+  earlier in a browser are no longer applied. The code stays, behind
+  `PC_DOTS_ON`, to bring back later.
+
 ## v0.102.0 — 2026-11-16
 
 - Point cloud, trees: better defaults, learned from 64 trees dotted by hand
