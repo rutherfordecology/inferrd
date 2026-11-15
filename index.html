@@ -1683,7 +1683,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.101.1';
+const APP_VERSION = 'v0.102.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12442,11 +12442,14 @@ function pcFinish(plan, S, cx, cy, keep, rgbAny) {
    height. Then the bumps within each crown are filled. Each return high enough in a crown takes its tree. The
    settings can be tuned to trees dotted on the map (see pcTune). */
 const PC_SEG_RES = 0.5, PC_SEG_MIN_H = 3, PC_SEG_FLOOR_M = 2, PC_SEG_FLOOR_FRAC = 0.3;
+const PC_SEG_SPLIT_M2 = 25, PC_SEG_SPLIT_TOP = 0.85; // colour splits off a part of a crown this big (m²), reaching this share of its top
 const PC_SEG_DEFAULT = {
-  reachA: 0.08, reachB: 1,       // tree-top window radius: reachB + reachA × height, m (1.5 to 5 m)
-  thSeed: 0.45, thCrown: 0.55,   // Dalponte & Coomes's defaults
+  // Tuned (v0.102.0) to 64 trees dotted in two Gisborne 2023 blocks; the
+  // window and crown edge started from Dalponte & Coomes's defaults.
+  reachA: 0.04, reachB: 1.5,     // tree-top window radius: reachB + reachA × height, m (1.5 to 5 m)
+  thSeed: 0.35, thCrown: 0.55,   // a crown takes canopy above this share of its top and of its mean height
   dipM: 1, dipFrac: 0.1,         // merge two crowns where the canopy dips less than this between them
-  colour: 0                      // two crowns this different in colour (ΔE, lightness at half) stay two trees; 0 = colour not used
+  colour: 8                      // crowns this different in colour (ΔE) stay, or are split into, two trees; 0 = colour not used. Only where the survey has photo colour
 };
 let pcSegPrm = Object.assign({}, PC_SEG_DEFAULT), pcSegTunedOn = null;
 try { const t = JSON.parse(localStorage.getItem('inferrd.pcSeg') || 'null'); if (t && t.prm) { pcSegPrm = Object.assign({}, PC_SEG_DEFAULT, t.prm); pcSegTunedOn = t.on || 'your dots'; } } catch (e) {}
@@ -12627,6 +12630,102 @@ function pcSegment(d, prm) {
     }
     front = next;
   }
+  // Split by colour: where height can't tell two touching trees apart (one
+  // smooth canopy, one peak), colour often can. A crown that holds two
+  // parts clearly different in colour, each big enough for a tree, is split
+  // in two (k-means on place and colour), and each part looked at again;
+  // each part's highest cell is its top.
+  if (lab3 && P.colour > 0) {
+    const minCells = Math.round(PC_SEG_SPLIT_M2 / (res * res)), cells = trees.map(() => []);
+    for (let i = 0; i < N; i++) if (lab[i] >= 0) cells[lab[i]].push(i);
+    const split = (list, depth) => {
+      if (depth > 4 || list.length < 2 * minCells) return [list];
+      const L = lab3[0], A = lab3[1], B = lab3[2], ok = list.filter(i => L[i] === L[i]);
+      if (ok.length < 2 * minCells) return [list];
+      // Features: place (per 3 m) and colour (per the colour setting, lightness at half).
+      // Hue counts four times lightness here: sun and shade on one crown differ mostly in lightness.
+      const f = (i) => [(i % W) * res / 3, Math.floor(i / W) * res / 3, 0.25 * L[i] / P.colour, A[i] / P.colour, B[i] / P.colour];
+      const F = ok.map(f), dist = (a, b) => a.reduce((t, v, k) => t + (v - b[k]) ** 2, 0);
+      // Start from the two cells furthest apart in colour.
+      let c0 = F[0], c1 = F[0], best = -1;
+      const cmean = F.reduce((m, v) => m.map((x, k) => x + v[k] / F.length), [0, 0, 0, 0, 0]);
+      F.forEach(v => { const dd = dist(v.slice(2), cmean.slice(2)); if (dd > best) { best = dd; c0 = v; } });
+      best = -1; F.forEach(v => { const dd = dist(v.slice(2), c0.slice(2)); if (dd > best) { best = dd; c1 = v; } });
+      let asg = new Uint8Array(F.length);
+      for (let it = 0; it < 10; it++) {
+        F.forEach((v, j) => { asg[j] = dist(v, c0) <= dist(v, c1) ? 0 : 1; });
+        const m = [[0, 0, 0, 0, 0], [0, 0, 0, 0, 0]], n = [0, 0];
+        F.forEach((v, j) => { n[asg[j]]++; v.forEach((x, k) => { m[asg[j]][k] += x; }); });
+        if (!n[0] || !n[1]) return [list];
+        c0 = m[0].map(x => x / n[0]); c1 = m[1].map(x => x / n[1]);
+      }
+      // Two colours, clearly: the means at least the colour setting apart.
+      if (dist(c0.slice(2), c1.slice(2)) < 1) return [list];
+      // Each part as one connected piece (the rest goes to the other part);
+      // cells with no colour go with their nearest neighbour's part.
+      const part = new Map();
+      ok.forEach((i, j) => part.set(i, asg[j]));
+      list.forEach(i => { if (!part.has(i)) part.set(i, -1); });
+      const pieces = [[], []];
+      for (const k of [0, 1]) {
+        const seen = new Set();
+        let biggest = [];
+        for (const i of list) {
+          if (part.get(i) !== k || seen.has(i)) continue;
+          const comp = [i]; seen.add(i);
+          for (let q = 0; q < comp.length; q++) {
+            const u = comp[q], r = Math.floor(u / W), c = u % W;
+            for (const v of [c > 0 ? u - 1 : -1, c < W - 1 ? u + 1 : -1, r > 0 ? u - W : -1, r < H - 1 ? u + W : -1]) if (v >= 0 && !seen.has(v) && part.get(v) === k) { seen.add(v); comp.push(v); }
+          }
+          if (comp.length > biggest.length) biggest = comp;
+        }
+        pieces[k] = biggest;
+      }
+      if (pieces[0].length < minCells || pieces[1].length < minCells) return [list];
+      // Each part needs a top of its own, near the crown's height: not a shaded flank.
+      { let top = 0, h0 = 0, h1 = 0; for (const i of list) top = Math.max(top, chm[i]); for (const i of pieces[0]) h0 = Math.max(h0, chm[i]); for (const i of pieces[1]) h1 = Math.max(h1, chm[i]);
+        if (h0 < PC_SEG_SPLIT_TOP * top || h1 < PC_SEG_SPLIT_TOP * top) return [list]; }
+      const inP = new Map();
+      pieces.forEach((pc, k) => pc.forEach(i => inP.set(i, k)));
+      // The rest: to whichever part it touches, round by round.
+      let rest = list.filter(i => !inP.has(i)), guard = 0;
+      while (rest.length && guard++ < 200) {
+        const left = [];
+        for (const i of rest) {
+          const r = Math.floor(i / W), c = i % W;
+          let k = -1;
+          for (const v of [c > 0 ? i - 1 : -1, c < W - 1 ? i + 1 : -1, r > 0 ? i - W : -1, r < H - 1 ? i + W : -1]) if (v >= 0 && inP.has(v)) { k = inP.get(v); break; }
+          if (k >= 0) { inP.set(i, k); pieces[k].push(i); } else left.push(i);
+        }
+        if (left.length === rest.length) { left.forEach(i => { inP.set(i, 0); pieces[0].push(i); }); break; }
+        rest = left;
+      }
+      return split(pieces[0], depth + 1).concat(split(pieces[1], depth + 1));
+    };
+    const next = [];
+    trees.forEach((tr, t) => {
+      const parts = split(cells[t], 0);
+      if (parts.length === 1) { next.push(tr); return; }
+      parts.forEach(pc => {
+        let top = pc[0];
+        for (const i of pc) if (chm[i] > chm[top]) top = i;
+        const nt = { i: top, h: chm[top], floor: Math.max(PC_SEG_FLOOR_M, PC_SEG_FLOOR_FRAC * chm[top]), cells: 0, sd: tr.sd };
+        const k = next.length;
+        next.push(nt);
+        pc.forEach(i => { lab[i] = -2 - k; }); // placeholder, set below
+      });
+    });
+    // Relabel: kept crowns keep their cells; split ones take their parts.
+    const keepAt = new Map();
+    next.forEach((tr, k) => keepAt.set(tr, k));
+    for (let i = 0; i < N; i++) {
+      const v = lab[i];
+      if (v <= -2) lab[i] = -2 - v;
+      else if (v >= 0) lab[i] = keepAt.get(trees[v]);
+    }
+    trees.length = 0;
+    next.forEach(tr => trees.push(tr));
+  }
   for (let i = 0; i < N; i++) if (lab[i] >= 0) trees[lab[i]].cells++;
   // Colours on screen, touching crowns never the same: each tree takes the
   // first colour, from its own place in the list on, that no neighbour has.
@@ -12658,7 +12757,7 @@ function pcSegment(d, prm) {
     const r = Math.floor(tr.i / W), c = tr.i % W;
     return { x: g.x0 + (c + 0.5) * res, y: g.y1 - (r + 0.5) * res, h: Math.max(tr.h, tallest[t]), crown: tr.cells * res * res };
   });
-  return { list: out, treeOf, col, prm: P };
+  return { list: out, treeOf, col, prm: P, lab, W, H, res, x0: g.x0, y1: g.y1 }; // lab: each 0.5 m cell's crown, for checking against dots
 }
 // The trees' colours: New Zealand birds. In an order that keeps the next
 // colour well apart from the last; browns and greys are left to the
@@ -12802,7 +12901,7 @@ function renderPcResults() {
   document.getElementById('pcNotes').innerHTML =
     '<p><strong>' + escHtml(d.areaName) + '</strong>, ' + escHtml(d.survey.title) + ', flown ' + escHtml(surveyDates(d.survey)) + '.</p>' +
     '<p><strong>Layer density</strong> is how much of each layer the laser found: the returns in it as a share of those that got down to it, that is the layer and everything below it. Measured that way, a layer under a thick canopy isn\'t read as thin just because few pulses got that far, though where almost nothing gets through (see Ground per m²) it is still the least certain. <strong>Understorey density</strong> is that share for 0.5 to 2 m: high under a dense understorey, low where the forest floor is open, browsed or grazed.</p>' +
-    '<p><strong>Trees</strong> are found from the points alone, after Dalponte &amp; Coomes (2016): tree tops are the highest points of the canopy within a reach that grows with height (about 2.5 m for a 20 m tree); every top grows its crown at once, taking the canopy next to it that stands above 45% of the top\'s height and 55% of the crown\'s average, as far as a tree that tall could reach; and two crowns are joined where the canopy dips less than 1 m, or a tenth of the lower one, between their tops. It works best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, crowns that touch can still be read as one tree, or one broad crown as two. Trees under 3 m, and those under another tree\'s crown, aren\'t counted: no method yet tells understorey trees apart reliably from the air (Cao et al. 2023). Each tree\'s height is its highest return.</p>' +
+    '<p><strong>Trees</strong> are found from the points alone, after Dalponte &amp; Coomes (2016): tree tops are the highest points of the canopy within a reach that grows with height (about 2.5 m for a 20 m tree); every top grows its crown at once, taking the canopy next to it that stands above 35% of the top\'s height and 55% of the crown\'s average, as far as a tree that tall could reach; two crowns are joined where the canopy dips less than 1 m, or a tenth of the lower one, between their tops; and, where the survey has photo colour, crowns that differ in colour stay apart, and a crown holding two clearly different colours, each part big enough for a tree and nearly as tall, is split in two (in native bush neighbouring crowns often differ more in colour than in height). The settings were tuned to 64 trees dotted by hand in two Gisborne blocks; you can tune them to your own under 4 · Check the trees. It works best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, crowns that touch can still be read as one tree, or one broad crown as two. Trees under 3 m, and those under another tree\'s crown, aren\'t counted: no method yet tells understorey trees apart reliably from the air (Cao et al. 2023). Each tree\'s height is its highest return.</p>' +
     '<p>It measures structure, not species: a dense understorey of seedlings and one of bracken or gorse look alike. Surveys differ in pulse density, sensor and season, so compare areas within one survey; across surveys or years it is rougher. Heights are above the ground the survey classed, averaged on a 1 m grid, with gaps under dense cover filled from round about.</p>' +
     '<p>Point cloud: ' + escHtml(d.survey.title) + ', Toitū Te Whenua LINZ and the survey\'s licensor, distributed by OpenTopography' + (d.survey.doi ? ' (<a href="' + escHtml(d.survey.doi) + '" target="_blank" rel="noopener">' + escHtml(d.survey.doi.replace(/^https?:\/\/doi\.org\//, 'doi ')) + '</a>)' : '') + ', CC BY 4.0.</p>';
 }
@@ -12882,40 +12981,77 @@ mapStack.add({ key: 'pc_trees', tab: 'Point cloud', rank: 4, op: 1, pane: 'pc_tr
   } });
 map.on('zoomend', () => { if (mapStack.shown().some(l => l.key === 'pc_trees')) mapStack.refresh('pc_trees'); });
 /* ---- your trees: dots on the map, a score, and tuning to them ----
-   Dot each tree top you can see on the aerial photo, within an area loaded
-   here. The trees found are matched to the dots (each to the nearest, within
-   PC_DOT_MATCH_M), after allowing for the photo being shifted from the
-   LiDAR (the median offset from dots to the nearest tops, if consistent).
-   "Tune" tries the segmentation settings one at a time, twice round, and
-   keeps whichever matches the dots best (F1: the balance of trees of yours
-   found and trees found that are yours). Dots stay in this browser. */
-const PC_DOT_MATCH_M = 3, PC_DOT_MIN = 10;
+   Dot each tree you can see on the aerial photo, within an area loaded
+   here. A dot is matched to the crown it falls in, one dot to a crown (the
+   one nearest its top); a dot in no crown takes the nearest free top within
+   PC_DOT_MATCH_M. That's how tree detection is checked in the literature,
+   and it doesn't mind where on a crown the dot is: the highest point of a
+   tall crown is often a few metres off its middle as seen from above. The
+   photo's shift from the LiDAR is searched for (up to 6 m), and used only
+   if it clearly matches more. Only trees inside the patch dotted (the
+   outline of the dots, 4 m out) count against the score. "Tune" tries the
+   segmentation settings one at a time, three times round, and keeps
+   whichever matches best (F1: the balance of trees of yours found and trees
+   found that are yours). Dots stay in this browser. */
+const PC_DOT_MATCH_M = 2, PC_DOT_MIN = 10, PC_DOT_SHIFT_MAX = 6;
 let pcDots = {}, pcDotting = false, pcTuneResult = null, pcTuning = false;
 try { pcDots = JSON.parse(localStorage.getItem('inferrd.pcDots') || '{}') || {}; } catch (e) { pcDots = {}; }
 const pcDotsSave = () => { try { localStorage.setItem('inferrd.pcDots', JSON.stringify(pcDots)); } catch (e) {} };
 const pcDotsOf = (d) => (d && pcDots[d.areaKey]) || [];
-function pcScore(d, trees, dots) {
+// The patch dotted: the dots' outline, 4 m out (NZTM ring), or null.
+function pcDotPatch(dots) {
+  if (dots.length < 3) return null;
+  try {
+    const hull = turf.convex(turf.featureCollection(dots.map(p => turf.point(p))));
+    if (!hull) return null;
+    const ring = hull.geometry.coordinates[0], n = ring.length - 1;
+    const cx = ring.slice(0, n).reduce((t, p) => t + p[0], 0) / n, cy = ring.slice(0, n).reduce((t, p) => t + p[1], 0) / n;
+    return turf.polygon([ring.map(([x, y]) => { const dx = x - cx, dy = y - cy, l = Math.hypot(dx, dy) || 1; return [x + dx / l * 4, y + dy / l * 4]; })]);
+  } catch (e) { return null; }
+}
+function pcMatch(trees, dots, sx, sy, inPatch) {
+  const T = trees.list, crownAt = (x, y) => {
+    if (!trees.lab) return -1;
+    const c = Math.floor((x - trees.x0) / trees.res), r = Math.floor((trees.y1 - y) / trees.res);
+    return c < 0 || r < 0 || c >= trees.W || r >= trees.H ? -1 : trees.lab[r * trees.W + c];
+  };
+  const dotHit = new Int32Array(dots.length).fill(-1), treeHit = new Int32Array(T.length).fill(-1);
+  // A dot in a crown: that tree, the dot nearest its top winning.
+  dots.forEach(([x, y], a) => {
+    const t = crownAt(x + sx, y + sy);
+    if (t < 0) return;
+    const dd = Math.hypot(T[t].x - x - sx, T[t].y - y - sy), b = treeHit[t];
+    if (b < 0) { treeHit[t] = a; dotHit[a] = t; }
+    else if (dd < Math.hypot(T[t].x - dots[b][0] - sx, T[t].y - dots[b][1] - sy)) { dotHit[b] = -1; treeHit[t] = a; dotHit[a] = t; }
+  });
+  // Dots in no crown (or beaten to one): the nearest free top close by.
+  const pairs = [];
+  dots.forEach(([x, y], a) => { if (dotHit[a] >= 0) return; T.forEach((t, b) => { if (treeHit[b] >= 0 || !inPatch[b]) return; const dd = Math.hypot(t.x - x - sx, t.y - y - sy); if (dd <= PC_DOT_MATCH_M) pairs.push([dd, a, b]); }); });
+  pairs.sort((p, q) => p[0] - q[0]);
+  for (const [, a, b] of pairs) if (dotHit[a] < 0 && treeHit[b] < 0) { dotHit[a] = b; treeHit[b] = a; }
+  let m = 0;
+  for (const v of dotHit) if (v >= 0) m++;
+  return { m, dotHit };
+}
+function pcScore(d, trees, dots, shift) {
   const T = trees.list;
   if (!dots.length) return null;
-  // The photo's shift from the LiDAR: dots to their nearest top, within 6 m.
-  const ox = [], oy = [];
-  for (const [x, y] of dots) {
-    let best = 36, bx = 0, by = 0;
-    for (const t of T) { const dx = t.x - x, dy = t.y - y, dd = dx * dx + dy * dy; if (dd < best) { best = dd; bx = dx; by = dy; } }
-    if (best < 36) { ox.push(bx); oy.push(by); }
+  const patch = pcDotPatch(dots);
+  const inPatch = T.map(t => !patch || turf.booleanPointInPolygon([t.x, t.y], patch));
+  const nIn = inPatch.filter(Boolean).length;
+  // The photo's shift: searched, kept only if it clearly matches more.
+  let sx = 0, sy = 0, best = pcMatch(trees, dots, 0, 0, inPatch);
+  if (shift) { sx = shift[0]; sy = shift[1]; best = pcMatch(trees, dots, sx, sy, inPatch); }
+  else if (dots.length >= PC_DOT_MIN) {
+    const base = best.m;
+    for (let x = -PC_DOT_SHIFT_MAX; x <= PC_DOT_SHIFT_MAX; x += 1) for (let y = -PC_DOT_SHIFT_MAX; y <= PC_DOT_SHIFT_MAX; y += 1) {
+      if (!x && !y) continue;
+      const r = pcMatch(trees, dots, x, y, inPatch);
+      if (r.m > best.m && r.m >= base + Math.max(3, 0.1 * dots.length)) { best = r; sx = x; sy = y; }
+    }
   }
-  const med = (a) => { const b = a.slice().sort((p, q) => p - q); return b.length ? b[b.length >> 1] : 0; };
-  let sx = 0, sy = 0;
-  if (ox.length >= 5) { sx = med(ox); sy = med(oy); if (Math.hypot(sx, sy) < 0.75) sx = sy = 0; }
-  // Nearest pairs first, each dot and each tree once.
-  const pairs = [];
-  dots.forEach(([x, y], a) => T.forEach((t, b) => { const dd = Math.hypot(t.x - x - sx, t.y - y - sy); if (dd <= PC_DOT_MATCH_M) pairs.push([dd, a, b]); }));
-  pairs.sort((p, q) => p[0] - q[0]);
-  const dotHit = new Int32Array(dots.length).fill(-1), treeHit = new Uint8Array(T.length);
-  let m = 0;
-  for (const [, a, b] of pairs) if (dotHit[a] < 0 && !treeHit[b]) { dotHit[a] = b; treeHit[b] = 1; m++; }
-  const recall = m / dots.length, precision = T.length ? m / T.length : 0;
-  return { matched: m, dots: dots.length, trees: T.length, recall, precision, f1: m ? 2 * recall * precision / (recall + precision) : 0, shift: [sx, sy], dotHit };
+  const m = best.m, recall = m / dots.length, precision = nIn ? Math.min(1, m / nIn) : 0;
+  return { matched: m, dots: dots.length, trees: nIn, recall, precision, f1: m ? 2 * recall * precision / (recall + precision) : 0, shift: [sx, sy], dotHit: best.dotHit };
 }
 const pcPct = (v) => Math.round(100 * v) + '%';
 const pcPrmSay = (P) => {
@@ -12943,7 +13079,7 @@ function pcDotsRender() {
   else if (!dots.length) h += '<p style="margin:0 0 6px;">Dot the trees you can see on the aerial photo, and inferrd. scores the trees it found against yours, and can tune itself to them. ' + PC_DOT_MIN + ' or more dots, all the trees in a patch.</p>';
   if (sc) {
     h += '<p style="margin:0 0 6px;"><strong>' + sc.matched + ' of your ' + sc.dots + ' trees found (' + pcPct(sc.recall) + ')</strong>, and ' + sc.matched + ' of the ' + sc.trees + ' found are yours (' + pcPct(sc.precision) + '). ' +
-      'Matched within ' + PC_DOT_MATCH_M + ' m' + (sc.shift[0] || sc.shift[1] ? ', allowing for the photo sitting ' + Math.hypot(sc.shift[0], sc.shift[1]).toFixed(1) + ' m off the LiDAR' : '') + '. On the map, a red dot is a tree of yours not found.</p>';
+      'A dot counts as found when it falls in a crown found, one dot to a crown' + (sc.shift[0] || sc.shift[1] ? ', allowing for the photo sitting about ' + Math.round(Math.hypot(sc.shift[0], sc.shift[1])) + ' m off the LiDAR' : '') + '; only trees within the patch you dotted count. On the map, a red dot is a tree of yours not found.</p>';
     if (sc.trees > sc.matched && sc.dots >= PC_DOT_MIN) h += '<p style="margin:0 0 6px;color:var(--text3);">Trees found with no dot are either trees you didn\'t dot (under the canopy, or hard to see) or one crown read as two.</p>';
   }
   h += '<p style="margin:0 0 6px;">Settings: ' + (tuned ? 'tuned to your dots on ' + escHtml(tuned) + ' (' + escHtml(pcPrmSay(pcSegPrm)) + ').' : 'the defaults.') + '</p>';
@@ -12979,13 +13115,13 @@ async function pcTune() {
   const d = pcData, dots = pcDotsOf(d);
   if (!d || dots.length < PC_DOT_MIN || pcTuning) return;
   pcTuning = true; pcDotsRender();
-  const grid = { reachA: [0.04, 0.06, 0.08, 0.1, 0.13], reachB: [0.5, 1, 1.5], dipM: [0.5, 1, 2, 3], dipFrac: [0.05, 0.1, 0.2], thSeed: [0.35, 0.45, 0.55], thCrown: [0.45, 0.55, 0.65] };
-  if (d.rgb) grid.colour = [0, 20, 12, 8, 5];
-  const score = (P) => pcScore(d, pcSegment(d, P), dots);
+  const grid = { reachA: [0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.13], reachB: [0.5, 1, 1.5, 2, 2.5], dipM: [0.25, 0.5, 1, 2, 3], dipFrac: [0, 0.05, 0.1, 0.2], thSeed: [0.35, 0.45, 0.55, 0.65], thCrown: [0.45, 0.55, 0.65, 0.75] };
+  if (d.rgb) grid.colour = [0, 12, 10, 8, 6, 5];
+  const base = pcScore(d, d.trees, dots), shift = base.shift; // the photo's shift, found once
+  const score = (P) => pcScore(d, pcSegment(d, P), dots, shift);
   let cur = Object.assign({}, pcSegPrm), curS = score(cur);
-  const base = curS;
   let runs = 0;
-  for (let round = 0; round < 2; round++) {
+  for (let round = 0; round < 3; round++) {
     for (const k of Object.keys(grid)) {
       for (const v of grid[k]) {
         if (v === cur[k]) continue;

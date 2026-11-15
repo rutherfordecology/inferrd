@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.102.0 — 2026-11-16
+
+- Point cloud, trees: better defaults, learned from 64 trees dotted by hand
+  in two Gisborne 2023 blocks (Area 5, 45 trees; Area 2, 19 trees).
+  - **Split by colour:** where one smooth canopy holds two trees that height
+    can't tell apart, a crown with two clearly different colours (each part
+    at least 25 m² and reaching 85% of the crown's top) is split in two.
+    Most missed trees in Area 5 shared a crown with a neighbour and no dip
+    between them, but differed in colour (ΔE about 6 between trees, about 1
+    within one).
+  - **New defaults:** tops 35% of the top's height (was 45%), colour 8.
+  - **Scores against your dots, before → after:** Area 5, 19 → 27 of 45
+    found; Area 2, 12 → 13 of 19 found, with 21 trees found in the patch
+    (was 20).
+- Checking against dots is fairer to wide crowns. A dot counts as found
+  when it falls in a crown found (one dot to a crown), rather than within
+  3 m of its top. Only trees inside the patch you dotted count against the
+  score. The photo's shift is searched for and kept only when it clearly
+  matches more.
+- Tune tries a wider range of settings (three rounds) and colour settings
+  down to 5.
+
 ## v0.101.1 — 2026-11-16
 
 - Point cloud: checking the trees against your dots is now step **4 · Check
