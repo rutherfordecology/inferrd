@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.95.1 — 2026-11-16
+
+- Point cloud, Each tree: the trees now take the colours of New Zealand
+  birds (kererū green, purple and beak, tūī blue, teal and violet, kea olive
+  and underwing, kākāpō lime, kākā red, kōtare blue and orange, ruru eye),
+  13 in all, and no two touching crowns share one (each tree takes the
+  first colour no neighbouring crown has). Browns and greys stay for the
+  ground and what's below the crowns. The map dots match, and clicking near
+  one names its bird colour.
+
 ## v0.95.0 — 2026-11-16
 
 - **Each tree, from the point cloud.** Loading a point cloud now finds the
