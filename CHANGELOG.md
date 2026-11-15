@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.104.0 — 2026-11-16
+
+- Point cloud, 3D: the ground can be a **surface**. The Hide ground
+  tickbox is now a **Ground** picker: Points, Surface or Hidden.
+  - **Surface** is the ground model the heights are measured from: ground
+    returns averaged per 1 m cell, with gaps filled from the cells round
+    them. It covers the area only, in earth brown, shaded from the
+    north-west so gullies and ridges show.
+  - Over very big areas the surface is coarser, to keep it light.
+  - Works with Show (for example Up to 5 m on a surface), in both views,
+    and is remembered. A saved Hide ground carries over as Hidden.
+
 ## v0.103.1 — 2026-11-16
 
 - Point cloud: **Tallest** is now the tallest tree found, its highest
