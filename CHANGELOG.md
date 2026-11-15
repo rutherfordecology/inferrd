@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.91.1 — 2026-11-15
+
+- **Sign-in Worker accepts inferrd.rutherfordecology.co.nz** as well as the
+  github.io address (deployed), ready for the move to inferrd's own address.
+  louped-admin was updated the same way (catchment_reports v0.18.1).
+
 ## v0.91.0 — 2026-11-13
 
 - **Louped viewer v0.19.0: click the 3D model for what's there.** As on

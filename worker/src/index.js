@@ -18,6 +18,7 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 // Browser origins allowed to call this Worker. Add new app origins here.
 const ALLOWED_ORIGINS = [
   'https://rutherfordecology.github.io',
+  'https://inferrd.rutherfordecology.co.nz', // the app's own address once it moves there
   'http://localhost:7899',
 ];
 
