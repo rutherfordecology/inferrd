@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.93.0 — 2026-11-15
+
+- **Trees above the canopy**, a new LiDAR layer in the Layers panel: a pink
+  dot on each tree that rises at least 2, 3, 5, 8 or 12 m (5 by default)
+  above the canopy round it, so emergents over a forest and lone trees in
+  open ground stand out, and an even canopy gets no dots. Same method as
+  howtall: a tree top is a cell over 5 m that's the highest within 2 m; the
+  canopy round it is the 95th-percentile height in a ring 8 to 20 m out
+  (gaps and water count as open ground); two tops count as separate trees
+  only if the canopy dips between them by at least 2 m or a quarter of the
+  lower one. Clicking near a dot adds the tree's height and how far it rises
+  to the heights popup.
+- Dots are thinned on screen at 10 px, tallest kept, and redrawn on zoom, so
+  a big area zoomed out isn't solid pink; the layer's note says how many
+  more show zoomed in. Up to 5,000 trees an area.
+- Tested on Bay of Plenty forest: an 800 m square at 1 m takes 30-100 ms
+  (820 trees at 2 m above the canopy, 375 at 5 m, 58 at 12 m); a 2.8 km
+  square at 2 m takes about 0.3 s.
+
 ## v0.92.0 — 2026-11-15
 
 - **inferrd. moves to https://inferrd.rutherfordecology.co.nz/** (CNAME file;

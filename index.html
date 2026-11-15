@@ -1504,6 +1504,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <p>The <strong>LiDAR</strong> tab at the top uses LINZ's free 1 m elevation models instead of satellite imagery, and needs no access key. Draw or pick an area and inferrd. lists the LiDAR surveys that cover it, newest first, but those with data over all of it before those that only reach an edge (from each survey's LINZ capture area, since a survey's edge tiles can be mostly empty). If a loaded survey turns out to have no data, or almost none, over an area, the tab says so and names one that does. Load one to see vegetation height (the surface model less the ground model, DSM − DEM, from the same flight), a hillshade of the bare ground, a hillshade of the surface, or coloured elevation; with two or more surveys, the change in vegetation height or in the bare ground between the earliest and the latest, with contours of the bare ground over any of them (from the ground model, so they follow the ground under the trees), at an interval set by the height range, or at a fixed 0.5, 1, 5, 20 or 100 m ticked under Contours in the Layers panel. Contours of the surface (DSM) are a second layer, off at first: they follow the tops of trees and roofs, and keep embankments over culverts and bridges, which the ground model may cut through. <strong>View in 3D</strong>, under Load LiDAR, shows the loaded ground or surface model as a 3D model to tilt and turn, coloured as on the map (every layer that's on in the Layers panel, in its order and at its opacity, over the basemap: set the map up in 2D, then look at it in 3D), by an aerial photo, or by height on a choice of colour ramps, and with contours of the model shown (switched on or off in the 3D view); the heights can be exaggerated to bring out low relief. Aerial photos are LINZ's (Toitū Te Whenua, CC BY 4.0), read straight from the open nz-imagery bucket: the survey flown nearest the LiDAR is picked first, and any other over the area can be chosen. 0.5 m contours are traced at 1 m, fine enough for drains, terraces and scarps; they are best on open ground, since under bush fewer pulses reach the ground. The results pane gives the area in each height class, the spread of heights and a CSV. Click the map for the ground, surface and height at a point.</p>
     <p>Heights are for the date the survey was flown. They include anything standing on the ground, buildings and power lines too. The 1 m grid also smooths narrow crowns and gaps. Areas up to about 3 km across are read at the full 1 m; bigger ones are read at 2, 4, 8 or 16 m. Data: Toitū Te Whenua Land Information New Zealand, CC BY 4.0, read straight from LINZ's open nz-elevation bucket.</p>
 
+    <p><strong>Trees above the canopy</strong> (in the Layers panel, once LiDAR is loaded) puts a pink dot on each tree that rises at least the chosen height (2, 3, 5, 8 or 12 m) above the canopy round it: emergents over a forest and lone trees in open ground. The canopy round a tree is the height in a ring 8 to 20 m from its top that only 5% of the ring is above, so a hedge or a neighbouring tree crossing the ring doesn't count as canopy. Trees in an even canopy get no dot. Click near a dot for the tree's height and how far it rises. Best at 1 m; at 2 m and coarser, crowns blur together.</p>
     <p><strong>Several areas, several surveys.</strong> Draw more than one area and they load together, compared in one table and on one chart. Tick "Compare surveys over time" and pick 2 or 3 surveys to see how the same areas changed: a change table, and a Height change layer, red where vegetation dropped and blue where it grew. Surveys differ in sensor and processing, so changes under about a metre may not be real.</p>
 
 
@@ -1563,7 +1564,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.92.0';
+const APP_VERSION = 'v0.93.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -5957,6 +5958,8 @@ function clearLidar() {
   lidarPool = null;
   lidarLoadedKey = null;
   mapStack.refresh('lidar_contours');
+  lidarEmergeShown = [];
+  mapStack.refresh('lidar_emergents');
   document.getElementById('lidarContent').style.display = 'none';
   document.getElementById('lidarEmpty').style.display = '';
   map.closePopup();
@@ -6121,6 +6124,7 @@ function renderLidarLayers() {
   lidarSets.forEach(d => { if (lidarSetShown(d)) renderLidarSet(d, hLut, eLut, cLut); else removeLidarOverlay(d); });
   renderLidarLegend();
   mapStack.refresh('lidar_contours');
+  mapStack.refresh('lidar_emergents');
 }
 // Loss red, gain blue; the middle (under 0.5 m either way) is left grey.
 const LIDAR_CHANGE_RAMP = [[-10, '#8e0d1c'], [-4, '#d6604d'], [-0.5, '#f4c6b2'], [0.5, '#c6dbef'], [4, '#4393c3'], [10, '#08306b']];
@@ -6440,6 +6444,168 @@ Object.entries(LIDAR_CONTOUR_SRC).forEach(([src, c]) => {
           (cut ? ' Too dense to draw in full: stopped partway. Choose a wider interval.' : '') };
     } });
 });
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Trees above the canopy: tree tops that rise at least x m above the
+   canopy round them (emergents over a forest, lone trees in open ground),
+   as a layer of pink dots. As in howtall: a tree top is a cell over 5 m
+   that is the highest within 2 m; the canopy round it is the
+   95th-percentile height in a ring 8 to 20 m out (gaps and water count as
+   open ground, and the top 5% lets a hedge or another tree cross the ring
+   without counting); two tops are separate trees only if the canopy dips
+   between them by at least 2 m or a quarter of the lower one.
+   ────────────────────────────────────────────────────────────────────────── */
+const LIDAR_EMERGE_STEPS = [2, 3, 5, 8, 12];
+const LIDAR_EMERGE_DEFAULT = 5;
+const LIDAR_EMERGE_MIN_H = 5, LIDAR_EMERGE_RING = [8, 20], LIDAR_EMERGE_MAX = 5000;
+const LIDAR_EMERGE_GAP_PX = 10; // dots closer than this on screen are thinned, tallest kept
+let lidarEmergeAbove = LIDAR_EMERGE_DEFAULT;
+try { const v = Number(localStorage.getItem('inferrd.lidarEmergeAbove')); if (LIDAR_EMERGE_STEPS.includes(v)) lidarEmergeAbove = v; } catch (e) {}
+let lidarEmergeShown = []; // [{ d, i, h, rise, ll }] on the map now, for the click popup
+const lidarEmergeCache = new WeakMap(); // height array -> { [above]: list }
+function lidarEmergents(d, above) {
+  const h = d.height, g = d.grid;
+  if (!h) return [];
+  let byAbove = lidarEmergeCache.get(h);
+  if (!byAbove) lidarEmergeCache.set(h, byAbove = {});
+  if (byAbove[above]) return byAbove[above];
+  const W = g.W, H = g.H, res = g.res, mask = d.mask;
+  // Tree tops.
+  const pr = Math.max(1, Math.round(2 / res));
+  const peaks = [];
+  for (let r = 0; r < H; r++) for (let c = 0; c < W; c++) {
+    const i = r * W + c, v = h[i];
+    if (!mask[i] || !(v >= LIDAR_EMERGE_MIN_H)) continue;
+    let top = true;
+    for (let dy = -pr; dy <= pr && top; dy++) {
+      const rr = r + dy;
+      if (rr < 0 || rr >= H) continue;
+      for (let dx = -pr; dx <= pr; dx++) {
+        const cc = c + dx;
+        if ((dx || dy) && cc >= 0 && cc < W && h[rr * W + cc] > v) { top = false; break; }
+      }
+    }
+    if (top) peaks.push(i);
+  }
+  // The ring, read every 2 m.
+  const st = Math.max(1, Math.round(2 / res)), rIn = LIDAR_EMERGE_RING[0] / res, rOut = LIDAR_EMERGE_RING[1] / res;
+  const lim = Math.floor(rOut / st) * st, ring = [];
+  for (let dy = -lim; dy <= lim; dy += st) for (let dx = -lim; dx <= lim; dx += st) {
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= rIn * rIn && d2 <= rOut * rOut) ring.push([dx, dy]);
+  }
+  // Stands out: no more than 5% of the ring is above (top - x).
+  const cand = [];
+  for (const i of peaks) {
+    const r0 = Math.floor(i / W), c0 = i % W, t = h[i] - above;
+    let n = 0, over = 0;
+    for (const [dx, dy] of ring) { const rr = r0 + dy, cc = c0 + dx; if (rr >= 0 && cc >= 0 && rr < H && cc < W) n++; }
+    const allowed = Math.floor(n * 0.05);
+    for (const [dx, dy] of ring) {
+      const rr = r0 + dy, cc = c0 + dx;
+      if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+      if (h[rr * W + cc] > t && ++over > allowed) break;
+    }
+    if (over <= allowed) cand.push(i);
+  }
+  // One top per crown, tallest first.
+  cand.sort((a, b) => h[b] - h[a]);
+  const B = Math.max(1, Math.round(20 / res)), buckets = new Map(), out = [];
+  const xy = (i) => [i % W, Math.floor(i / W)];
+  const separate = (i, j) => {
+    const [c0, r0] = xy(i), [c1, r1] = xy(j), dist = Math.hypot(c1 - c0, r1 - r0) * res;
+    if (dist < 2) return false;
+    if (dist > 20) return true;
+    const lo = Math.min(h[i], h[j]), need = lo - Math.max(2, 0.25 * lo);
+    const steps = Math.max(2, Math.ceil(dist / res));
+    for (let k = 1; k < steps; k++) {
+      const v = h[Math.round(r0 + (r1 - r0) * k / steps) * W + Math.round(c0 + (c1 - c0) * k / steps)];
+      if (!(v === v) || v <= need) return true;
+    }
+    return false;
+  };
+  for (const i of cand) {
+    const [c, r] = xy(i), bc = Math.floor(c / B), br = Math.floor(r / B);
+    let ok = true;
+    for (let a = bc - 1; a <= bc + 1 && ok; a++) for (let b = br - 1; b <= br + 1 && ok; b++)
+      for (const j of buckets.get(a + ',' + b) || []) if (!separate(i, j)) { ok = false; break; }
+    if (!ok) continue;
+    const k = bc + ',' + br;
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(i);
+    out.push(i);
+    if (out.length >= LIDAR_EMERGE_MAX) break;
+  }
+  // How far each rises: its height less the ring's 95th percentile.
+  const list = out.map(i => {
+    const r0 = Math.floor(i / W), c0 = i % W, vals = [];
+    for (const [dx, dy] of ring) {
+      const rr = r0 + dy, cc = c0 + dx;
+      if (rr < 0 || cc < 0 || rr >= H || cc >= W) continue;
+      const v = h[rr * W + cc]; vals.push(v === v ? Math.max(0, v) : 0);
+    }
+    vals.sort((a, b) => a - b);
+    return { i, h: h[i], rise: h[i] - (vals.length ? vals[Math.floor(vals.length * 0.95)] : 0) };
+  });
+  list.capped = out.length >= LIDAR_EMERGE_MAX;
+  byAbove[above] = list;
+  return list;
+}
+map.createPane('lidar_emergentsPane');
+map.on('zoomend', () => { if (mapStack.shown().some(l => l.key === 'lidar_emergents')) mapStack.refresh('lidar_emergents'); });
+mapStack.add({ key: 'lidar_emergents', tab: 'LiDAR', rank: 4, op: 1, pane: 'lidar_emergentsPane', swatch: '#ff1f9e', name: 'Trees above the canopy',
+  notes: 'Tree tops that rise at least the chosen height above the canopy round them (the 95th-percentile height 8 to 20 m away): emergents over a forest, lone trees in open ground. Click near one for its height.',
+  available: () => !!lidarPool && lidarSets.some(d => lidarSetShown(d) && d.height),
+  optsLabel: 'Above canopy by (m)',
+  opts: LIDAR_EMERGE_STEPS.map(m => ({ label: String(m),
+    title: 'Mark trees that rise at least ' + m + ' m above the canopy round them. None ticked: ' + LIDAR_EMERGE_DEFAULT + ' m.',
+    get: () => lidarEmergeAbove === m,
+    set: (on) => {
+      lidarEmergeAbove = on ? m : LIDAR_EMERGE_DEFAULT;
+      try { localStorage.setItem('inferrd.lidarEmergeAbove', String(lidarEmergeAbove)); } catch (e) {}
+      mapStack.refresh('lidar_emergents');
+    } })),
+  draw: async (pane) => {
+    const sets = lidarSets.filter(d => lidarSetShown(d) && d.height);
+    const above = lidarEmergeAbove, renderer = L.canvas({ pane }), marks = [], shown = [];
+    let capped = false, coarse = 0, total = 0;
+    const all = [];
+    for (const d of sets) {
+      await new Promise(r => setTimeout(r, 0)); // keep the page responsive
+      const g = d.grid, list = lidarEmergents(d, above);
+      capped = capped || list.capped;
+      if (g.res > 2) coarse = Math.max(coarse, g.res);
+      total += list.length;
+      for (const t of list) {
+        const [lon, lat] = proj4('EPSG:2193', 'EPSG:4326', [g.x0 + (t.i % g.W + 0.5) * g.res, g.y1 - (Math.floor(t.i / g.W) + 0.5) * g.res]);
+        all.push(Object.assign({ d, ll: L.latLng(lat, lon) }, t));
+      }
+    }
+    // Thinned on screen, tallest first: a dot only where it's at least
+    // LIDAR_EMERGE_GAP_PX from the others, so a big area zoomed out isn't
+    // solid pink. Redrawn on zoom, so zooming in shows more.
+    all.sort((a, b) => b.h - a.h);
+    const z = map.getZoom(), G = LIDAR_EMERGE_GAP_PX, cells = new Map();
+    for (const t of all) {
+      const q = map.project(t.ll, z), gx = Math.floor(q.x / G), gy = Math.floor(q.y / G);
+      let free = true;
+      for (let a = gx - 1; a <= gx + 1 && free; a++) for (let b = gy - 1; b <= gy + 1 && free; b++)
+        for (const o of cells.get(a + ',' + b) || []) if ((o.x - q.x) ** 2 + (o.y - q.y) ** 2 < G * G) { free = false; break; }
+      if (!free) continue;
+      const k = gx + ',' + gy;
+      if (!cells.has(k)) cells.set(k, []);
+      cells.get(k).push(q);
+      shown.push(t);
+      marks.push(L.circleMarker(t.ll, { pane, renderer, interactive: false, radius: 4.5, color: '#fff', weight: 1.5, fillColor: '#ff1f9e', fillOpacity: 1 }));
+    }
+    lidarEmergeShown = shown;
+    const n = total, hidden = total - shown.length;
+    return { layer: L.layerGroup(marks), legend: [['#ff1f9e', 'Rises ' + above + ' m or more above the canopy round it']],
+      note: n.toLocaleString() + ' tree' + (n === 1 ? '' : 's') + (capped ? ' (stopped at ' + LIDAR_EMERGE_MAX.toLocaleString() + ' in an area)' : '') + '. ' +
+        (hidden > 0 ? hidden.toLocaleString() + ' too close together to show at this zoom: zoom in for them. ' : '') +
+        (coarse ? 'At ' + coarse + ' m cells crowns blur together, so this is rough: draw a smaller area for 1 m. ' : '') +
+        'Click near one for its height.' };
+  } });
 
 /* ──────────────────────────────────────────────────────────────────────────
    3D view of the loaded LiDAR: the ground or surface model as a mesh to
@@ -7889,6 +8055,13 @@ map.on('click', (e) => {
         (last.gchange ? row('Ground change', last.gchange[i] === last.gchange[i] ? (last.gchange[i] > 0 ? '+' : '') + last.gchange[i].toFixed(2) + ' m' : 'no data') : '');
     } else {
       body = row('Ground (DEM)', m(d.dem[i])) + (d.dsm ? row('Surface (DSM)', m(d.dsm[i])) + row('Vegetation height', hm(d)) : '');
+    }
+    // A tree marked "above the canopy" within 12 px of the click.
+    if (mapStack.shown().some(l => l.key === 'lidar_emergents')) {
+      const pt = map.latLngToContainerPoint(e.latlng);
+      let near = null, best = 144;
+      for (const t of lidarEmergeShown) { const q = map.latLngToContainerPoint(t.ll), dd = (q.x - pt.x) ** 2 + (q.y - pt.y) ** 2; if (dd <= best) { best = dd; near = t; } }
+      if (near) body = row('Tree above the canopy', near.h.toFixed(1) + ' m') + row('Rises above the canopy by', near.rise.toFixed(1) + ' m') + body;
     }
     const multiArea = new Set(lidarSets.map(x => x.areaId)).size > 1;
     L.popup().setLatLng(e.latlng).setContent((multiArea ? '<div style="font-size:11.5px;color:var(--text2);margin-bottom:3px;">' + escHtml(d.areaName) + '</div>' : '') +
@@ -10245,6 +10418,7 @@ const LOUPED_LICENCES = {
   'phys_luc': { share: 'unclear', licence: 'not stated', note: 'LUC classes from MPI\'s Erosion Susceptibility Classification, built on the NZLRI (© Landcare Research); MPI publishes it with no licence. Landcare\'s own NZLRI layers are under the Landcare Data Use Licence, which bars passing them on.' },
   'lidar': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4),
   'lidar_contours': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4),
+  'lidar_emergents': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4),
   'lidar_contours_dsm': Object.assign({ attribution: 'Derived from LINZ LiDAR, Toitū Te Whenua' }, LIC_CCBY4)
 };
 // Earth Engine layers: each dataset is open, but the pictures are computed
