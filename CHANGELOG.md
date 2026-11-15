@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.97.0 — 2026-11-16
+
+- Point cloud, 3D: **Compare 2 areas side by side in 3D** opens two views,
+  each showing its own area. With three or more areas loaded, you pick which
+  two at the top left of each view. With **Move together** on (the
+  default), turning, zooming, standing and walking in one view does the
+  same in the other, from the same place in each area, each at 1.5 m above
+  its own ground. Turn it off to steer each view on its own: the view
+  clicked is the one steered. The height colours use one scale for both
+  views, so the same colour is the same height in each.
+- Point cloud, Load: adding an area now reads only that area. Areas already
+  loaded from the same survey stay as they are. The button says "for the
+  new area" and the status gives only the new download; once every area is
+  loaded it reads "All areas loaded".
+
 ## v0.96.1 — 2026-11-16
 
 - Point cloud: Load now loads every drawn area (up to six) in one go, so

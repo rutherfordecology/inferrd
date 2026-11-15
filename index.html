@@ -291,7 +291,14 @@ header { background: var(--orange-dark); color: white; padding: 0 1.5rem; displa
 .pc-legend:empty { display: none; }
 .pc-legend.dark { background: rgba(0,0,0,0.6); color: #eee; }
 .pc-tables { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
-#pcView:focus { outline: none; }
+.pc-panes { flex: 1; min-height: 0; display: flex; gap: 3px; background: var(--rule); position: relative; }
+.pc-panes > .v3d-view { flex: 1; min-width: 0; }
+.pc-panes > .v3d-view:focus { outline: none; }
+.v3d.pc-two .pc-panes > .v3d-view.pc-active { box-shadow: inset 0 0 0 2px var(--base); }
+.pc-pane-head { position: absolute; top: 8px; left: 8px; z-index: 2; background: rgba(255,255,255,0.88); padding: 3px 6px; display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.pc-pane-head[hidden] { display: none; }
+.pc-pane-head select { font-size: 12px; font-family: var(--font-sans); padding: 2px 4px; border: 1px solid var(--border); max-width: 220px; }
+@media (max-width: 800px) { .pc-panes { flex-direction: column; } }
 .cut-box { background: var(--white); border: 1px solid var(--rule); width: 420px; max-width: 100%; max-height: calc(100vh - 32px); overflow-y: auto; padding: 14px 16px; font-family: var(--font-sans); font-size: 12.5px; color: var(--text); }
 .cut-box label.f { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text3); margin: 10px 0 4px; }
 .cut-box select, .cut-box input[type=number] { font-size: 12.5px; font-family: var(--font-sans); padding: 4px 6px; border: 1px solid var(--border); }
@@ -798,6 +805,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
         <div class="section-label">3 · Load</div>
         <button class="run-btn" id="pcRunBtn" type="button" disabled>Load point cloud</button>
         <button class="dl-btn" id="pc3dBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Turn the points round, or stand among them at 1.5 m and look about">View in 3D</button>
+        <button class="dl-btn" id="pc3dPairBtn" type="button" style="width:100%;margin-top:6px;" hidden title="Two areas in 3D side by side, moving together; pick which two at the top of each view">Compare 2 areas side by side in 3D</button>
         <div class="status-bar" id="pcStatus"></div>
       </div>
 
@@ -1600,7 +1608,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one or more areas (up to six) and inferrd. lists the surveys with points over them, newest first, then sizes up the download; all the areas load together. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
     <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); with two or more areas loaded, their lines are laid over each other to compare; a later load (another survey, say) adds its lines too, up to six. With several areas, <strong>Details, trees and 3D for</strong> picks which area the figures, tables and 3D view show; the map shows every area's trees. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
-    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
+    <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. With two or more areas loaded, <strong>Compare 2 areas side by side in 3D</strong> opens two views, each with its own area: with three or more loaded, pick which two at the top left of each view; with <strong>Move together</strong> on, turning, zooming, standing and walking in one view does the same in the other, from the same place in each area, and the height colours use one scale for both. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
     <p><strong>Draw to select:</strong> with reference layers switched on, drawing a shape also adds each of their areas lying within it as its own area. Your drawn shape is kept.</p>
@@ -1658,7 +1666,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.96.1';
+const APP_VERSION = 'v0.97.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -11741,7 +11749,7 @@ const PC_CLASS = { 0: ['Never classified', '#9e9e9e'], 1: ['Unclassified', '#bdb
 const PC_RET = [['Only return', '#c9c9c9'], ['First of several', '#ff8c00'], ['In between', '#19d3ff'], ['Last of several', '#8b5a2b']];
 let pcSurveys = [], pcSurveyId = null, pcSurveyKey = null;
 let pcPlan = null, pcData = null, pcBusy = false, pcRun = 0;
-let pcSets = [], pcLoadedKey = null; // every area loaded together; pcData is the one shown
+let pcSets = []; // every area loaded, from one survey; pcData is the one shown
 
 function setPcStatus(kind, msg) {
   const el = document.getElementById('pcStatus');
@@ -12106,8 +12114,10 @@ async function pcSizeUp() {
   syncPcControls();
   if (!list.length || !survey) return;
   const key = survey.id + '|' + pcAreasKey();
-  if (pcLoadedKey === key && pcSets.length) { setPcStatus('success', pcLoadedSay()); return; }
-  const ha = list.reduce((t, a) => t + turf.area(a.geojson) / 1e4, 0), many = list.length > 1;
+  const same = pcSets.filter(d => d.survey.id === survey.id), have = new Set(same.map(d => d.areaKey));
+  const todo = list.filter(a => !have.has(areaKey(a)));
+  if (!todo.length) { pcPlan = { key, survey, per: [], bytes: 0, est: 0, done: true }; syncPcControls(); setPcStatus('success', pcLoadedSay()); return; }
+  const ha = todo.reduce((t, a) => t + turf.area(a.geojson) / 1e4, 0), many = todo.length > 1;
   if (ha > PC_MAX_HA) { setPcStatus('error', (many ? 'These areas come' : 'This area is') + (many ? ' to ' : ' ') + Math.round(ha) + ' ha: far too big for a point cloud (several GB). Keep it under about ' + Math.round(PC_MAX_HA / 10) + ' ha to start.'); return; }
   try {
     setPcStatus('info', 'Sizing up: reading the survey\'s tile index…');
@@ -12116,7 +12126,7 @@ async function pcSizeUp() {
     if (run !== pcRun) return;
     const per = [], none = [];
     let done = 0;
-    for (const a of list) {
+    for (const a of todo) {
       const pa = await pcSizeArea(a, survey, index, run, () => setPcStatus('info', 'Sizing up' + (many ? ' ' + a.name : '') + ': ' + (++done) + ' tiles read…'));
       if (run !== pcRun) return;
       if (pa) per.push(pa); else none.push(a.name);
@@ -12124,9 +12134,12 @@ async function pcSizeUp() {
     if (!per.length) { setPcStatus('warning', survey.title + ' has no points over ' + (many ? 'these areas' : 'this area') + '. Try another survey, if there is one.'); return; }
     const bytes = per.reduce((t, x) => t + x.bytes, 0), est = per.reduce((t, x) => t + x.est, 0), tiles = new Set(per.flatMap(x => x.tiles.map(t => t.url))).size;
     const haIn = per.reduce((t, x) => t + x.ha, 0);
-    pcPlan = { key, survey, per, bytes, est };
-    const what = 'Needs ' + pcMB(bytes) + ' from ' + tiles + ' tile' + (tiles === 1 ? '' : 's') + (per.length > 1 ? ' for ' + per.length + ' areas' : '') + ', about ' + pcMillions(est) + ' points over ' + (haIn < 10 ? haIn.toFixed(1) : Math.round(haIn)) + ' ha' +
-      (est > PC_MAX_POINTS ? ' (an even ' + Math.round(100 * PC_MAX_POINTS / est) + '% of them kept, so the 3D view keeps up)' : '') + '.' +
+    // The points the 3D view can hold, less those already loaded; an even
+    // share kept in each new area if there are more.
+    const budget = Math.max(PC_MAX_POINTS - same.reduce((t, d) => t + d.n, 0), PC_MAX_POINTS / 4), keep = est > budget ? budget / est : 1;
+    pcPlan = { key, survey, per, bytes, est, keep, already: same.length };
+    const what = (same.length ? (same.length === 1 ? same[0].areaName + ' is' : same.length + ' areas are') + ' already loaded. The ' + (per.length > 1 ? per.length + ' new areas need ' : 'new area needs ') : 'Needs ') + pcMB(bytes) + ' from ' + tiles + ' tile' + (tiles === 1 ? '' : 's') + (per.length > 1 && !same.length ? ' for ' + per.length + ' areas' : '') + ', about ' + pcMillions(est) + ' points over ' + (haIn < 10 ? haIn.toFixed(1) : Math.round(haIn)) + ' ha' +
+      (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them kept, so the 3D view keeps up)' : '') + '.' +
       (none.length ? ' ' + survey.title + ' has no points over ' + none.join(', ') + ', so ' + (none.length > 1 ? 'they\'re' : 'it\'s') + ' left out.' : '') +
       (areas.length > PC_MAX_AREAS ? ' Only the first ' + PC_MAX_AREAS + ' areas load.' : '');
     if (bytes > PC_MAX_MB * 1e6) { pcPlan.tooBig = true; setPcStatus('error', what + ' That\'s too much to read in a browser: draw smaller or fewer areas.'); }
@@ -12226,7 +12239,7 @@ async function pcLoad() {
     setPcStatus('info', 'Loading the point cloud reader…');
     const L = await pcLazPerf();
     // One share kept across all the areas, so they compare like with like.
-    const keep = plan.est > PC_MAX_POINTS ? PC_MAX_POINTS / plan.est : 1;
+    const keep = plan.keep;
     const sets = [], empty = [];
     let got = 0;
     for (let k = 0; k < plan.per.length; k++) {
@@ -12242,9 +12255,11 @@ async function pcLoad() {
     // Lines on the chart in the order the areas were drawn, this load's last.
     sets.forEach(d => pcAddProfile(d, plan.per.find(p => p.planKey === d.planKey)));
     const showKey = pcData && pcData.areaKey;
-    pcSets = sets;
+    // Added to the areas already loaded from this survey, in drawing order.
+    const order = areas.map(areaKey);
+    pcSets = pcSets.filter(d => d.survey.id === plan.survey.id).concat(sets).sort((a, b) => order.indexOf(a.areaKey) - order.indexOf(b.areaKey));
     pcData = sets.find(d => d.areaKey === showKey) || sets[0];
-    pcLoadedKey = plan.key;
+    pcPlan = { key: plan.key, survey: plan.survey, per: [], bytes: 0, est: 0, done: true };
     pcEmptyAreas = empty;
     if (!document.getElementById('pcDlg').hidden) pcClose();
     mapStack.setOn('pc_trees', true); // just found: show them
@@ -12556,7 +12571,7 @@ function renderPcProfile() {
       ' <button type="button" class="pc-prof-x" data-k="' + k + '" title="Take this area off the chart" style="border:none;background:none;color:var(--text3);cursor:pointer;padding:0 2px;">✕</button></span>').join('') + '</div>';
   el.querySelectorAll('.pc-prof-x').forEach(b => b.addEventListener('click', () => { pcProfiles.splice(Number(b.dataset.k), 1); renderPcResults(); }));
   hint.textContent = ps.length < 2
-    ? 'To compare, draw another area and load again: every drawn area loads together, each its own line here.'
+    ? 'To compare, draw another area and load again: only the new area is read, and it adds its own line here.'
     : 'Each line is one area. Where one line sits right of another, that layer is denser there.';
 }
 document.getElementById('pcProfileMeasure').value = pcProfileMeasure;
@@ -12633,7 +12648,6 @@ function clearPc() {
   pcBusy = false;
   pcData = null;
   pcSets = [];
-  pcLoadedKey = null;
   pcPlan = null;
   if (!document.getElementById('pcDlg').hidden) pcClose();
   renderPcResults();
@@ -12641,11 +12655,14 @@ function clearPc() {
 }
 function syncPcControls() {
   const btn = document.getElementById('pcRunBtn');
-  const loaded = !!(pcPlan && pcLoadedKey === pcPlan.key && pcSets.length);
+  const loaded = !!(pcPlan && pcPlan.done), n = pcPlan ? pcPlan.per.length : 0;
   btn.disabled = pcBusy || !pcPlan || !!pcPlan.tooBig || loaded;
-  btn.textContent = pcBusy ? 'Loading…' : pcPlan && !pcPlan.tooBig && !loaded ? 'Load point cloud' + (pcPlan.per.length > 1 ? ' for ' + pcPlan.per.length + ' areas' : '') + ' (' + pcMB(pcPlan.bytes) + ')' : 'Load point cloud';
+  btn.textContent = pcBusy ? 'Loading…' : pcPlan && !pcPlan.tooBig && !loaded
+    ? 'Load point cloud' + (pcPlan.already ? ' for ' + (n > 1 ? n + ' new areas' : 'the new area') : n > 1 ? ' for ' + n + ' areas' : '') + ' (' + pcMB(pcPlan.bytes) + ')'
+    : loaded ? 'All areas loaded' : 'Load point cloud';
   document.getElementById('pc3dBtn').hidden = !pcData || pcBusy;
   document.getElementById('pc3dBtn').textContent = pcData && pcSets.length > 1 ? 'View ' + pcData.areaName + ' in 3D' : 'View in 3D';
+  document.getElementById('pc3dPairBtn').hidden = pcSets.length < 2 || pcBusy;
 }
 function pcAreasChanged() {
   if (!pcReady) return; // areas restored before this part of the page has run
@@ -12706,7 +12723,7 @@ map.on('click', (e) => {
   if (near) L.popup().setLatLng(near.ll).setContent('<strong>Tree ' + near.t.h.toFixed(1) + ' m</strong><br>Crown about ' + Math.round(near.t.crown) + ' m²<br><span style="color:var(--text3)">' + escHtml(near.d.areaName) + ', ' + escHtml(near.d.survey.title) + ' point cloud</span>').openOn(map);
 });
 
-/* ---- 3D: turn it round, or stand in it ---- */
+/* ---- 3D: turn it round, or stand in it; one area, or two side by side ---- */
 document.body.insertAdjacentHTML('beforeend',
   '<div class="v3d" id="pcDlg" hidden><div class="v3d-box">' +
   '<div class="v3d-bar"><strong id="pcTitle">Point cloud</strong>' +
@@ -12715,15 +12732,19 @@ document.body.insertAdjacentHTML('beforeend',
   '<label title="Leave out the ground points, to see the understorey and canopy"><input type="checkbox" id="pcHideGround">Hide ground</label>' +
   '<label title="How big each point is drawn">Points <input type="range" id="pcPtSize" min="0.02" max="0.6" step="0.01"></label>' +
   '<label title="A black background"><input type="checkbox" id="pcDark">Black background</label>' +
+  '<label id="pcLinkLab" hidden title="Turn, zoom and walk both views together, from the same place in each area"><input type="checkbox" id="pcLink">Move together</label>' +
   '<button class="v3d-close" type="button" title="Close (Esc)">✕</button></div>' +
-  '<div class="v3d-view" id="pcView" tabindex="0"><div class="v3d-msg" id="pcMsg"></div><div class="pc-legend" id="pcLegend"></div></div>' +
+  '<div class="pc-panes" id="pcPanes"></div>' +
   '<div class="v3d-foot" id="pcFoot"></div></div></div>');
-const pcDlg = document.getElementById('pcDlg'), pcViewEl = document.getElementById('pcView');
-const pcV = { mode: 'orbit', colours: 'hag', hideGround: false, dark: false, size: { orbit: 0.2, stand: 0.09 }, keys: new Set(), yaw: 0, pitch: 0, three: null };
+const pcDlg = document.getElementById('pcDlg'), pcPanesEl = document.getElementById('pcPanes');
+// Settings shared by the views; each view (pane) has its own area, camera
+// and mode.
+const pcV = { colours: 'hag', hideGround: false, dark: false, link: true, size: { orbit: 0.2, stand: 0.09 }, keys: new Set() };
 const PC_HAG_STOPS = ['#4575b4', '#74add1', '#a6d96a', '#fee08b', '#f46d43']; // low blue, through green, to red at the top
-try { const s = JSON.parse(localStorage.getItem('inferrd.pcView') || '{}'); if (s.colours) pcV.colours = s.colours; pcV.dark = !!s.dark; pcV.hideGround = !!s.hideGround; if (s.size) Object.assign(pcV.size, s.size); } catch (e) {}
-const pcSave = () => { try { localStorage.setItem('inferrd.pcView', JSON.stringify({ colours: pcV.colours, dark: pcV.dark, hideGround: pcV.hideGround, size: pcV.size })); } catch (e) {} };
-const pcSay = (m) => { const el = document.getElementById('pcMsg'); el.textContent = m || ''; el.style.display = m ? '' : 'none'; };
+try { const s = JSON.parse(localStorage.getItem('inferrd.pcView') || '{}'); if (s.colours) pcV.colours = s.colours; pcV.dark = !!s.dark; pcV.hideGround = !!s.hideGround; if (s.link === false) pcV.link = false; if (s.size) Object.assign(pcV.size, s.size); } catch (e) {}
+const pcSave = () => { try { localStorage.setItem('inferrd.pcView', JSON.stringify({ colours: pcV.colours, dark: pcV.dark, hideGround: pcV.hideGround, link: pcV.link, size: pcV.size })); } catch (e) {} };
+let pcPanes = [], pcActive = null, pcRaf = 0, pcLast = 0;
+const pcPaneStore = [];
 const pcHex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
 function pcRamp(stops) {
   const cs = stops.map(pcHex);
@@ -12740,7 +12761,10 @@ function pcOrder(d) {
   for (let k = 0; k < d.n; k++) if (d.S.cls[k] !== 2) o[a++] = k;
   return (d.order = o);
 }
-function pcColourArray(d, mode) {
+// The top of the height colours: each area's own, or one for both views
+// side by side, so the same colour is the same height in each.
+const pcHagTop = () => Math.max(5, ...pcPanes.map(P => P.d ? P.d.p999 : 0));
+function pcColourArray(d, mode, legendEl, hagTop) {
   const o = pcOrder(d), S = d.S, out = new Uint8Array(d.n * 3), set = (j, c) => { out[j * 3] = c[0]; out[j * 3 + 1] = c[1]; out[j * 3 + 2] = c[2]; };
   let legend = [];
   if (mode === 'tree' && d.trees) {
@@ -12767,11 +12791,11 @@ function pcColourArray(d, mode) {
     for (let j = 0; j < d.n; j++) { const v = Math.round(255 * Math.max(0, Math.min(1, (S.int[o[j]] - lo) / Math.max(1, hi - lo)))); out[j * 3] = out[j * 3 + 1] = out[j * 3 + 2] = v; }
     legend = [['#202020', 'Weak return'], ['#f0f0f0', 'Strong return']];
   } else {
-    const top = Math.max(5, d.p999), ramp = pcRamp(PC_HAG_STOPS), gc = pcHex('#9c7a54');
+    const top = hagTop || Math.max(5, d.p999), ramp = pcRamp(PC_HAG_STOPS), gc = pcHex('#9c7a54');
     for (let j = 0; j < d.n; j++) { const k = o[j]; set(j, S.cls[k] === 2 ? gc : ramp(d.hag[k] / top)); }
     legend = [['#9c7a54', 'Ground'], [PC_HAG_STOPS[0], '0 m'], [PC_HAG_STOPS[2], Math.round(top / 2) + ' m'], [PC_HAG_STOPS[4], Math.round(top) + ' m and up']];
   }
-  document.getElementById('pcLegend').innerHTML = legend.map(([c, t]) => '<div>' + (c ? '<span class="pc-sw" style="background:' + c + '"></span>' : '') + escHtml(t) + '</div>').join('');
+  if (legendEl) legendEl.innerHTML = legend.map(([c, t]) => '<div>' + (c ? '<span class="pc-sw" style="background:' + c + '"></span>' : '') + escHtml(t) + '</div>').join('');
   return out;
 }
 // Ground height in the 3D scene's frame (x east, z south, from the middle).
@@ -12779,93 +12803,103 @@ function pcGroundAt(d, lx, lz) {
   const g = d.g, c = Math.max(0, Math.min(g.W - 1, Math.floor(d.cx + lx - g.x0))), r = Math.max(0, Math.min(g.H - 1, Math.floor(g.y1 - (d.cy - lz))));
   return d.ground[r * g.W + c] - d.gMin;
 }
+const pcLinked = () => pcV.link && pcPanes.length > 1;
 function pcSync() {
-  pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === pcV.mode));
-  const sel = document.getElementById('pcColours');
-  sel.querySelector('option[value="rgb"]').disabled = !(pcData && pcData.rgb);
-  if (pcV.colours === 'rgb' && !(pcData && pcData.rgb)) pcV.colours = 'hag';
+  const A = pcActive, two = pcPanes.length > 1, mode = A ? A.mode : 'orbit';
+  pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  const sel = document.getElementById('pcColours'), rgb = pcPanes.length && pcPanes.every(P => P.d && P.d.rgb);
+  sel.querySelector('option[value="rgb"]').disabled = !rgb;
+  if (pcV.colours === 'rgb' && !rgb) pcV.colours = 'hag';
   sel.value = pcV.colours;
   document.getElementById('pcHideGround').checked = pcV.hideGround;
   document.getElementById('pcDark').checked = pcV.dark;
-  document.getElementById('pcPtSize').value = pcV.size[pcV.mode];
-  const credit = pcData ? ' Point cloud: ' + escHtml(pcData.survey.title) + ', Toitū Te Whenua LINZ, via OpenTopography, CC BY 4.0.' : '';
-  document.getElementById('pcFoot').innerHTML = (pcV.mode === 'stand'
-    ? '<strong>Standing at ' + PC_EYE_M + ' m.</strong> Drag to look about. W A S D or the arrow keys to walk (Shift to go faster). Double-click to jump to a spot. Esc to go back to the overview.'
-    : 'Drag to turn, right-drag to pan, scroll to zoom. <strong>Double-click anywhere to stand there at ' + PC_EYE_M + ' m</strong>, or use Stand.') + credit;
-  if (pcV.three) {
-    pcV.three.renderer.setClearColor(pcV.dark ? 0x000000 : 0xdfe6ea);
-    pcViewEl.style.background = pcV.dark ? '#000' : '';
-    document.getElementById('pcLegend').classList.toggle('dark', pcV.dark);
+  document.getElementById('pcLink').checked = pcV.link;
+  document.getElementById('pcLinkLab').hidden = !two;
+  document.getElementById('pcPtSize').value = pcV.size[mode];
+  const surveys = [...new Set(pcPanes.filter(P => P.d).map(P => P.d.survey.title))];
+  const credit = surveys.length ? ' Point cloud: ' + surveys.map(escHtml).join(', ') + ', Toitū Te Whenua LINZ, via OpenTopography, CC BY 4.0.' : '';
+  document.getElementById('pcFoot').innerHTML = (two ? (pcLinked() ? '<strong>Both views move together</strong>, from the same place in each area. ' : '<strong>Click a view to steer it.</strong> ') : '') +
+    (mode === 'stand'
+      ? '<strong>Standing at ' + PC_EYE_M + ' m.</strong> Drag to look about. W A S D or the arrow keys to walk (Shift to go faster). Double-click to jump to a spot. Esc to go back to the overview.'
+      : 'Drag to turn, right-drag to pan, scroll to zoom. <strong>Double-click anywhere to stand there at ' + PC_EYE_M + ' m</strong>, or use Stand.') + credit;
+  for (const P of pcPanes) {
+    P.renderer.setClearColor(pcV.dark ? 0x000000 : 0xdfe6ea);
+    P.el.style.background = pcV.dark ? '#000' : '';
+    P.legend.classList.toggle('dark', pcV.dark);
+    P.el.classList.toggle('pc-active', P === A);
   }
 }
-function pcBuild() {
-  const T = pcV.three, d = pcData;
-  if (T.points) { T.scene.remove(T.points); T.points.geometry.dispose(); T.points.material.dispose(); T.points = null; }
+function pcBuild(P) {
+  const d = P.d;
+  if (P.points) { P.scene.remove(P.points); P.points.geometry.dispose(); P.points.material.dispose(); P.points = null; }
   const o = pcOrder(d), S = d.S, pos = new Float32Array(d.n * 3);
   for (let j = 0; j < d.n; j++) { const k = o[j]; pos[j * 3] = S.x[k]; pos[j * 3 + 1] = S.z[k] - d.gMin; pos[j * 3 + 2] = -S.y[k]; }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  geo.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(d, pcV.colours), 3, true));
+  geo.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(d, pcV.colours, P.legend, pcHagTop()), 3, true));
   geo.computeBoundingSphere();
   const mat = new THREE.ShaderMaterial({
-    uniforms: { size: { value: pcV.size[pcV.mode] }, scale: { value: 500 }, minPx: { value: 1.5 }, maxPx: { value: 14 } },
+    uniforms: { size: { value: pcV.size[P.mode] }, scale: { value: 500 }, minPx: { value: 1.5 }, maxPx: { value: 14 } },
     vertexShader: 'attribute vec3 pcColor; uniform float size, scale, minPx, maxPx; varying vec3 vC;\nvoid main() { vC = pcColor; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv; gl_PointSize = clamp(size * scale / -mv.z, minPx, maxPx); }',
     fragmentShader: 'varying vec3 vC;\nvoid main() { vec2 c = gl_PointCoord - 0.5; if (dot(c, c) > 0.25) discard; gl_FragColor = vec4(vC, 1.0); }'
   });
-  T.points = new THREE.Points(geo, mat);
-  T.points.frustumCulled = false;
-  T.scene.add(T.points);
-  pcDrawRange();
-  pcScale();
+  P.points = new THREE.Points(geo, mat);
+  P.points.frustumCulled = false;
+  P.scene.add(P.points);
+  pcDrawRange(P);
+  pcScale(P);
 }
-function pcDrawRange() {
-  const T = pcV.three, d = pcData;
-  if (!T || !T.points) return;
-  const from = pcV.hideGround ? d.groundN : 0;
-  T.points.geometry.setDrawRange(from, d.n - from);
+function pcRecolour() {
+  const top = pcHagTop();
+  for (const P of pcPanes) if (P.points) P.points.geometry.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(P.d, pcV.colours, P.legend, top), 3, true));
 }
-function pcScale() {
-  const T = pcV.three;
-  if (!T || !T.points) return;
-  const h = T.renderer.domElement.height || 600;
-  T.points.material.uniforms.scale.value = h / (2 * Math.tan(T.camera.fov * Math.PI / 360));
-  T.points.material.uniforms.size.value = pcV.size[pcV.mode];
-  T.points.material.uniforms.minPx.value = pcV.mode === 'stand' ? 2 : 1.5;
+function pcDrawRange(P) {
+  if (!P.points) return;
+  const from = pcV.hideGround ? P.d.groundN : 0;
+  P.points.geometry.setDrawRange(from, P.d.n - from);
 }
-function pcOverview(reset) {
-  const T = pcV.three, d = pcData;
-  pcV.mode = 'orbit';
-  T.controls.enabled = true;
-  T.camera.fov = 45; T.camera.near = 0.5; T.camera.updateProjectionMatrix();
-  if (reset || !T.saved) {
+function pcScale(P) {
+  if (!P.points) return;
+  const h = P.renderer.domElement.height || 600;
+  P.points.material.uniforms.scale.value = h / (2 * Math.tan(P.camera.fov * Math.PI / 360));
+  P.points.material.uniforms.size.value = pcV.size[P.mode];
+  P.points.material.uniforms.minPx.value = P.mode === 'stand' ? 2 : 1.5;
+}
+// How far back the overview stands to see a whole area.
+const pcFrameDist = (d, fov) => Math.hypot(d.g.W / 2, d.g.H / 2, (d.zMax - d.zMin) / 2) / Math.sin(fov * Math.PI / 360) * 0.8;
+function pcOverview(P, reset, quiet) {
+  const d = P.d;
+  P.mode = 'orbit';
+  P.controls.enabled = true;
+  P.camera.fov = 45; P.camera.near = 0.5; P.camera.updateProjectionMatrix();
+  if (reset || !P.saved) {
     // Frame the whole box, slope and all, from the south-south-east and above.
-    const midY = (d.zMin + d.zMax) / 2 - d.gMin, r = Math.hypot(d.g.W / 2, d.g.H / 2, (d.zMax - d.zMin) / 2);
-    const dist = r / Math.sin(T.camera.fov * Math.PI / 360) * 0.8, dir = new THREE.Vector3(0.3, 0.75, 0.6).normalize();
-    T.controls.target.set(0, midY, 0);
-    T.camera.position.set(dir.x * dist, midY + dir.y * dist, dir.z * dist);
-  } else { T.camera.position.copy(T.saved.pos); T.controls.target.copy(T.saved.target); }
-  T.camera.up.set(0, 1, 0);
-  T.controls.update();
-  pcScale(); pcSync();
+    const midY = (d.zMin + d.zMax) / 2 - d.gMin, dist = pcFrameDist(d, P.camera.fov), dir = new THREE.Vector3(0.3, 0.75, 0.6).normalize();
+    P.controls.target.set(0, midY, 0);
+    P.camera.position.set(dir.x * dist, midY + dir.y * dist, dir.z * dist);
+  } else { P.camera.position.copy(P.saved.pos); P.controls.target.copy(P.saved.target); }
+  P.camera.up.set(0, 1, 0);
+  P.controls.update();
+  pcScale(P);
+  if (!quiet) pcSync();
 }
-function pcStand(lx, lz, yaw) {
-  const T = pcV.three, d = pcData;
-  if (pcV.mode === 'orbit') T.saved = { pos: T.camera.position.clone(), target: T.controls.target.clone() };
-  pcV.mode = 'stand';
-  T.controls.enabled = false;
-  T.camera.fov = 70; T.camera.near = 0.05; T.camera.updateProjectionMatrix();
-  pcV.yaw = yaw == null ? 0 : yaw; pcV.pitch = 0.05;
-  T.camera.position.set(lx, pcGroundAt(d, lx, lz) + PC_EYE_M, lz);
-  T.camera.rotation.set(pcV.pitch, pcV.yaw, 0, 'YXZ');
-  pcScale(); pcSync();
-  pcViewEl.focus();
+function pcStand(P, lx, lz, yaw, quiet) {
+  if (P.mode === 'orbit') P.saved = { pos: P.camera.position.clone(), target: P.controls.target.clone() };
+  P.mode = 'stand';
+  P.controls.enabled = false;
+  P.camera.fov = 70; P.camera.near = 0.05; P.camera.updateProjectionMatrix();
+  P.yaw = yaw == null ? 0 : yaw; P.pitch = 0.05;
+  P.camera.position.set(lx, pcGroundAt(P.d, lx, lz) + PC_EYE_M, lz);
+  P.camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
+  pcScale(P);
+  if (!quiet) { pcSync(); P.el.focus(); }
 }
 // Where a click meets the ground: walk along the ray until under it.
-function pcPick(ev) {
-  const T = pcV.three, d = pcData, rect = T.renderer.domElement.getBoundingClientRect();
+function pcPick(P, ev) {
+  const d = P.d, rect = P.renderer.domElement.getBoundingClientRect();
   const ndc = new THREE.Vector2(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
   const ray = new THREE.Raycaster();
-  ray.setFromCamera(ndc, T.camera);
+  ray.setFromCamera(ndc, P.camera);
   const o = ray.ray.origin, v = ray.ray.direction, half = Math.max(d.g.W, d.g.H);
   let prev = null;
   for (let t = 0.2; t < half * 6; t += Math.max(0.2, t * 0.01)) {
@@ -12876,100 +12910,173 @@ function pcPick(ev) {
   }
   return null;
 }
-async function pcOpen() {
-  if (!pcData) return;
-  pcDlg.hidden = false;
-  document.getElementById('pcTitle').textContent = 'Point cloud · ' + pcData.areaName;
+function pcSetActive(P) {
+  if (pcActive === P) return;
+  pcActive = P;
   pcSync();
-  pcSay('Loading the 3D viewer…');
-  try { await v3dLoadLibs(); } catch (err) { pcSay('Couldn\'t load the 3D viewer: ' + err.message); return; }
-  if (pcDlg.hidden) return;
-  if (!pcV.three) {
-    const renderer = new THREE.WebGLRenderer({ antialias: false });
-    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(45, 1, 0.5, 1e5);
-    const controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.maxPolarAngle = Math.PI * 0.495;
-    pcV.three = { renderer, scene, camera, controls, points: null, raf: 0, last: 0 };
-    renderer.domElement.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); cancelAnimationFrame(pcV.three.raf); pcSay('The 3D view ran out of graphics memory. Close it and try a smaller area.'); });
-    new ResizeObserver(() => {
-      const w = pcViewEl.clientWidth, h = pcViewEl.clientHeight;
-      if (!w || !h) return;
-      renderer.setSize(w, h, false);
-      camera.aspect = w / h; camera.updateProjectionMatrix();
-      pcScale();
-    }).observe(pcViewEl);
-    // Looking about when standing: drag turns the head.
-    let drag = null;
-    renderer.domElement.addEventListener('pointerdown', (ev) => { if (pcV.mode === 'stand') { drag = { x: ev.clientX, y: ev.clientY }; renderer.domElement.setPointerCapture(ev.pointerId); } });
-    renderer.domElement.addEventListener('pointermove', (ev) => {
-      if (!drag || pcV.mode !== 'stand') return;
-      pcV.yaw += (ev.clientX - drag.x) * 0.004; pcV.pitch += (ev.clientY - drag.y) * 0.004;
-      pcV.pitch = Math.max(-1.45, Math.min(1.45, pcV.pitch));
-      drag = { x: ev.clientX, y: ev.clientY };
-      camera.rotation.set(pcV.pitch, pcV.yaw, 0, 'YXZ');
-    });
-    renderer.domElement.addEventListener('pointerup', () => { drag = null; });
-    renderer.domElement.addEventListener('dblclick', (ev) => {
-      const p = pcPick(ev);
-      if (p) pcStand(p.x, p.z, pcV.mode === 'stand' ? pcV.yaw : p.yaw);
-    });
+}
+// One view: its own renderer, scene and camera, kept for next time.
+function pcMakePane() {
+  const el = document.createElement('div');
+  el.className = 'v3d-view'; el.tabIndex = 0;
+  el.innerHTML = '<div class="pc-pane-head" hidden><select aria-label="Area in this view"></select></div><div class="v3d-msg"></div><div class="pc-legend"></div>';
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  el.insertBefore(renderer.domElement, el.firstChild);
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(45, 1, 0.5, 1e5);
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.maxPolarAngle = Math.PI * 0.495;
+  const P = { el, renderer, scene, camera, controls, points: null, d: null, mode: 'orbit', yaw: 0, pitch: 0, saved: null,
+    head: el.querySelector('.pc-pane-head'), sel: el.querySelector('select'), msg: el.querySelector('.v3d-msg'), legend: el.querySelector('.pc-legend') };
+  P.say = (m) => { P.msg.textContent = m || ''; P.msg.style.display = m ? '' : 'none'; };
+  renderer.domElement.addEventListener('webglcontextlost', (ev) => { ev.preventDefault(); cancelAnimationFrame(pcRaf); P.say('The 3D view ran out of graphics memory. Close it and try a smaller area.'); });
+  new ResizeObserver(() => {
+    const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    pcScale(P);
+  }).observe(el);
+  // The view clicked is the one steered (and the one the other follows).
+  renderer.domElement.addEventListener('pointerdown', (ev) => {
+    pcSetActive(P);
+    if (P.mode === 'stand') { P.drag = { x: ev.clientX, y: ev.clientY }; renderer.domElement.setPointerCapture(ev.pointerId); }
+  });
+  renderer.domElement.addEventListener('wheel', () => pcSetActive(P), { passive: true, capture: true });
+  // Looking about when standing: drag turns the head.
+  renderer.domElement.addEventListener('pointermove', (ev) => {
+    if (!P.drag || P.mode !== 'stand') return;
+    P.yaw += (ev.clientX - P.drag.x) * 0.004; P.pitch += (ev.clientY - P.drag.y) * 0.004;
+    P.pitch = Math.max(-1.45, Math.min(1.45, P.pitch));
+    P.drag = { x: ev.clientX, y: ev.clientY };
+    camera.rotation.set(P.pitch, P.yaw, 0, 'YXZ');
+  });
+  renderer.domElement.addEventListener('pointerup', () => { P.drag = null; });
+  renderer.domElement.addEventListener('dblclick', (ev) => {
+    pcSetActive(P);
+    const q = pcPick(P, ev);
+    if (q) pcStand(P, q.x, q.z, P.mode === 'stand' ? P.yaw : q.yaw);
+  });
+  P.sel.addEventListener('change', () => {
+    const d = pcSets.find(x => x.areaKey === P.sel.value);
+    if (!d || d === P.d) return;
+    P.d = d;
+    pcBuild(P);
+    pcRecolour(); // one height scale for both
+    pcOverview(P, true, true);
+    pcSetActive(P);
+    pcSync();
+  });
+  return P;
+}
+// The other view copies the steered one: the same camera in orbit, or
+// standing at the same spot (on its own ground) looking the same way.
+function pcFollow(A, Q, dt) {
+  if (A.mode === 'stand') {
+    if (Q.mode !== 'stand') pcStand(Q, 0, 0, 0, true);
+    const half = Math.max(Q.d.g.W, Q.d.g.H) / 2 + 20, p = A.camera.position, q = Q.camera.position;
+    q.x = Math.max(-half, Math.min(half, p.x)); q.z = Math.max(-half, Math.min(half, p.z));
+    q.y += (pcGroundAt(Q.d, q.x, q.z) + PC_EYE_M - q.y) * Math.min(1, dt * 12);
+    Q.yaw = A.yaw; Q.pitch = A.pitch;
+    Q.camera.rotation.set(Q.pitch, Q.yaw, 0, 'YXZ');
+  } else {
+    if (Q.mode !== 'orbit') pcOverview(Q, true, true);
+    Q.camera.position.copy(A.camera.position);
+    Q.controls.target.copy(A.controls.target);
+    Q.controls.update();
   }
-  pcViewEl.insertBefore(pcV.three.renderer.domElement, document.getElementById('pcMsg'));
-  pcSay('Building ' + pcMillions(pcData.n) + ' points…');
+}
+function pcTick(now) {
+  pcRaf = requestAnimationFrame(pcTick);
+  const dt = Math.min(0.1, (now - pcLast) / 1000); pcLast = now;
+  const live = pcPanes.filter(P => P.points), A = live.includes(pcActive) ? pcActive : live[0];
+  if (!A) return;
+  const linked = pcLinked();
+  for (const P of live) {
+    if (linked && P !== A) continue;
+    if (P.mode === 'stand') {
+      const p = P.camera.position;
+      if (P === A) {
+        const k = pcV.keys, f = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0), s = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+        const half = Math.max(P.d.g.W, P.d.g.H) / 2 + 20;
+        if (f || s) {
+          const v = (k.has('shift') ? 6 : 1.4) * dt, sy = Math.sin(P.yaw), cyw = Math.cos(P.yaw);
+          p.x = Math.max(-half, Math.min(half, p.x + (-sy * f + cyw * s) * v));
+          p.z = Math.max(-half, Math.min(half, p.z + (-cyw * f - sy * s) * v));
+        }
+      }
+      p.y += (pcGroundAt(P.d, p.x, p.z) + PC_EYE_M - p.y) * Math.min(1, dt * 12);
+    } else P.controls.update();
+  }
+  if (linked) for (const Q of live) if (Q !== A) pcFollow(A, Q, dt);
+  for (const P of live) P.renderer.render(P.scene, P.camera);
+}
+// One area (the one picked in the results), or two side by side.
+async function pcOpen(two) {
+  if (!pcData) return;
+  const sets = two === true ? [pcData, pcSets.find(d => d !== pcData)].filter(Boolean) : [pcData];
+  pcDlg.hidden = false;
+  pcDlg.classList.toggle('pc-two', sets.length > 1);
+  document.getElementById('pcTitle').textContent = sets.length > 1 ? 'Point clouds side by side' : 'Point cloud · ' + pcData.areaName;
+  pcPanesEl.innerHTML = '<div class="v3d-msg">Loading the 3D viewer…</div>';
+  pcPanes = []; pcActive = null;
+  pcSync();
+  try { await v3dLoadLibs(); } catch (err) { pcPanesEl.innerHTML = '<div class="v3d-msg">Couldn\'t load the 3D viewer: ' + escHtml(err.message) + '</div>'; return; }
+  if (pcDlg.hidden) return;
+  pcPanesEl.innerHTML = '';
+  pcPanes = sets.map((d, k) => {
+    const P = pcPaneStore[k] || (pcPaneStore[k] = pcMakePane());
+    P.d = d; P.mode = 'orbit'; P.saved = null;
+    P.head.hidden = sets.length < 2;
+    P.sel.innerHTML = pcSets.map(x => '<option value="' + escHtml(x.areaKey) + '"' + (x === d ? ' selected' : '') + '>' + escHtml(x.areaName) + '</option>').join('');
+    P.legend.innerHTML = '';
+    P.say('Building ' + pcMillions(d.n) + ' points…');
+    pcPanesEl.appendChild(P.el);
+    return P;
+  });
+  pcActive = pcPanes[0];
+  pcSync();
   await new Promise(r => setTimeout(r, 30));
   if (pcDlg.hidden) return;
-  pcBuild();
-  pcOverview(true);
-  pcSay('');
-  const T = pcV.three;
-  cancelAnimationFrame(T.raf);
-  T.last = performance.now();
-  const tick = (now) => {
-    T.raf = requestAnimationFrame(tick);
-    const dt = Math.min(0.1, (now - T.last) / 1000); T.last = now;
-    if (pcV.mode === 'stand') {
-      const k = pcV.keys, f = (k.has('w') || k.has('arrowup') ? 1 : 0) - (k.has('s') || k.has('arrowdown') ? 1 : 0), s = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
-      const p = T.camera.position, half = Math.max(pcData.g.W, pcData.g.H) / 2 + 20;
-      if (f || s) {
-        const v = (k.has('shift') ? 6 : 1.4) * dt, sy = Math.sin(pcV.yaw), cyw = Math.cos(pcV.yaw);
-        p.x = Math.max(-half, Math.min(half, p.x + (-sy * f + cyw * s) * v));
-        p.z = Math.max(-half, Math.min(half, p.z + (-cyw * f - sy * s) * v));
-      }
-      p.y += (pcGroundAt(pcData, p.x, p.z) + PC_EYE_M - p.y) * Math.min(1, dt * 12);
-    } else T.controls.update();
-    T.renderer.render(T.scene, T.camera);
-  };
-  T.raf = requestAnimationFrame(tick);
+  for (const P of pcPanes) { pcBuild(P); pcOverview(P, true, true); P.say(''); }
+  // Moving together starts from the view of the bigger area, so both fit.
+  if (pcPanes.length > 1) pcActive = pcPanes.reduce((a, b) => pcFrameDist(b.d, 45) > pcFrameDist(a.d, 45) ? b : a);
+  pcSync();
+  pcActive.el.focus();
+  cancelAnimationFrame(pcRaf);
+  pcLast = performance.now();
+  pcRaf = requestAnimationFrame(pcTick);
 }
 function pcClose() {
   pcDlg.hidden = true;
   pcV.keys.clear();
-  const T = pcV.three;
-  if (!T) return;
-  cancelAnimationFrame(T.raf);
-  if (T.points) { T.scene.remove(T.points); T.points.geometry.dispose(); T.points.material.dispose(); T.points = null; }
-  T.saved = null;
+  cancelAnimationFrame(pcRaf);
+  for (const P of pcPanes) {
+    if (P.points) { P.scene.remove(P.points); P.points.geometry.dispose(); P.points.material.dispose(); P.points = null; }
+    P.saved = null; P.d = null;
+  }
+  pcPanes = []; pcActive = null;
+  pcPanesEl.innerHTML = '';
 }
-document.getElementById('pc3dBtn').addEventListener('click', pcOpen);
+document.getElementById('pc3dBtn').addEventListener('click', () => pcOpen(false));
+document.getElementById('pc3dPairBtn').addEventListener('click', () => pcOpen(true));
 pcDlg.querySelector('.v3d-close').addEventListener('click', pcClose);
 pcDlg.addEventListener('click', (ev) => { if (ev.target === pcDlg) pcClose(); });
 pcDlg.querySelectorAll('#pcModeSeg button').forEach(b => b.addEventListener('click', () => {
-  if (!pcV.three || !pcV.three.points) return;
-  if (b.dataset.mode === 'stand') pcStand(0, 0, 0); else pcOverview(false);
+  const A = pcActive;
+  if (!A || !A.points) return;
+  if (b.dataset.mode === 'stand') pcStand(A, 0, 0, 0); else pcOverview(A, false);
 }));
-document.getElementById('pcColours').addEventListener('change', (ev) => {
-  pcV.colours = ev.target.value; pcSave();
-  if (pcV.three && pcV.three.points) pcV.three.points.geometry.setAttribute('pcColor', new THREE.BufferAttribute(pcColourArray(pcData, pcV.colours), 3, true));
-});
-document.getElementById('pcHideGround').addEventListener('change', (ev) => { pcV.hideGround = ev.target.checked; pcSave(); pcDrawRange(); });
+document.getElementById('pcColours').addEventListener('change', (ev) => { pcV.colours = ev.target.value; pcSave(); pcRecolour(); });
+document.getElementById('pcHideGround').addEventListener('change', (ev) => { pcV.hideGround = ev.target.checked; pcSave(); pcPanes.forEach(pcDrawRange); });
 document.getElementById('pcDark').addEventListener('change', (ev) => { pcV.dark = ev.target.checked; pcSave(); pcSync(); });
-document.getElementById('pcPtSize').addEventListener('input', (ev) => { pcV.size[pcV.mode] = Number(ev.target.value); pcSave(); pcScale(); });
-const pcKeyName = (ev) => ev.key.length === 1 ? ev.key.toLowerCase() : ev.key.toLowerCase();
+document.getElementById('pcLink').addEventListener('change', (ev) => { pcV.link = ev.target.checked; pcSave(); pcSync(); });
+document.getElementById('pcPtSize').addEventListener('input', (ev) => { const mode = pcActive ? pcActive.mode : 'orbit'; pcV.size[mode] = Number(ev.target.value); pcSave(); pcPanes.forEach(pcScale); });
+const pcKeyName = (ev) => ev.key.toLowerCase();
 document.addEventListener('keydown', (ev) => {
   if (pcDlg.hidden) return;
-  if (ev.key === 'Escape') { if (pcV.mode === 'stand' && pcV.three) pcOverview(false); else pcClose(); ev.preventDefault(); return; }
+  if (ev.key === 'Escape') { if (pcActive && pcActive.mode === 'stand') { pcOverview(pcActive, false); pcActive.el.focus(); } else pcClose(); ev.preventDefault(); return; }
   if (/^(input|select|textarea)$/i.test(ev.target.tagName)) return;
   const k = pcKeyName(ev);
   if (['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift'].includes(k)) { pcV.keys.add(k); if (k.startsWith('arrow')) ev.preventDefault(); }
