@@ -1241,7 +1241,24 @@ table.stats-table tr:last-child td { border-bottom: none; }
           Draw an area and load its point cloud.
         </div>
         <div id="pcContent" style="display:none">
+          <div id="pcNow">
           <div class="metrics" id="pcMetrics"></div>
+          </div>
+          <div class="chart-card" id="pcProfileCard" style="margin-bottom:14px;">
+            <div class="table-card-head">
+              <div class="card-title">Density by height</div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <select id="pcProfileMeasure" style="font-size:12px;padding:2px 4px;" aria-label="Measure">
+                  <option value="dens">Layer density</option>
+                  <option value="share">Share of returns</option>
+                </select>
+                <button class="dl-btn" id="pcProfileCsv" type="button" title="Each loaded area's returns, layer density and share, metre by metre">Download CSV</button>
+              </div>
+            </div>
+            <div id="pcProfile"></div>
+            <div class="field-hint" id="pcProfileHint" style="margin:6px 0 0;"></div>
+          </div>
+          <div id="pcNow2">
           <div class="pc-tables">
             <div class="table-card">
               <div class="card-title">Where the pulses stopped</div>
@@ -1264,6 +1281,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
           <div class="interp-card">
             <div class="card-title">Reading this</div>
             <div id="pcNotes"></div>
+          </div>
           </div>
         </div>
       </div>
@@ -1581,7 +1599,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 
     <h3>Point cloud tab (New Zealand)</h3>
     <p>The <strong>Point cloud</strong> tab reads the LiDAR itself, every return of every pulse, rather than LINZ's 1 m grids: OpenTopography's copy of LINZ's surveys, as LAZ files. Draw or pick one area and inferrd. lists the surveys with points over it, newest first, then sizes up the download. Each tile's points are stored by flight line, not by place, so even a small area needs a good share of a tile: a hectare is usually 20 to 60 MB. Over 100 MB it warns before loading; over 1.5 GB it won't load, and asks for a smaller area. With more than 8 million points over the area it keeps an even share of them, so the 3D view keeps up.</p>
-    <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
+    <p>Once loaded, the right shows <strong>where the pulses stopped</strong>: the returns in each height band above the ground, and each band's <strong>layer density</strong>, the returns in it as a share of those that got down to it (the band and everything below), so a layer under a thick canopy isn't read as thin just because few pulses got that far. Understorey density is that share for 0.5 to 2 m. <strong>Density by height</strong> draws it metre by metre, up from the ground (or the share of all returns in each metre); load a second area and its line is added, so two areas' profiles can be compared, up to six at once. Also the returns (only, first, in between, last) and the survey's classes. Noise points are left out.</p>
     <p><strong>View in 3D</strong> colours the points by height above ground, true colour (where the survey has it), class, return or intensity. Turn it round, or double-click anywhere (or press Stand) to <strong>stand there at 1.5 m</strong>: drag to look about, W A S D or the arrow keys to walk, Shift to go faster, Esc to go back. Hide ground takes the ground points out, to see the understorey. <strong>Each tree</strong> colours every tree found its own colour, with no two touching crowns the same; the same trees are dots on the map (Layers panel), with a table of their heights and crowns on the right and a CSV of every tree. Trees are found from the points alone: best on trees with their own crowns, like pines, emergents and trees in the open; in an even native canopy, touching crowns can be read as one tree or one broad crown as two. Data: Toitū Te Whenua LINZ and each survey's licensor, distributed by OpenTopography, CC BY 4.0; read with laz-perf.</p>
 
     <h3>Reference layers</h3>
@@ -1640,7 +1658,7 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.95.2';
+const APP_VERSION = 'v0.96.0';
 document.getElementById('verTag').textContent = APP_VERSION;
 
 /* ── Year selects ──────────────────────────────────────────────────── */
@@ -12198,8 +12216,9 @@ async function pcLoad() {
     done.trees = pcSegment(done);
     if (run !== pcRun) return;
     pcData = done;
+    pcAddProfile(done, plan);
     const nt = pcData.trees.list.length;
-    pcData.say = 'Loaded ' + pcMillions(S.n) + ' points from ' + plan.survey.title + (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them)' : '') + ', and found ' + nt.toLocaleString() + ' tree' + (nt === 1 ? '' : 's') + '. Open it in 3D, or see the results on the right.';
+    pcData.say = 'Loaded ' + pcMillions(S.n) + ' points from ' + plan.survey.title + (keep < 1 ? ' (an even ' + Math.round(100 * keep) + '% of them)' : '') + ', and found ' + nt.toLocaleString() + ' tree' + (nt === 1 ? '' : 's') + '. Open it in 3D, or see the results below.';
     mapStack.setOn('pc_trees', true); // just found: show them
     mapStack.refresh('pc_trees');
     pcBusy = false;
@@ -12277,9 +12296,12 @@ function pcFinish(plan, S, cx, cy, keep, rgbAny) {
   // RGB stored as 8-bit in a 16-bit field by some surveys.
   let rgbMax = 0;
   if (rgbAny) for (let k = 0; k < Math.min(n * 3, 300000); k++) if (S.rgb[k] > rgbMax) rgbMax = S.rgb[k];
+  // Returns metre by metre above the ground, for the profile chart.
+  const nBins = Math.max(2, Math.min(100, Math.ceil(p999) + 2)), prof = new Float64Array(nBins);
+  for (let k = 0; k < n; k++) if (S.cls[k] !== 2) prof[Math.max(0, Math.min(nBins - 1, Math.floor(hag[k])))]++;
   const maskM2 = plan.mask.reduce((s, v) => s + v, 0);
   return { planKey: plan.planKey, areaName: plan.area.name, survey: plan.survey, g, ground, gMin, S, n, hag, cx, cy, keep,
-    bands, rets, classes, firsts, grounds, m2: maskM2, zMin, zMax, hMax, p999, rgb: rgbAny && rgbMax > 0, rgbShift: rgbMax > 255 ? 8 : 0 };
+    bands, rets, classes, firsts, grounds, prof, m2: maskM2, zMin, zMax, hMax, p999, rgb: rgbAny && rgbMax > 0, rgbShift: rgbMax > 255 ? 8 : 0 };
 }
 
 /* ---- each tree on its own: tree tops and crowns from the points ----
@@ -12436,11 +12458,94 @@ const PC_BIRD_RGB = PC_BIRDS.map(b => [parseInt(b[1].slice(1, 3), 16), parseInt(
 // touching crowns share one.
 const pcTreeColour = (d, t) => PC_BIRD_RGB[d.trees.col[t]];
 
+/* ---- density by height: every loaded area, to compare ---- */
+// One per area and survey loaded since, kept when another area is loaded
+// so they can be laid over each other; gone when the area is.
+let pcProfiles = [];
+let pcProfileMeasure = 'dens';
+try { if (localStorage.getItem('inferrd.pcProfileMeasure') === 'share') pcProfileMeasure = 'share'; } catch (e) {}
+const PC_PROFILE_MAX = 6;
+function pcAddProfile(d, plan) {
+  const prof = { key: d.planKey, areaKey: areaKey(plan.area), areaId: plan.area.id, areaName: plan.area.name, color: plan.area.color, survey: plan.survey,
+    ground: d.grounds, bins: Array.from(d.prof), total: d.n };
+  pcProfiles = pcProfiles.filter(x => x.key !== prof.key);
+  pcProfiles.push(prof);
+  if (pcProfiles.length > PC_PROFILE_MAX) pcProfiles.shift();
+}
+// Each bin's value: layer density (its returns as a share of those that
+// got down to it: the bin, and all below it, ground included), or its
+// share of all returns. Both in %.
+function pcProfileValues(x, measure) {
+  let below = x.ground;
+  return x.bins.map(v => { below += v; return 100 * v / Math.max(1, measure === 'share' ? x.total : below); });
+}
+const pcProfileLabel = (x) => {
+  const surveys = new Set(pcProfiles.map(y => y.survey.id)), names = pcProfiles.filter(y => y.areaName === x.areaName).length;
+  return x.areaName + (surveys.size > 1 || names > 1 ? ', ' + x.survey.title : '');
+};
+function renderPcProfile() {
+  const el = document.getElementById('pcProfile'), hint = document.getElementById('pcProfileHint');
+  const ps = pcProfiles, measure = pcProfileMeasure;
+  if (!ps.length) { el.innerHTML = ''; hint.textContent = ''; return; }
+  const vals = ps.map(x => pcProfileValues(x, measure));
+  // Up to the highest metre any area has returns in.
+  const top = Math.max(2, ...ps.map(x => { let b = x.bins.length - 1; while (b > 0 && !x.bins[b]) b--; return b + 1; }));
+  // Scaled to the layers above 1 m: the bottom metre (low growth and
+  // ground clutter, over a thin ground) can be far off the scale; it's
+  // clipped at the edge and labelled.
+  const vmax = Math.max(5, ...vals.flatMap(v => v.slice(1, top))) * 1.05;
+  const step = vmax > 60 ? 20 : vmax > 25 ? 10 : 5, xMax = Math.ceil(vmax / step) * step;
+  const W = 620, Ht = 340, L0 = 44, R0 = 14, T0 = 10, B0 = 36, pw = W - L0 - R0, ph = Ht - T0 - B0;
+  const X = (v) => L0 + pw * v / xMax, Y = (h) => T0 + ph * (1 - h / top);
+  let svg = '<svg viewBox="0 0 ' + W + ' ' + Ht + '" style="width:100%;max-width:' + W + 'px;height:auto;display:block;font-family:var(--font-sans);font-size:10.5px;" role="img" aria-label="Density by height above ground">';
+  const hStep = top > 40 ? 10 : top > 16 ? 5 : 2;
+  for (let h = 0; h <= top; h += hStep) svg += '<line x1="' + L0 + '" x2="' + (W - R0) + '" y1="' + Y(h) + '" y2="' + Y(h) + '" stroke="#e6ded2"/><text x="' + (L0 - 6) + '" y="' + (Y(h) + 3.5) + '" text-anchor="end" fill="#8a8173">' + h + '</text>';
+  for (let v = 0; v <= xMax; v += step) svg += '<line y1="' + T0 + '" y2="' + (Ht - B0) + '" x1="' + X(v) + '" x2="' + X(v) + '" stroke="#efe9df"/><text y="' + (Ht - B0 + 14) + '" x="' + X(v) + '" text-anchor="middle" fill="#8a8173">' + v + '%</text>';
+  svg += '<text x="12" y="' + (T0 + ph / 2) + '" transform="rotate(-90 12 ' + (T0 + ph / 2) + ')" text-anchor="middle" fill="#5d564b">Height above ground (m)</text>';
+  svg += '<text x="' + (L0 + pw / 2) + '" y="' + (Ht - 4) + '" text-anchor="middle" fill="#5d564b">' + (measure === 'share' ? 'Share of all returns, each metre' : 'Layer density: share of the pulses reaching each metre that stop in it') + '</text>';
+  ps.forEach((x, k) => {
+    const v = vals[k], dash = ps.filter((y, j) => j < k && y.color === x.color).length ? ' stroke-dasharray="5 3"' : '';
+    const pts = [];
+    const vx = (b) => X(Math.min(xMax, v[b] || 0));
+    for (let b = 0; b < top; b++) pts.push(vx(b).toFixed(1) + ',' + Y(b + 0.5).toFixed(1));
+    svg += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + x.color + '" stroke-width="2.2" stroke-linejoin="round"' + dash + '/>';
+    if (v[0] > xMax) svg += '<text x="' + (W - R0 - 2) + '" y="' + (Y(0.5) - 5 - 11 * k) + '" text-anchor="end" fill="' + x.color + '" font-weight="600">0–1 m: ' + Math.round(v[0]) + '% →</text>';
+    for (let b = 0; b < top; b++) svg += '<circle cx="' + vx(b).toFixed(1) + '" cy="' + Y(b + 0.5).toFixed(1) + '" r="2.4" fill="' + x.color + '"><title>' + escHtml(pcProfileLabel(x)) + ', ' + b + '–' + (b + 1) + ' m: ' + (v[b] || 0).toFixed(1) + '%</title></circle>';
+  });
+  el.innerHTML = svg + '</svg><div style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:11.5px;color:var(--text2);">' +
+    ps.map((x, k) => '<span style="display:inline-flex;align-items:center;gap:5px;"><span style="display:inline-block;width:14px;height:3px;background:' + x.color + ';"></span>' + escHtml(pcProfileLabel(x)) +
+      ' <button type="button" class="pc-prof-x" data-k="' + k + '" title="Take this area off the chart" style="border:none;background:none;color:var(--text3);cursor:pointer;padding:0 2px;">✕</button></span>').join('') + '</div>';
+  el.querySelectorAll('.pc-prof-x').forEach(b => b.addEventListener('click', () => { pcProfiles.splice(Number(b.dataset.k), 1); renderPcResults(); }));
+  hint.textContent = ps.length < 2
+    ? 'To compare, pick another area under 1 · Area and load it: its line is added here.'
+    : 'Each line is one area. Where one line sits right of another, that layer is denser there.';
+}
+document.getElementById('pcProfileMeasure').value = pcProfileMeasure;
+document.getElementById('pcProfileMeasure').addEventListener('change', (ev) => {
+  pcProfileMeasure = ev.target.value;
+  try { localStorage.setItem('inferrd.pcProfileMeasure', pcProfileMeasure); } catch (e) {}
+  renderPcProfile();
+});
+document.getElementById('pcProfileCsv').addEventListener('click', () => {
+  if (!pcProfiles.length) return;
+  const rows = [['area', 'survey', 'from_m', 'to_m', 'returns', 'layer_density_pct', 'share_of_returns_pct'].join(',')];
+  pcProfiles.forEach(x => {
+    const dens = pcProfileValues(x, 'dens'), share = pcProfileValues(x, 'share');
+    rows.push([x.areaName, x.survey.title, 'ground', '', x.ground, '', (100 * x.ground / Math.max(1, x.total)).toFixed(2)].map(csvCell).join(','));
+    x.bins.forEach((v, b) => rows.push([x.areaName, x.survey.title, b, b + 1, v, dens[b].toFixed(2), share[b].toFixed(2)].map(csvCell).join(',')));
+  });
+  downloadText((pcProfiles.length === 1 ? pcProfiles[0].areaName.replace(/[^\w-]+/g, '_') : pcProfiles.length + '_areas') + '_density_profile.csv', rows.join('\n') + '\n', 'text/csv');
+});
+
 /* ---- results ---- */
 function renderPcResults() {
-  const d = pcData;
-  document.getElementById('pcEmpty').style.display = d ? 'none' : '';
-  document.getElementById('pcContent').style.display = d ? '' : 'none';
+  const d = pcData, any = !!(d || pcProfiles.length);
+  document.getElementById('pcEmpty').style.display = any ? 'none' : '';
+  document.getElementById('pcContent').style.display = any ? '' : 'none';
+  document.getElementById('pcNow').style.display = d ? '' : 'none';
+  document.getElementById('pcNow2').style.display = d ? '' : 'none';
+  document.getElementById('pcProfileCard').style.display = pcProfiles.length ? '' : 'none';
+  renderPcProfile();
   if (!d) return;
   const metric = (label, value, title) => '<div class="metric" title="' + escHtml(title || label + ': ' + value) + '"><div class="metric-label">' + label + '</div><div class="metric-value">' + value + '</div></div>';
   const per = (v) => (v / d.keep / d.m2).toFixed(v / d.keep / d.m2 < 10 ? 1 : 0);
@@ -12504,8 +12609,11 @@ function pcAreasChanged() {
   const sel = document.getElementById('pcAreaSel');
   sel.innerHTML = areas.map(a => '<option value="' + a.id + '"' + (a.id === pcAreaId ? ' selected' : '') + '>' + escHtml(a.name) + '</option>').join('');
   document.getElementById('pcAreaField').style.display = areas.length > 1 ? '' : 'none';
+  const keys = new Set(areas.map(areaKey)), had = pcProfiles.length;
+  pcProfiles = pcProfiles.filter(x => keys.has(x.areaKey));
   const a = pcArea();
   if (pcData && (!a || !pcData.planKey.startsWith(areaKey(a) + '|'))) clearPc();
+  else if (pcProfiles.length !== had) renderPcResults();
   if (!a) { pcSurveys = []; pcSurveyId = null; pcSurveyKey = null; pcPlan = null; setPcStatus('', ''); renderPcSurveys(''); return; }
   if (appTab === 'cloud') pcFindSurveys();
 }

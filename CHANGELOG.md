@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.96.0 — 2026-11-16
+
+- Point cloud: **Density by height**, a chart in the results. Height above
+  ground (m) up the side, and across, each metre's layer density: the
+  returns in it as a share of the pulses that got down to it (the metre and
+  everything below, ground included). Or switch it to each metre's share of
+  all returns. Every area loaded keeps its line, in its area's colour, so
+  loading a second area lays the two profiles over each other (up to six;
+  the ✕ takes one off; an area removed or reshaped drops out). The scale
+  fits the layers above 1 m, and the bottom metre is clipped and labelled
+  when it's off the scale. Download CSV gives every area's profile, metre
+  by metre.
+- Tested in Gisborne 2023: pine over kohekohe shows its crown layer at 25 to
+  40 m over a thin midstorey; native forest is densest at 2 to 15 m.
+- The load message now says the results are below, not on the right.
+
 ## v0.95.2 — 2026-11-16
 
 - Point cloud, Each tree: the colours are no longer named after birds, in
