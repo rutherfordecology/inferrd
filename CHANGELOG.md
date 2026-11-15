@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.95.0 — 2026-11-16
+
+- **Each tree, from the point cloud.** Loading a point cloud now finds the
+  trees in it: a 0.5 m canopy height model from the highest return in each
+  cell (lightly smoothed); tree tops as the highest cells within a reach
+  that grows with height (1 m + 8% of the height, 1.5 to 5 m), kept as
+  separate trees only where the canopy dips between them by 1.5 m or a
+  fifth of the lower one; crowns grown downhill from each top (a
+  watershed), down to 2 m or a third of the top, and no further out than
+  1.5 m + 30% of its height. Each return in a crown and above that floor
+  takes the tree; a tree's height is its highest return.
+- 3D view: **Colours: Each tree**, every tree its own colour, with what's
+  below the crowns grey.
+- Results: a Trees table (count, a hectare, median and tallest, by height
+  class with median crown area) and **Download CSV** of every tree (NZTM
+  and lon/lat of its top, height, crown area).
+- Map: **Trees from the point cloud**, a dot on each tree top in its 3D
+  colour, switched on when trees are found, thinned on screen at 8 px;
+  click near one for its height and crown.
+- Tested in Gisborne 2023: 1 ha of mature pine over kohekohe gave 90 trees,
+  76 over 40 m, tallest 51.3 m (the pines), the kohekohe under them not
+  counted; 0.5 ha of native forest gave 61 canopy trees (124 a hectare),
+  median 17 m. Takes well under a second on top of the load.
+
 ## v0.94.0 — 2026-11-16
 
 - **Point cloud**, a new tab after LiDAR: the full LiDAR point cloud for one
