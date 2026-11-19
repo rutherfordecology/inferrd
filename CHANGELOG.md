@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.105.0 — 2026-11-19
+
+- **Cache folder.** A new 💾 Cache button in the header. Pick a folder, on
+  an external drive for example, and inferrd. keeps a copy of what it
+  downloads there. Next time it reads the copy first and only downloads
+  what isn't there.
+  - Kept for good: LINZ LiDAR and aerial imagery tiles, and OpenTopography
+    point cloud chunks and tile indexes. Published surveys don't change.
+  - Fetched again after 30 days: the LINZ and OpenTopography catalogues,
+    reference layers (ArcGIS, LRIS), geology, erosion and Macrostrat.
+    Error answers (which ArcGIS and LRIS send as normal replies) are never
+    kept. The LRIS key is left out of what's stored.
+  - Earth Engine results are kept for a year, matched on the whole
+    computation, so a change to the area or a setting is a new request.
+    Analyses that run up to today get a new request each day.
+  - With no connection, an expired copy is used rather than failing.
+  - Not kept: map tiles. The basemap's terms don't allow it, and Earth
+    Engine's tile links expire within hours.
+  - The folder is remembered. Each visit the browser may ask to use it
+    again (press Allow); Chrome can remember "allow on every visit". If the
+    drive isn't plugged in, inferrd. downloads as usual, and Try again
+    picks the drive up once it's back.
+  - The Cache window shows what this visit read and kept, how much the
+    folder holds, and has Clear and Stop using it.
+  - Chrome and Edge only. The button doesn't show in other browsers.
+
 ## v0.104.0 — 2026-11-16
 
 - Point cloud, 3D: the ground can be a **surface**. The Hide ground

@@ -461,6 +461,8 @@ table.stats-table tr:last-child td { border-bottom: none; }
     <span class="sep">|</span>
     <a href="https://buymeacoffee.com/rutherfordecology" target="_blank" rel="noopener" class="about-btn" style="color:rgba(255,255,255,0.85);font-weight:500;">☕ Buy me a coffee</a>
     <span class="sep">|</span>
+    <button class="about-btn" id="cacheBtn" type="button">💾 Cache: off</button>
+    <span class="sep">|</span>
     <button class="about-btn" id="aboutBtn">ⓘ About</button>
   </div>
 </header>
@@ -1557,6 +1559,30 @@ table.stats-table tr:last-child td { border-bottom: none; }
 </div>
 
 <!-- About modal -->
+<div class="modal-overlay" id="cacheModal">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" id="cacheClose">✕</button>
+    <h2>Cache folder</h2>
+    <p>Pick a folder, on an external drive for example, and inferrd. keeps a copy of what it downloads there. Next time it reads the copy instead of downloading again.</p>
+    <ul>
+      <li>LiDAR, aerial imagery and point clouds: kept for good (published surveys don't change)</li>
+      <li>Reference layers, geology and erosion: fetched again after 30 days</li>
+      <li>Earth Engine results: kept for a year. Anything that runs up to today is fetched again the next day</li>
+    </ul>
+    <p>Not kept: the map tiles (the basemap's terms don't allow it, and Earth Engine's links expire within hours). Works in Chrome and Edge. When the drive isn't plugged in, inferrd. just downloads as usual.</p>
+    <p id="cacheState" style="color:var(--text);"></p>
+    <p id="cacheSession"></p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+      <button class="dl-btn" id="cacheChooseBtn" type="button">Choose folder…</button>
+      <button class="dl-btn" id="cacheAllowBtn" type="button" hidden>Allow</button>
+      <button class="dl-btn" id="cacheRetryBtn" type="button" hidden>Try again</button>
+      <button class="dl-btn" id="cacheSizeBtn" type="button" hidden>How much is kept?</button>
+      <button class="dl-btn" id="cacheClearBtn" type="button" hidden>Clear</button>
+      <button class="dl-btn" id="cacheForgetBtn" type="button" hidden>Stop using it</button>
+    </div>
+    <p id="cacheSizeOut" style="margin-top:8px;"></p>
+  </div>
+</div>
 <div class="modal-overlay" id="aboutModal">
   <div class="modal" style="position:relative;">
     <button class="modal-close" id="aboutClose">✕</button>
@@ -1683,8 +1709,260 @@ table.stats-table tr:last-child td { border-bottom: none; }
 const WORKER_URL = 'https://inferrd-auth.rutherfordecology.workers.dev';
 const EE_PROJECT = 'inferrd-508920';
 
-const APP_VERSION = 'v0.104.0';
+const APP_VERSION = 'v0.105.0';
 document.getElementById('verTag').textContent = APP_VERSION;
+
+/* ── Cache folder ──────────────────────────────────────────────────────
+   A folder the user picks (an external drive, say) that holds copies of
+   what inferrd. downloads: LiDAR and imagery tiles, point cloud chunks,
+   reference layers, geology, and Earth Engine results. Everything is
+   looked for there first and only downloaded when it isn't there, or is
+   older than its rule allows. Needs Chrome or Edge (the File System
+   Access API); without a folder, nothing changes.
+   Each entry is one file: 'IFC1', a 4-byte length, a JSON header (the
+   request it answers, when it was saved, status and headers), then the
+   body. Files are named by the SHA-256 of the request, under a folder
+   per rule. A request that fails while offline falls back to an expired
+   copy, if there is one.
+   --------------------------------------------------------------------- */
+const CACHE_RULES = [
+  // LINZ elevation and imagery: published tiles don't change; the STAC catalogue does, as surveys are added.
+  { id: 'linz', test: u => /^https:\/\/nz-(elevation|imagery)\.s3\.ap-southeast-2\.amazonaws\.com\//.test(u), days: u => /\.tiff?($|\?)/i.test(u) ? 0 : 30 },
+  { id: 'pointcloud', test: u => u.startsWith('https://opentopography.s3.sdsc.edu/pc-bulk/'), days: () => 0 },
+  { id: 'pointcloud', test: u => u.startsWith('https://portal.opentopography.org/API/otCatalog'), days: () => 30 },
+  // Reference layers and the Physical tab: ArcGIS queries, LRIS WFS, Macrostrat.
+  { id: 'layers', test: u => /\/(Feature|Map)Server\/(\d+\/)?query(\?|$)/i.test(u) || /^https:\/\/lris\.scinfo\.org\.nz\/.*\/wfs\//i.test(u) || u.startsWith('https://macrostrat.org/api/'), days: () => 30, jsonOnly: true }
+];
+const CACHE_EE_DAYS = 365; // Earth Engine results; requests that end "today" get a new key each day anyway
+const CACHE = { dir: null, pending: null, state: 'off', hits: 0, hitBytes: 0, saved: 0, savedBytes: 0, stale: 0, errors: 0 };
+
+function cacheIdb(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const o = indexedDB.open('inferrd-cache', 1);
+    o.onupgradeneeded = () => o.result.createObjectStore('kv');
+    o.onerror = () => reject(o.error);
+    o.onsuccess = () => {
+      const tx = o.result.transaction('kv', mode), r = fn(tx.objectStore('kv'));
+      tx.oncomplete = () => resolve(r && r.result);
+      tx.onerror = () => reject(tx.error);
+    };
+  });
+}
+const cacheKeep = (h) => cacheIdb('readwrite', st => h ? st.put(h, 'dir') : st.delete('dir'));
+const cacheKept = () => cacheIdb('readonly', st => st.get('dir')).catch(() => null);
+
+async function cacheHash(s) {
+  const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(d), b => b.toString(16).padStart(2, '0')).join('');
+}
+async function cachePath(ruleId, key, create) {
+  const h = await cacheHash(key);
+  const sub = await (await CACHE.dir.getDirectoryHandle(ruleId, { create })).getDirectoryHandle(h.slice(0, 2), { create });
+  return { sub, name: h.slice(2) + '.bin' };
+}
+// { meta, body } or null
+async function cacheRead(ruleId, key) {
+  if (!CACHE.dir) return null;
+  try {
+    const { sub, name } = await cachePath(ruleId, key, false);
+    const buf = await (await (await sub.getFileHandle(name)).getFile()).arrayBuffer();
+    const dv = new DataView(buf);
+    if (buf.byteLength < 8 || dv.getUint32(0) !== 0x49464331) return null;
+    const n = dv.getUint32(4), meta = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 8, n)));
+    if (meta.k !== key) return null;
+    return { meta, body: buf.slice(8 + n) };
+  } catch (e) {
+    if (e.name !== 'NotFoundError') cacheTrouble(e);
+    return null;
+  }
+}
+async function cacheWrite(ruleId, key, meta, body) {
+  if (!CACHE.dir) return;
+  try {
+    const head = new TextEncoder().encode(JSON.stringify(Object.assign({ k: key, t: Date.now() }, meta)));
+    const pre = new DataView(new ArrayBuffer(8));
+    pre.setUint32(0, 0x49464331); pre.setUint32(4, head.length);
+    const { sub, name } = await cachePath(ruleId, key, true);
+    const w = await (await sub.getFileHandle(name, { create: true })).createWritable();
+    await w.write(new Blob([pre.buffer, head, body]));
+    await w.close();
+    CACHE.saved++; CACHE.savedBytes += body.byteLength;
+    cacheShow();
+  } catch (e) { cacheTrouble(e); }
+}
+const cacheFresh = (meta, days) => !days || Date.now() - meta.t < days * 864e5;
+// The drive was unplugged, or the browser took the permission back.
+function cacheTrouble(e) {
+  CACHE.errors++;
+  if (/NotFound|NotAllowed|Security|InvalidState/.test(e.name)) {
+    console.warn('[inferrd cache] folder unavailable:', e.name, e.message);
+    CACHE.pending = CACHE.dir; CACHE.dir = null; CACHE.state = e.name === 'NotAllowedError' ? 'allow' : 'missing';
+    cacheShow();
+  } else console.warn('[inferrd cache]', e);
+}
+
+// fetch(), looking in the folder first for the requests the rules cover.
+const cacheNetFetch = window.fetch.bind(window);
+window.fetch = async function (input, init) {
+  if (!CACHE.dir || !(typeof input === 'string' || input instanceof URL)) return cacheNetFetch(input, init);
+  const url = String(input), method = ((init && init.method) || 'GET').toUpperCase();
+  const rule = CACHE_RULES.find(r => r.test(url));
+  if (!rule || (method !== 'GET' && method !== 'POST')) return cacheNetFetch(input, init);
+  const body = init && init.body;
+  if (method === 'POST' && !(typeof body === 'string' || body instanceof URLSearchParams)) return cacheNetFetch(input, init);
+  const range = init && init.headers ? new Headers(init.headers).get('range') : null;
+  // The LRIS key is part of its URL; leave it out of the cache key.
+  const key = method + ' ' + url.replace(/;key=[^/]*/, '') + (range ? ' #' + range : '') + (method === 'POST' ? ' ' + String(body) : '');
+  const hit = await cacheRead(rule.id, key);
+  const toResponse = (h) => new Response(h.body, { status: h.meta.s, headers: h.meta.h });
+  if (hit && cacheFresh(hit.meta, rule.days(url))) { CACHE.hits++; CACHE.hitBytes += hit.body.byteLength; cacheShow(); return toResponse(hit); }
+  let res;
+  try { res = await cacheNetFetch(input, init); }
+  catch (e) { if (hit) { CACHE.stale++; cacheShow(); return toResponse(hit); } throw e; }
+  if (res.status === 200 || res.status === 206) {
+    const keepH = {};
+    ['content-type', 'content-range', 'content-length', 'last-modified'].forEach(n => { const v = res.headers.get(n); if (v != null) keepH[n] = v; });
+    const ct = keepH['content-type'] || '';
+    res.clone().arrayBuffer().then(buf => {
+      // ArcGIS and LRIS answer errors with 200: keep only real JSON answers.
+      if (rule.jsonOnly && (!/json/i.test(ct) || /^\s*\{\s*"error"\s*:/.test(new TextDecoder().decode(buf.slice(0, 200))))) return;
+      return cacheWrite(rule.id, key, { s: res.status, h: keepH }, buf);
+    }).catch(e => cacheTrouble(e));
+  }
+  return res;
+};
+
+// Earth Engine evaluate(): the same computation (its serialised graph) gives the same answer.
+if (window.ee && ee.ComputedObject && ee.ComputedObject.prototype.evaluate) {
+  const eeEval = ee.ComputedObject.prototype.evaluate;
+  ee.ComputedObject.prototype.evaluate = function (callback) {
+    if (!CACHE.dir || typeof callback !== 'function') return eeEval.apply(this, arguments);
+    let key;
+    try { key = 'EE ' + this.serialize(); } catch (e) { return eeEval.apply(this, arguments); }
+    const self = this, args = arguments;
+    cacheRead('ee', key).then(hit => {
+      if (hit && cacheFresh(hit.meta, CACHE_EE_DAYS)) {
+        let val;
+        try { val = JSON.parse(new TextDecoder().decode(hit.body)); } catch (e) { return eeEval.apply(self, args); }
+        CACHE.hits++; CACHE.hitBytes += hit.body.byteLength; cacheShow();
+        return callback(val, undefined);
+      }
+      eeEval.call(self, (res, err) => {
+        if (!err && res !== undefined) cacheWrite('ee', key, {}, new TextEncoder().encode(JSON.stringify(res)).buffer);
+        callback(res, err);
+      });
+    });
+  };
+}
+
+// Folder set-up. A kept folder needs the browser's leave again each visit
+// (Chrome can remember "allow on every visit"), which needs a click.
+async function cacheUse(h) {
+  // Reading it fails if the drive isn't plugged in.
+  try { for await (const _ of h.keys()) break; }
+  catch (e) { CACHE.pending = h; CACHE.dir = null; CACHE.state = 'missing'; return cacheShow(); }
+  CACHE.dir = h; CACHE.pending = null; CACHE.state = 'on';
+  cacheShow();
+}
+async function cacheStart() {
+  const btn = document.getElementById('cacheBtn');
+  if (!window.showDirectoryPicker) { btn.hidden = true; return; }
+  const h = await cacheKept();
+  if (!h) return cacheShow();
+  const p = await h.queryPermission({ mode: 'readwrite' }).catch(() => 'denied');
+  if (p === 'granted') return cacheUse(h);
+  CACHE.pending = h; CACHE.state = 'allow';
+  cacheShow();
+}
+const cacheN = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+const cacheMb = (b) => b >= 1e9 ? (b / 1e9).toFixed(2) + ' GB' : (b / 1e6).toFixed(b >= 1e7 ? 0 : 1) + ' MB';
+function cacheShow() {
+  const btn = document.getElementById('cacheBtn');
+  if (!btn) return;
+  const label = { off: 'off', on: 'on', allow: 'allow?', missing: 'drive missing' }[CACHE.state];
+  btn.textContent = '💾 Cache: ' + label;
+  btn.title = CACHE.state === 'on' ? 'Downloads are kept in "' + CACHE.dir.name + '" and read from there first' : 'Keep downloads in a folder, for example on an external drive';
+  const $ = (id) => document.getElementById(id);
+  if (!$('cacheModal').classList.contains('open')) return;
+  const name = (CACHE.dir || CACHE.pending || {}).name;
+  $('cacheState').innerHTML = {
+    off: 'Not in use. Downloads aren\'t kept.',
+    on: 'In use: <strong>' + escCache(name) + '</strong>.',
+    allow: 'The browser needs your leave to use <strong>' + escCache(name) + '</strong> again.',
+    missing: '<strong>' + escCache(name) + '</strong> can\'t be found. Plug the drive in, then press Try again.'
+  }[CACHE.state];
+  $('cacheChooseBtn').textContent = CACHE.state === 'off' ? 'Choose folder…' : 'Choose another folder…';
+  $('cacheAllowBtn').hidden = CACHE.state !== 'allow';
+  $('cacheRetryBtn').hidden = CACHE.state !== 'missing';
+  $('cacheForgetBtn').hidden = CACHE.state === 'off';
+  $('cacheClearBtn').hidden = CACHE.state !== 'on';
+  $('cacheSizeBtn').hidden = CACHE.state !== 'on';
+  $('cacheSession').textContent = CACHE.hits + CACHE.saved + CACHE.stale
+    ? 'This visit: ' + CACHE.hits + ' read from the folder (' + cacheMb(CACHE.hitBytes) + ' not downloaded), ' + CACHE.saved + ' downloaded and kept (' + cacheMb(CACHE.savedBytes) + ')' + (CACHE.stale ? ', ' + cacheN(CACHE.stale, 'old copy', 'old copies') + ' used while offline' : '') + '.'
+    : 'Nothing read or kept yet this visit.';
+}
+const escCache = (s) => String(s || '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function cacheSize(dir) {
+  let n = 0, bytes = 0;
+  for await (const h of dir.values()) {
+    if (h.kind === 'directory') { const s = await cacheSize(h); n += s.n; bytes += s.bytes; }
+    else if (h.name.endsWith('.bin')) { n++; bytes += (await h.getFile()).size; }
+  }
+  return { n, bytes };
+}
+document.getElementById('cacheBtn').addEventListener('click', () => {
+  document.getElementById('cacheModal').classList.add('open');
+  document.getElementById('cacheSizeOut').textContent = '';
+  cacheShow();
+});
+document.getElementById('cacheClose').addEventListener('click', () => document.getElementById('cacheModal').classList.remove('open'));
+document.getElementById('cacheModal').addEventListener('click', (e) => { if (e.target.id === 'cacheModal') e.target.classList.remove('open'); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') document.getElementById('cacheModal').classList.remove('open'); });
+document.getElementById('cacheChooseBtn').addEventListener('click', async () => {
+  try {
+    const h = await window.showDirectoryPicker({ id: 'inferrd-cache', mode: 'readwrite', startIn: 'desktop' });
+    await cacheKeep(h);
+    await cacheUse(h);
+  } catch (e) { if (e.name !== 'AbortError') alert('Couldn\'t use that folder: ' + e.message); }
+});
+document.getElementById('cacheAllowBtn').addEventListener('click', async () => {
+  const h = CACHE.pending;
+  if (h && (await h.requestPermission({ mode: 'readwrite' })) === 'granted') cacheUse(h);
+});
+document.getElementById('cacheRetryBtn').addEventListener('click', async () => {
+  const h = CACHE.pending;
+  if (!h) return;
+  const p = await h.queryPermission({ mode: 'readwrite' }).catch(() => 'denied');
+  if (p === 'granted' || (await h.requestPermission({ mode: 'readwrite' }).catch(() => 'denied')) === 'granted') cacheUse(h);
+});
+document.getElementById('cacheForgetBtn').addEventListener('click', async () => {
+  await cacheKeep(null);
+  CACHE.dir = null; CACHE.pending = null; CACHE.state = 'off';
+  cacheShow();
+});
+document.getElementById('cacheSizeBtn').addEventListener('click', async () => {
+  const out = document.getElementById('cacheSizeOut');
+  out.textContent = 'Counting…';
+  try {
+    const parts = [];
+    let total = 0;
+    for (const id of ['linz', 'pointcloud', 'layers', 'ee']) {
+      let s = { n: 0, bytes: 0 };
+      try { s = await cacheSize(await CACHE.dir.getDirectoryHandle(id)); } catch (e) { if (e.name !== 'NotFoundError') throw e; }
+      total += s.bytes;
+      if (s.n) parts.push({ linz: 'LiDAR and imagery', pointcloud: 'point clouds', layers: 'layers and geology', ee: 'Earth Engine results' }[id] + ' ' + cacheMb(s.bytes) + ' (' + cacheN(s.n, 'file', 'files') + ')');
+    }
+    out.textContent = parts.length ? 'Kept: ' + cacheMb(total) + '. ' + parts.join('; ') + '.' : 'The folder is empty.';
+  } catch (e) { out.textContent = 'Couldn\'t count: ' + e.message; }
+});
+document.getElementById('cacheClearBtn').addEventListener('click', async () => {
+  if (!CACHE.dir || !confirm('Delete everything inferrd. has kept in "' + CACHE.dir.name + '"? Other files in the folder are left alone.')) return;
+  for (const id of ['linz', 'pointcloud', 'layers', 'ee']) {
+    try { await CACHE.dir.removeEntry(id, { recursive: true }); } catch (e) { if (e.name !== 'NotFoundError') cacheTrouble(e); }
+  }
+  document.getElementById('cacheSizeOut').textContent = 'Cleared.';
+});
+cacheStart();
 
 /* ── Year selects ──────────────────────────────────────────────────── */
 const CURRENT_YEAR = new Date().getFullYear();
